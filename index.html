@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Panel Fitness</title>
+
+    <!-- Configuración para PWA / Icono en pantalla de inicio -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#0f172a">
+
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -14,10 +21,14 @@
 
     <main class="dashboard">
         <!-- Tarjeta 1: Peso y Salud -->
-        <section class="card" onclick="alert('Módulo de Peso y Salud próximamente')">
+        <section class="card active-card">
             <div class="icon">⚖️</div>
             <h2>Peso y Salud</h2>
-            <p>Sincronización y registro diario</p>
+            <p id="ultimoPesoDisplay">Cargando último peso...</p>
+            <div class="input-group" style="margin-top: 12px; display: flex; gap: 8px; width: 100%;">
+                <input type="number" id="pesoInput" step="0.1" placeholder="Ej: 75.5" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff;">
+                <button onclick="guardarPeso()" style="padding: 10px 16px; border-radius: 8px; border: none; background: #38bdf8; color: #0f172a; font-weight: bold; cursor: pointer;">Guardar</button>
+            </div>
         </section>
 
         <!-- Tarjeta 2: Nutrición y Calorías -->
@@ -45,5 +56,9 @@
     <footer>
         <p>FitnessPersonalDBdT conectado</p>
     </footer>
+
+    <!-- Scripts principales -->
+    <script type="module" src="salud.js"></script>
 </body>
 </html>
+
