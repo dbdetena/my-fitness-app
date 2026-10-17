@@ -2,13 +2,14 @@
   "name": "Mi Panel Fitness",
   "short_name": "Fitness",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "icons": [
     {
-      "src": "icon.png",
-      "sizes": "512x512",
+      "src": "./icon.png",
+      "sizes": "192x192 512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
