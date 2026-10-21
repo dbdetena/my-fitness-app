@@ -393,6 +393,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "press-banca",
         nombre: "Press de Banca Plano",
+        imagen: "./assets/exercises/press-banca.jpg",
         tipo: "empuje",
         tipoNombre: "Empuje (Push)",
         tipoIcono: "🛡️",
@@ -441,6 +442,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "sentadilla",
         nombre: "Sentadilla Trasera con Barra (Squat)",
+        imagen: "./assets/exercises/sentadilla.jpg",
         tipo: "piernas",
         tipoNombre: "Piernas",
         tipoIcono: "🦵",
@@ -488,6 +490,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "dominadas",
         nombre: "Dominadas Pronas (Pull-ups)",
+        imagen: "./assets/exercises/dominadas.png",
         tipo: "pull",
         tipoNombre: "Tirón (Pull)",
         tipoIcono: "🏹",
@@ -535,6 +538,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "saco-boxeo",
         nombre: "Trabajo Combinado en Saco de Boxeo",
+        imagen: "./assets/exercises/saco-boxeo.jpg",
         tipo: "combate",
         tipoNombre: "Combate & Cardio",
         tipoIcono: "🥊",
@@ -582,6 +586,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "plancha-alfombra",
         nombre: "Plancha Abdominal en Alfombra (Front Plank)",
+        imagen: "./assets/exercises/plancha-alfombra.jpg",
         tipo: "core",
         tipoNombre: "Core & Abdomen",
         tipoIcono: "🧱",
@@ -629,6 +634,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "press-militar",
         nombre: "Press Militar con Mancuernas",
+        imagen: "./assets/exercises/press-militar.jpg",
         tipo: "empuje",
         tipoNombre: "Empuje (Push)",
         tipoIcono: "🛡️",
@@ -675,6 +681,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "peso-muerto-rumano",
         nombre: "Peso Muerto Rumano con Mancuernas (RDL)",
+        imagen: "./assets/exercises/peso-muerto-rumano.jpg",
         tipo: "piernas",
         tipoNombre: "Piernas",
         tipoIcono: "🦵",
@@ -721,6 +728,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "zancadas-mancuerna",
         nombre: "Zancadas Caminando con Mancuernas",
+        imagen: "./assets/exercises/zancadas-mancuerna.jpg",
         tipo: "piernas",
         tipoNombre: "Piernas",
         tipoIcono: "🦵",
@@ -767,6 +775,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "remo-barra",
         nombre: "Remo con Barra Inclinado (Pendlay/Bentuver)",
+        imagen: "./assets/exercises/remo-barra.jpg",
         tipo: "pull",
         tipoNombre: "Tirón (Pull)",
         tipoIcono: "🏹",
@@ -813,6 +822,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "curl-biceps",
         nombre: "Curl de Bíceps con Mancuernas",
+        imagen: "./assets/exercises/curl-biceps.jpg",
         tipo: "pull",
         tipoNombre: "Tirón (Pull)",
         tipoIcono: "🏹",
@@ -859,6 +869,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "fondos-paralelas",
         nombre: "Fondos en Barras Paralelas (Dips)",
+        imagen: "./assets/exercises/fondos-paralelas.jpg",
         tipo: "empuje",
         tipoNombre: "Empuje (Push)",
         tipoIcono: "🛡️",
@@ -905,6 +916,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "rueda-abdominal",
         nombre: "Rueda Abdominal en Alfombra (Ab Wheel)",
+        imagen: "./assets/exercises/rueda-abdominal.jpg",
         tipo: "core",
         tipoNombre: "Core & Abdomen",
         tipoIcono: "🧱",
@@ -951,6 +963,7 @@ export const BASE_EJERCICIOS = [
     {
         id: "salto-comba",
         nombre: "Salto a la Comba (Jump Rope)",
+        imagen: "./assets/exercises/salto-comba.jpg",
         tipo: "combate",
         tipoNombre: "Combate & Cardio",
         tipoIcono: "🥊",

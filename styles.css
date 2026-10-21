@@ -1492,17 +1492,75 @@ body.modal-open {
 }
 
 .exercise-item-card {
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     gap: 12px;
     border-radius: 16px;
+    overflow: hidden;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .exercise-item-card:hover {
-    border-color: rgba(56, 189, 248, 0.4);
-    box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5), 0 0 14px rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.45);
+    box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.2);
+    transform: translateY(-2px);
+}
+
+.exercise-card-thumb {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #1e293b 0%, #0a0f1d 90%);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.exercise-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 4px;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+
+.exercise-card-thumb:hover .exercise-thumb-img {
+    transform: scale(1.05);
+}
+
+.exercise-card-top-overlay {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.exercise-thumb-badge-3d {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(10, 15, 29, 0.88);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #38bdf8;
+    backdrop-filter: blur(4px);
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .exercise-card-top {
@@ -1660,6 +1718,100 @@ body.modal-open {
     font-size: 0.76rem;
     color: #94a3b8;
     margin-bottom: 12px;
+}
+
+/* Panel Anatómico 3D de Alta Definición (Modal) */
+.anatomical-hero-card {
+    background: radial-gradient(circle at center, #1e293b 0%, #0a0f1d 95%);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.anatomical-img-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 240px;
+    max-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f172a;
+    padding: 8px;
+}
+
+.anatomical-render-img {
+    max-width: 100%;
+    max-height: 300px;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.7));
+    transition: transform 0.3s ease;
+}
+
+.anatomical-watermark-tag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #38bdf8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+    animation: livePulse 2s infinite ease-in-out;
+}
+
+@keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.anatomical-legend-bar {
+    background: rgba(15, 23, 42, 0.95);
+    border-top: 1px solid rgba(51, 65, 85, 0.5);
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.legend-chip {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-red {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.legend-silver {
+    color: #cbd5e1;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
 /* Selector de las 3 fases */

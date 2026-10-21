@@ -178,12 +178,18 @@ function renderizarCatalogoEjercicios() {
 
         return `
         <div class="exercise-item-card card-carbon animate-fade-in" id="catalog-card-${ej.id}">
-            <div class="exercise-card-top">
-                <div class="exercise-type-pill badge-type-${ej.tipo}">
-                    <span>${ej.tipoIcono}</span>
-                    <span>${ej.tipoNombre}</span>
+            <div class="exercise-card-thumb" onclick="window.gimnasio?.abrirModalDetalle('${ej.id}')">
+                <img src="${ej.imagen}" alt="${ej.nombre}" loading="lazy" class="exercise-thumb-img">
+                <div class="exercise-card-top-overlay">
+                    <div class="exercise-type-pill badge-type-${ej.tipo}">
+                        <span>${ej.tipoIcono}</span>
+                        <span>${ej.tipoNombre}</span>
+                    </div>
+                    <span class="exercise-difficulty-pill difficulty-${ej.dificultad.toLowerCase()}">${ej.dificultad}</span>
                 </div>
-                <span class="exercise-difficulty-pill difficulty-${ej.dificultad.toLowerCase()}">${ej.dificultad}</span>
+                <div class="exercise-thumb-badge-3d">
+                    <span>🧬 3D Anatómico</span>
+                </div>
             </div>
 
             <div class="exercise-card-main">
@@ -238,6 +244,7 @@ export function abrirModalDetalle(ejercicioId) {
     const nombreEl = document.getElementById("modal-ejercicio-nombre");
     const resumenEl = document.getElementById("modal-ejercicio-resumen");
     const badgesEl = document.getElementById("modal-ejercicio-badges");
+    const heroImgEl = document.getElementById("modal-ejercicio-hero-img");
     const mPrincipalesEl = document.getElementById("modal-musculos-principales");
     const mSecundariosEl = document.getElementById("modal-musculos-secundarios");
     const tecnicaEl = document.getElementById("modal-tecnica-pasos");
@@ -245,6 +252,10 @@ export function abrirModalDetalle(ejercicioId) {
 
     if (nombreEl) nombreEl.textContent = ejercicio.nombre;
     if (resumenEl) resumenEl.textContent = ejercicio.resumen;
+    if (heroImgEl && ejercicio.imagen) {
+        heroImgEl.src = ejercicio.imagen;
+        heroImgEl.alt = `${ejercicio.nombre} - Estudio Anatómico 3D`;
+    }
 
     if (badgesEl) {
         const badgesEquipo = ejercicio.equipamiento.map(eq => {
