@@ -1,5 +1,6 @@
 import { initSalud, cleanupSalud } from "./salud.js";
 import { initGimnasio, cleanupGimnasio } from "./gimnasio.js";
+import { initDiario, cleanupDiario } from "./diario.js";
 import { initFraseDelDia } from "./quotes.js";
 import { initConfig } from "./config.js";
 
@@ -15,6 +16,10 @@ const LIFECYCLE_HOOKS = {
     gimnasio: {
         init: initGimnasio,
         cleanup: cleanupGimnasio
+    },
+    diario: {
+        init: initDiario,
+        cleanup: cleanupDiario
     }
 };
 

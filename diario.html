@@ -1,31 +1,99 @@
-<!-- Vista: Diario de Progreso -->
-<section class="view-container animate-fade-in placeholder-view">
-    <div class="card card-carbon placeholder-card">
-        <!-- Emblema de Acero, Carbón y Neón (a juego con el icono de la app) -->
-        <div class="section-hero-emblem">
-            <svg viewBox="0 0 100 100" class="hero-emblem-svg">
-                <!-- Resplandor Neón Cian: Cuaderno & Gráfica -->
-                <g filter="url(#neon-glow-cyan)">
-                    <rect x="22" y="18" width="56" height="66" rx="8" fill="none" stroke="#38bdf8" stroke-width="4.5" />
-                    <line x1="32" y1="34" x2="68" y2="34" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" />
-                    <polyline points="32,64 44,52 54,58 68,44" fill="none" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-                </g>
-                <!-- Estructura Acero Biselado -->
-                <rect x="22" y="18" width="56" height="66" rx="8" fill="none" stroke="url(#metal-steel-light)" stroke-width="3" />
-                <line x1="32" y1="34" x2="68" y2="34" stroke="url(#metal-steel-light)" stroke-width="2.5" stroke-linecap="round" />
-                <polyline points="32,64 44,52 54,58 68,44" fill="none" stroke="url(#metal-steel-light)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-                <!-- Anillas de Acero Izquierda -->
-                <circle cx="22" cy="30" r="3" fill="url(#metal-steel-light)" />
-                <circle cx="22" cy="50" r="3" fill="url(#metal-steel-light)" />
-                <circle cx="22" cy="70" r="3" fill="url(#metal-steel-light)" />
-            </svg>
+<!-- Vista: Diario de Entrenamiento & Cuaderno de Bitácora -->
+<section class="view-container animate-fade-in bitacora-view">
+    
+    <!-- CABECERA DEL DIARIO DE BITÁCORA -->
+    <div class="bitacora-header">
+        <div class="bitacora-title-wrap">
+            <div class="bitacora-emblem-badge">
+                <span>📖</span>
+                <span>Bitácora Oficial</span>
+            </div>
+            <h2>Cuaderno de Bitácora</h2>
+            <p class="subtitle">Registro con marca de tiempo y dictado por voz. La IA analiza estas notas para supervisar tu calentamiento y optimizar tus progresiones.</p>
         </div>
 
-        <h2>Diario de Entrenamiento</h2>
-        <p class="placeholder-desc">Registro de sensaciones subjetivas, fatiga neuromuscular, notas del día y evolución.</p>
-        <div class="construction-pill">
-            <span class="pulse-dot"></span>
-            <span>Módulo en construcción</span>
+        <!-- Estadísticas Rápidas -->
+        <div class="bitacora-stats-grid">
+            <div class="stat-pill card-carbon">
+                <span class="stat-num" id="stat-total-entradas">0</span>
+                <span class="stat-desc">Notas Totales</span>
+            </div>
+            <div class="stat-pill card-carbon">
+                <span class="stat-num stat-gold" id="stat-post-entreno">0</span>
+                <span class="stat-desc">Post-Sesiones</span>
+            </div>
+            <div class="stat-pill card-carbon">
+                <span class="stat-num stat-cyan" id="stat-por-voz">0</span>
+                <span class="stat-desc">Por Voz 🎙️</span>
+            </div>
         </div>
     </div>
+
+    <!-- COMPOSITOR DE NUEVA NOTA (A VOLUNTAD) -->
+    <div class="card card-carbon bitacora-composer-card">
+        <div class="composer-header">
+            <div class="composer-title-row">
+                <span class="composer-icon">✍️</span>
+                <div>
+                    <h4>Añadir Nota a la Bitácora</h4>
+                    <span class="live-clock-badge">🕒 Fecha y hora automáticas en cada registro</span>
+                </div>
+            </div>
+
+            <!-- Selector de Categoría -->
+            <div class="composer-category-select">
+                <select id="select-bitacora-categoria" class="custom-select-input">
+                    <option value="general">📝 Nota Libre / Reflexión</option>
+                    <option value="recuperacion">⚡ Energía, Sueño & Descanso</option>
+                    <option value="post-entreno">🏋️ Resumen de Entrenamiento</option>
+                    <option value="molestia">🚨 Alerta / Molestia Articular</option>
+                    <option value="nutricion">🥗 Nutrición & Hidratación</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="composer-body">
+            <textarea id="input-bitacora-texto" class="bitacora-textarea" placeholder="Escribe o pulsa el botón de micrófono para dictar por voz tus sensaciones, energía, fatiga, molestias o impresiones del entrenamiento..."></textarea>
+        </div>
+
+        <div class="composer-footer">
+            <div class="composer-left-actions">
+                <!-- Botón de Transcripción por Voz -->
+                <button type="button" id="btn-dictar-voz" class="btn-voice-dictate" onclick="window.diario?.alternarGrabacionVoz('input-bitacora-texto', 'btn-dictar-voz')">
+                    <span>🎙️ Dictar por voz</span>
+                </button>
+                <div class="rpe-input-group">
+                    <label for="input-bitacora-rpe">RPE (1-10):</label>
+                    <input type="number" id="input-bitacora-rpe" min="1" max="10" placeholder="-" class="rpe-mini-input">
+                </div>
+            </div>
+
+            <button type="button" class="btn-neon-cyan btn-save-note" onclick="window.diario?.registrarNotaManual()">
+                <span>💾 Guardar en Bitácora</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- FILTROS Y TIMELINE DE LA BITÁCORA -->
+    <div class="bitacora-timeline-section">
+        <div class="timeline-header-bar">
+            <div class="timeline-title-group">
+                <h3>Historial de Entradas</h3>
+                <span class="timeline-hint">Supervisión acumulada para IA</span>
+            </div>
+
+            <div class="bitacora-filters-row">
+                <button class="bitacora-filter-chip active" data-filtro="todos" onclick="window.diario?.setFiltro('todos')">Todas</button>
+                <button class="bitacora-filter-chip" data-filtro="post-entreno" onclick="window.diario?.setFiltro('post-entreno')">🏋️ Post-Entreno</button>
+                <button class="bitacora-filter-chip" data-filtro="voz" onclick="window.diario?.setFiltro('voz')">🎙️ Dictadas</button>
+                <button class="bitacora-filter-chip" data-filtro="molestia" onclick="window.diario?.setFiltro('molestia')">🚨 Alertas</button>
+            </div>
+        </div>
+
+        <!-- Contenedor dinámico de notas de la bitácora -->
+        <div id="contenedor-entradas-bitacora" class="bitacora-entries-stream">
+            <!-- Entradas inyectadas por diario.js -->
+        </div>
+    </div>
+
 </section>

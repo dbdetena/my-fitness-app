@@ -152,6 +152,20 @@
         <div id="contenedor-ejercicios-sesion" class="session-exercises-list">
             <!-- Se inyectan las tarjetas colapsables con series interactivas -->
         </div>
+
+        <!-- Cierre de Sesión y Registro Obligatorio en Bitácora -->
+        <div class="session-finish-card card-carbon">
+            <div class="session-finish-info">
+                <span class="finish-icon">🏁</span>
+                <div>
+                    <h4>¿Has completado el entrenamiento?</h4>
+                    <p>Al finalizar, registraremos obligatoriamente tus sensaciones en el Cuaderno de Bitácora para supervisión de la IA.</p>
+                </div>
+            </div>
+            <button class="btn-neon-finish-session" onclick="window.gimnasio?.abrirCierreSesionBitacora()">
+                <span>🏁 Finalizar & Registrar en Bitácora</span>
+            </button>
+        </div>
     </div>
 
 </section>
@@ -355,6 +369,66 @@
             <button class="btn-ghost" onclick="window.gimnasio?.cerrarModalGenerarCoach()">Cancelar</button>
             <button class="btn-primary btn-neon-gold" onclick="window.gimnasio?.ejecutarGeneracionCoach()">
                 ⚡ Generar y Guardar en Mis Rutinas
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================
+     MODAL FLOTANTE 4: CIERRE DE SESIÓN OBLIGATORIO & BITÁCORA IA
+     ======================================================== -->
+<div id="modal-bitacora-post-sesion" class="modal-overlay">
+    <div class="modal-card modal-industrial modal-debrief" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-title-group">
+                <span class="modal-tag">PASO OBLIGATORIO • BITÁCORA IA</span>
+                <h3>Cierre de Sesión & Feedback</h3>
+                <p class="modal-subtitle">Explica qué tal ha ido todo para que la IA supervise futuros calentamientos y progresiones.</p>
+            </div>
+            <button class="modal-close-btn" onclick="window.gimnasio?.cerrarModalDebrief()">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <div class="debrief-summary-box card-carbon">
+                <div class="debrief-stat-item">
+                    <span class="debrief-stat-label">Rutina Finalizada:</span>
+                    <strong id="debrief-routine-name" class="debrief-stat-val">Rutina</strong>
+                </div>
+                <div class="debrief-stat-item">
+                    <span class="debrief-stat-label">Marca de Tiempo:</span>
+                    <span id="debrief-timestamp" class="debrief-stat-val text-cyan">Hoy</span>
+                </div>
+            </div>
+
+            <div class="form-group debrief-input-group">
+                <div class="label-with-hint">
+                    <label for="debrief-textarea-voz">¿Cómo ha ido la sesión? (Dicta por voz o escribe):</label>
+                    <span class="hint-badge">🎙️ Acepta voz</span>
+                </div>
+                <textarea id="debrief-textarea-voz" class="bitacora-textarea debrief-textarea" placeholder="Pulsa 'Dictar por voz' o escribe aquí... Ejemplo: 'Muy buenas sensaciones en press banca, subí 2.5 kg en la última serie. Hombro derecho sin molestias gracias al calentamiento previo.'"></textarea>
+            </div>
+
+            <div class="debrief-toolbar">
+                <button type="button" id="btn-debrief-voz" class="btn-voice-dictate" onclick="window.gimnasio?.alternarVozDebrief()">
+                    <span>🎙️ Dictar por voz</span>
+                </button>
+
+                <div class="rpe-debrief-wrap">
+                    <label for="debrief-rpe">RPE (Esfuerzo 1-10):</label>
+                    <input type="number" id="debrief-rpe" min="1" max="10" value="8" class="rpe-mini-input">
+                </div>
+            </div>
+
+            <div class="ai-supervision-notice">
+                <span class="notice-icon">🤖</span>
+                <p>Esta nota se guardará con su marca de tiempo exacta en tu <strong>Cuaderno de Bitácora</strong> y la IA la tendrá en cuenta para sugerir calentamientos preventivos en tus próximas sesiones.</p>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn-ghost" onclick="window.gimnasio?.cerrarModalDebrief()">Seguir Entrenando</button>
+            <button class="btn-primary btn-neon-gold" onclick="window.gimnasio?.confirmarGuardarBitacoraYSalir()">
+                <span>💾 Guardar en Bitácora & Completar Sesión</span>
             </button>
         </div>
     </div>

@@ -8,6 +8,7 @@ import {
     clonarRutinaEstandar, 
     generarRutinaCoach 
 } from "./rutinas-data.js";
+import { guardarEntradaBitacora, formatearFechaTimestamp } from "./diario.js";
 
 // Estado interno del módulo de Rutinas
 const state = {
@@ -45,7 +46,12 @@ export function initGimnasio() {
         cerrarModalGenerarCoach,
         ejecutarGeneracionCoach,
         toggleCollapse,
-        toggleSetComplete
+        toggleSetComplete,
+        marcarCalentamientoListo,
+        abrirCierreSesionBitacora,
+        cerrarModalDebrief,
+        alternarVozDebrief,
+        confirmarGuardarBitacoraYSalir
     };
 
     // Renderizado inicial de las 3 bibliotecas
@@ -710,7 +716,10 @@ export function iniciarEntrenamientoRutina(tipo, rutinaId) {
     if (descEl) descEl.textContent = `Sesión activa • ${rutina.duracion || '50 min'} • ${rutina.ejercicios.length} ejercicios`;
 
     if (contenedor) {
-        contenedor.innerHTML = rutina.ejercicios.map((item, idx) => {
+        // Calentamiento Preventivo Inteligente (Primer Ejercicio sugerido siempre)
+        const calentamientoHtml = generarCardCalentamiento(rutina);
+
+        const ejerciciosHtml = rutina.ejercicios.map((item, idx) => {
             const ej = BASE_EJERCICIOS.find(e => e.id === item.ejercicioId);
             const nombre = ej ? ej.nombre : item.ejercicioId;
             const icono = ej ? ej.tipoIcono : "🏋️";
@@ -783,13 +792,194 @@ export function iniciarEntrenamientoRutina(tipo, rutinaId) {
             </div>
             `;
         }).join("");
+
+        contenedor.innerHTML = calentamientoHtml + ejerciciosHtml;
     }
 
     // Scroll suave a la cabecera
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+/**
+ * Genera el bloque dinámico de Calentamiento Preventivo & Activación (Ejercicio 0)
+ */
+function generarCardCalentamiento(rutina) {
+    if (!rutina || !rutina.ejercicios) return "";
+
+    const tipos = new Set();
+    rutina.ejercicios.forEach(it => {
+        const ej = BASE_EJERCICIOS.find(e => e.id === it.ejercicioId);
+        if (ej && ej.tipo) tipos.add(ej.tipo);
+    });
+
+    let cardioDesc = "Salto a la comba suave o skipping en el sitio (2 a 3 min) hasta percibir calor corporal y sudor ligero.";
+    let movilidadDesc = "Círculos de brazos, aperturas torácicas y rotación de cadera para activar el flujo sinovial.";
+    let aproximacionDesc = "1-2 series de 8-10 reps con barra vacía o el 40%-50% de la carga de trabajo antes del primer ejercicio pesado.";
+
+    if (tipos.has("empuje") && tipos.has("pull")) {
+        movilidadDesc = "Rotaciones externas de manguito rotador con mancuerna liviana (15 reps), dislocaciones escapulares con banda elástica y descompresión en barra fija (Dead Hang pasivo 30s).";
+        cardioDesc = "Salto suave a la comba o sombra de boxeo (2.5 min) llevando pulsaciones a 115-125 ppm.";
+    } else if (tipos.has("empuje")) {
+        movilidadDesc = "Círculos escapulares progresivos, rotaciones de hombro a 90° con mancuernas mínimas, flexiones escapulares en suelo y estiramiento activo de pectoral mayor.";
+        cardioDesc = "Sombra de boxeo suave o comba ligera (2 min) aumentando cadencia para abrir el flujo sanguíneo a deltoides, pectorales y tríceps.";
+    } else if (tipos.has("pull")) {
+        movilidadDesc = "Descompresión en barra fija (Dead Hang activo 3x15s con retracción escapular), gato-camello espinal en alfombra y aperturas escapulares con banda.";
+        cardioDesc = "Salto de comba rítmico (2.5 min) sincronizando respiración diafragmática profunda.";
+    } else if (tipos.has("piernas")) {
+        movilidadDesc = "Dorsiflexión de tobillo contra pared (10 por pierna), apertura de cadera 90/90 en alfombra, sentadillas profundas Cossack y glute bridge con pausa de 2 segundos.";
+        cardioDesc = "Jumping jacks o skipping suave (3 min) elevando el pulso a 120-130 ppm para lubricar las articulaciones femorotibiales.";
+        aproximacionDesc = "10 sentadillas de peso corporal + 1 serie con barra vacía (10 reps) controlando el tempo de bajada (3s).";
+    } else if (tipos.has("combate")) {
+        movilidadDesc = "Rotaciones balísticas de tronco y cadera, movilidad articular de muñecas (flexión/extensión), cuello y giros de tobillo.";
+        cardioDesc = "Salto de comba rítmico progresivo (3 min) coordinando rebote suave en metatarsos y respiración constante.";
+    }
+
+    return `
+    <div class="exercise-card card-carbon card-warmup-hero animate-fade-in" id="session-card-warmup">
+        <div class="warmup-banner-top">
+            <div class="warmup-badge-tags">
+                <span class="badge-warmup-pill">🔥 EJERCICIO 0 • CALENTAMIENTO PREVENTIVO</span>
+                <span class="badge-ai-sync">🤖 Supervisado por IA & Bitácora</span>
+            </div>
+            <div class="warmup-header-text">
+                <h3>Activación Muscular, Movilidad & Rampa Térmica</h3>
+                <p class="warmup-goal-hint">Objetivo: Elevar temperatura corporal, llevar pulsaciones a zona segura (110-130 ppm) y lubricar articulaciones para <strong>evitar lesiones</strong> antes de cargar peso.</p>
+            </div>
+        </div>
+
+        <div class="warmup-body">
+            <div class="warmup-protocol-grid">
+                <!-- Paso 1: Rampa Cardiovascular -->
+                <div class="warmup-protocol-item">
+                    <span class="warmup-step-badge">Paso 1</span>
+                    <div class="warmup-step-content">
+                        <strong>Rampa Térmica & Frecuencia Cardíaca:</strong>
+                        <p>${cardioDesc}</p>
+                        <span class="warmup-stat-chip">🎯 110-130 ppm • 2-3 min</span>
+                    </div>
+                </div>
+
+                <!-- Paso 2: Movilidad Articular Específica -->
+                <div class="warmup-protocol-item">
+                    <span class="warmup-step-badge">Paso 2</span>
+                    <div class="warmup-step-content">
+                        <strong>Movilidad Dinámica para esta Rutina:</strong>
+                        <p>${movilidadDesc}</p>
+                        <span class="warmup-stat-chip">🦴 Cápsula articular lista</span>
+                    </div>
+                </div>
+
+                <!-- Paso 3: Series de Aproximación -->
+                <div class="warmup-protocol-item">
+                    <span class="warmup-step-badge">Paso 3</span>
+                    <div class="warmup-step-content">
+                        <strong>Aproximación Neuromuscular:</strong>
+                        <p>${aproximacionDesc}</p>
+                        <span class="warmup-stat-chip">⚡ SNC activado</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="warmup-action-wrap">
+                <button type="button" id="btn-warmup-check" class="btn-neon-warmup" onclick="window.gimnasio?.marcarCalentamientoListo()">
+                    <span>✅ Marcar Calentamiento Completado • Músculos Listos</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    `;
+}
+
+export function marcarCalentamientoListo() {
+    const card = document.getElementById("session-card-warmup");
+    const btn = document.getElementById("btn-warmup-check");
+    if (!card || !btn) return;
+
+    card.classList.toggle("warmup-completed");
+    if (card.classList.contains("warmup-completed")) {
+        btn.innerHTML = `<span>✨ Calentamiento Completado • Articulaciones Preparadas</span>`;
+        btn.classList.add("btn-completed");
+        if (navigator.vibrate) navigator.vibrate(40);
+        mostrarToastLocal("🔥 Calentamiento registrado. ¡A por las series efectivas!");
+    } else {
+        btn.innerHTML = `<span>✅ Marcar Calentamiento Completado • Músculos Listos</span>`;
+        btn.classList.remove("btn-completed");
+    }
+}
+
+export function abrirCierreSesionBitacora() {
+    const modal = document.getElementById("modal-bitacora-post-sesion");
+    const nameEl = document.getElementById("debrief-routine-name");
+    const timeEl = document.getElementById("debrief-timestamp");
+    const textarea = document.getElementById("debrief-textarea-voz");
+
+    if (nameEl && state.rutinaEnSesion) {
+        nameEl.textContent = state.rutinaEnSesion.nombre;
+    }
+    if (timeEl) {
+        timeEl.textContent = formatearFechaTimestamp(new Date());
+    }
+    if (textarea) {
+        textarea.value = "";
+        textarea.dataset.porVoz = "false";
+    }
+
+    if (modal) {
+        modal.classList.add("active");
+        document.body.classList.add("modal-open");
+    }
+}
+
+export function cerrarModalDebrief() {
+    const modal = document.getElementById("modal-bitacora-post-sesion");
+    if (modal) {
+        modal.classList.remove("active");
+        document.body.classList.remove("modal-open");
+    }
+}
+
+export function alternarVozDebrief() {
+    if (window.diario?.alternarGrabacionVoz) {
+        window.diario.alternarGrabacionVoz("debrief-textarea-voz", "btn-debrief-voz");
+    }
+}
+
+export function confirmarGuardarBitacoraYSalir() {
+    const textarea = document.getElementById("debrief-textarea-voz");
+    const rpeInput = document.getElementById("debrief-rpe");
+
+    const feedback = textarea && textarea.value.trim() 
+        ? textarea.value.trim() 
+        : `Sesión completada con éxito. Buen volumen de trabajo y sensaciones estables.`;
+    
+    const rpe = rpeInput && rpeInput.value ? rpeInput.value : 8;
+    const porVoz = textarea && textarea.dataset.porVoz === "true";
+    const rutinaNombre = state.rutinaEnSesion ? state.rutinaEnSesion.nombre : "Entrenamiento General";
+
+    // Guardar en la bitácora persistente
+    guardarEntradaBitacora({
+        texto: feedback,
+        categoria: "post-entreno",
+        rutinaRelacionada: rutinaNombre,
+        rpe,
+        porVoz
+    });
+
+    cerrarModalDebrief();
+
+    // Ocultar panel de sesión activa y volver
+    const sesionPanel = document.getElementById("panel-sesion-activa");
+    if (sesionPanel) sesionPanel.style.display = "none";
+    cambiarTab(state.tabActual || "estandar");
+
+    mostrarToastLocal("🎉 ¡Entrenamiento registrado en la Bitácora con éxito!");
+}
+
 export function salirSesionActiva() {
+    if (confirm("¿Quieres finalizar el entrenamiento y registrar tus sensaciones obligatorias en la Bitácora?")) {
+        abrirCierreSesionBitacora();
+        return;
+    }
     const sesionPanel = document.getElementById("panel-sesion-activa");
     if (sesionPanel) sesionPanel.style.display = "none";
     cambiarTab(state.tabActual || "estandar");
@@ -811,4 +1001,15 @@ export function toggleSetComplete(rowId, checkbox) {
     } else {
         row.classList.remove("set-completed");
     }
+}
+
+function mostrarToastLocal(mensaje) {
+    const toast = document.createElement("div");
+    toast.className = "toast-notification toast-success";
+    toast.textContent = mensaje;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
