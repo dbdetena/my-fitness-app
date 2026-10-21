@@ -1,208 +1,347 @@
-<!-- Vista: Gimnasio y Series (Estética Industrial Carbón) -->
+<!-- Vista: Rutinas y Bibliotecas de Entrenamiento (Carbón, Acero y Neón) -->
 <section class="view-container animate-fade-in gimnasio-view">
-    <div class="section-title-row">
-        <div>
-            <h2>Sesión: Empuje & Pectoral</h2>
-            <p class="subtitle">Sobrecarga progresiva y registro de series</p>
+    
+    <!-- CABECERA DE LA SECCIÓN RUTINAS -->
+    <div class="rutinas-header">
+        <div class="rutinas-title-wrap">
+            <h2>Módulo de Rutinas</h2>
+            <p class="subtitle">Tres bibliotecas especializadas: Ejercicios, Estándar y Personalizadas</p>
         </div>
-        <span class="workout-pill">Semana 4 / Día 1</span>
+        
+        <!-- PESTAÑAS DE NAVEGACIÓN ENTRE LAS 3 BIBLIOTECAS -->
+        <div class="rutinas-nav-tabs">
+            <button class="rutinas-tab-btn active" id="tab-btn-ejercicios" onclick="window.gimnasio?.cambiarTab('ejercicios')">
+                <span class="tab-icon">📚</span>
+                <span class="tab-text">1. Ejercicios</span>
+            </button>
+            <button class="rutinas-tab-btn" id="tab-btn-estandar" onclick="window.gimnasio?.cambiarTab('estandar')">
+                <span class="tab-icon">⚡</span>
+                <span class="tab-text">2. Rutinas Estándar</span>
+            </button>
+            <button class="rutinas-tab-btn" id="tab-btn-personalizadas" onclick="window.gimnasio?.cambiarTab('personalizadas')">
+                <span class="tab-icon">🛠️</span>
+                <span class="tab-text">3. Mis Rutinas & Coach</span>
+            </button>
+        </div>
     </div>
 
-    <!-- Tarjeta de Ejercicio Colapsable: Press de Banca -->
-    <div class="exercise-card card-carbon" id="card-press-banca">
-        <!-- Cabecera de la tarjeta colapsable -->
-        <div class="exercise-header" onclick="window.gimnasio?.toggleCollapse('card-press-banca')">
-            <div class="exercise-main-info">
-                <span class="exercise-icon">🏋️‍♂️</span>
-                <div>
-                    <div class="exercise-title-wrap">
-                        <h3>Press de Banca Plano</h3>
-                        <!-- Botón Info ℹ️ Neón para abrir Modal (detiene propagación para no colapsar) -->
-                        <button class="btn-info-neon" title="Guía técnica y biomecánica" onclick="event.stopPropagation(); window.gimnasio?.openModal('modal-press-banca')">
-                            ℹ️
-                        </button>
-                    </div>
-                    <p class="exercise-meta">Barra olímpica • 3 series efectivas • RIR 1-2</p>
+    <!-- ========================================================
+         BIBLIOTECA 1: EJERCICIOS HABITUALES (CATÁLOGO & BIOMECÁNICA)
+         ======================================================== -->
+    <div id="panel-ejercicios" class="rutinas-tab-panel active">
+        <!-- Buscador y Filtros -->
+        <div class="catalog-filters card-carbon">
+            <!-- Barra de búsqueda en tiempo real -->
+            <div class="search-input-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="input-buscar-ejercicio" placeholder="Buscar ejercicio, músculo o equipo..." oninput="window.gimnasio?.filtrarEjercicios()">
+                <button class="btn-clear-search" onclick="window.gimnasio?.limpiarBusqueda()" title="Limpiar búsqueda">✕</button>
+            </div>
+
+            <!-- Filtros por Tipo de Movimiento -->
+            <div class="filter-group">
+                <span class="filter-group-label">Patrón de Movimiento:</span>
+                <div class="filter-chips-row" id="chips-tipo">
+                    <button class="filter-chip active" data-tipo="todos" onclick="window.gimnasio?.setFiltroTipo('todos')">Todos</button>
+                    <button class="filter-chip" data-tipo="piernas" onclick="window.gimnasio?.setFiltroTipo('piernas')">🦵 Piernas</button>
+                    <button class="filter-chip" data-tipo="empuje" onclick="window.gimnasio?.setFiltroTipo('empuje')">🛡️ Empuje (Push)</button>
+                    <button class="filter-chip" data-tipo="pull" onclick="window.gimnasio?.setFiltroTipo('pull')">🏹 Tirón (Pull)</button>
+                    <button class="filter-chip" data-tipo="core" onclick="window.gimnasio?.setFiltroTipo('core')">🧱 Core</button>
+                    <button class="filter-chip" data-tipo="combate" onclick="window.gimnasio?.setFiltroTipo('combate')">🥊 Combate / Cardio</button>
                 </div>
             </div>
-            <div class="collapse-indicator">
-                <span class="chevron">▼</span>
-            </div>
-        </div>
 
-        <!-- Contenido colapsable (tabla de series) -->
-        <div class="exercise-body">
-            <div class="table-responsive">
-                <table class="sets-table">
-                    <thead>
-                        <tr>
-                            <th class="col-set">SET</th>
-                            <th class="col-prev">PREVIO</th>
-                            <th class="col-target">OBJETIVO</th>
-                            <th class="col-input">PESO (kg)</th>
-                            <th class="col-input">REPS</th>
-                            <th class="col-check">CHECK</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Serie 1 -->
-                        <tr class="set-row" id="row-set-1">
-                            <td class="col-set"><span class="set-badge">1</span></td>
-                            <td class="col-prev">80 kg × 8</td>
-                            <td class="col-target">82.5 kg × 8</td>
-                            <td class="col-input">
-                                <input type="number" step="0.5" class="input-set-data" value="82.5" placeholder="82.5">
-                            </td>
-                            <td class="col-input">
-                                <input type="number" step="1" class="input-set-data" value="8" placeholder="8">
-                            </td>
-                            <td class="col-check">
-                                <label class="custom-neon-check">
-                                    <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('row-set-1', this)">
-                                    <span class="checkmark"></span>
-                                </label>
-                            </td>
-                        </tr>
-
-                        <!-- Serie 2 -->
-                        <tr class="set-row" id="row-set-2">
-                            <td class="col-set"><span class="set-badge">2</span></td>
-                            <td class="col-prev">80 kg × 8</td>
-                            <td class="col-target">82.5 kg × 7</td>
-                            <td class="col-input">
-                                <input type="number" step="0.5" class="input-set-data" value="82.5" placeholder="82.5">
-                            </td>
-                            <td class="col-input">
-                                <input type="number" step="1" class="input-set-data" value="7" placeholder="7">
-                            </td>
-                            <td class="col-check">
-                                <label class="custom-neon-check">
-                                    <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('row-set-2', this)">
-                                    <span class="checkmark"></span>
-                                </label>
-                            </td>
-                        </tr>
-
-                        <!-- Serie 3 -->
-                        <tr class="set-row" id="row-set-3">
-                            <td class="col-set"><span class="set-badge">3</span></td>
-                            <td class="col-prev">80 kg × 7</td>
-                            <td class="col-target">82.5 kg × 6</td>
-                            <td class="col-input">
-                                <input type="number" step="0.5" class="input-set-data" value="82.5" placeholder="82.5">
-                            </td>
-                            <td class="col-input">
-                                <input type="number" step="1" class="input-set-data" value="6" placeholder="6">
-                            </td>
-                            <td class="col-check">
-                                <label class="custom-neon-check">
-                                    <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('row-set-3', this)">
-                                    <span class="checkmark"></span>
-                                </label>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Botón añadir serie o nota -->
-            <div class="exercise-footer-actions">
-                <button class="btn-ghost" onclick="alert('Funcionalidad de añadir serie próximamente')">+ Añadir Serie</button>
-                <span class="rest-timer">⏱️ Descanso sugerido: 2:30 min</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Segundo ejercicio de ejemplo para completar la vista de sesión -->
-    <div class="exercise-card card-carbon collapsed" id="card-press-militar">
-        <div class="exercise-header" onclick="window.gimnasio?.toggleCollapse('card-press-militar')">
-            <div class="exercise-main-info">
-                <span class="exercise-icon">⚡</span>
-                <div>
-                    <div class="exercise-title-wrap">
-                        <h3>Press Militar con Mancuernas</h3>
-                    </div>
-                    <p class="exercise-meta">Deltoides anterior & lateral • 3 series de 10-12</p>
+            <!-- Filtros por Equipamiento Necesario -->
+            <div class="filter-group">
+                <span class="filter-group-label">Equipamiento Necesario:</span>
+                <div class="filter-chips-row" id="chips-equipo">
+                    <button class="filter-chip active" data-equipo="todos" onclick="window.gimnasio?.setFiltroEquipo('todos')">Todo Equipo</button>
+                    <button class="filter-chip" data-equipo="mancuerna" onclick="window.gimnasio?.setFiltroEquipo('mancuerna')">⚖️ Mancuerna</button>
+                    <button class="filter-chip" data-equipo="barra" onclick="window.gimnasio?.setFiltroEquipo('barra')">🏋️‍♂️ Barra</button>
+                    <button class="filter-chip" data-equipo="banco" onclick="window.gimnasio?.setFiltroEquipo('banco')">🛋️ Banco</button>
+                    <button class="filter-chip" data-equipo="alfombra" onclick="window.gimnasio?.setFiltroEquipo('alfombra')">🧘 Alfombra / Esterilla</button>
+                    <button class="filter-chip" data-equipo="saco" onclick="window.gimnasio?.setFiltroEquipo('saco')">🥊 Saco de Boxeo</button>
+                    <button class="filter-chip" data-equipo="corporal" onclick="window.gimnasio?.setFiltroEquipo('corporal')">🧱 Peso Corporal</button>
+                    <button class="filter-chip" data-equipo="rueda" onclick="window.gimnasio?.setFiltroEquipo('rueda')">⚙️ Rueda</button>
+                    <button class="filter-chip" data-equipo="comba" onclick="window.gimnasio?.setFiltroEquipo('comba')">🪢 Comba</button>
                 </div>
             </div>
-            <div class="collapse-indicator">
-                <span class="chevron">▼</span>
+
+            <!-- Indicador de resultados encontrados -->
+            <div class="filter-status-row">
+                <span id="label-conteo-ejercicios" class="count-badge">Cargando ejercicios...</span>
             </div>
         </div>
-        <div class="exercise-body">
-            <p style="padding: 16px; color: var(--text-muted); font-size: 0.85rem; text-align: center;">
-                Pulsa en la cabecera para expandir la rutina completa.
-            </p>
+
+        <!-- Cuadrícula dinámica de ejercicios -->
+        <div id="grid-ejercicios" class="exercises-catalog-grid">
+            <!-- Las tarjetas se generan dinámicamente mediante gimnasio.js -->
         </div>
     </div>
+
+    <!-- ========================================================
+         BIBLIOTECA 2: RUTINAS ESTÁNDAR (ENLAZADAS AL CATÁLOGO)
+         ======================================================== -->
+    <div id="panel-estandar" class="rutinas-tab-panel">
+        <div class="panel-intro-card card-carbon">
+            <div class="intro-icon">⚡</div>
+            <div>
+                <h3>Biblioteca de Rutinas Estándar</h3>
+                <p>Plantillas prediseñadas y probadas para diferentes días (Piernas, Empuje/Push, Tirón/Pull, Brazos, Full Body y Combate). Cada ejercicio está enlazado a la biblioteca técnica con sus 3 posturas clave.</p>
+            </div>
+        </div>
+
+        <!-- Cuadrícula de rutinas estándar -->
+        <div id="grid-rutinas-estandar" class="routines-grid">
+            <!-- Las tarjetas de rutinas estándar se inyectan dinámicamente -->
+        </div>
+    </div>
+
+    <!-- ========================================================
+         BIBLIOTECA 3: RUTINAS PERSONALIZADAS (USUARIO & AI COACH)
+         ======================================================== -->
+    <div id="panel-personalizadas" class="rutinas-tab-panel">
+        <div class="personalizadas-actions-bar card-carbon">
+            <div class="actions-info">
+                <h3>Rutinas Guardadas</h3>
+                <p>Colección personalizada con rutinas preparadas por ti y por el Coach Inteligente.</p>
+            </div>
+            <div class="actions-buttons-row">
+                <button class="btn-primary btn-neon-cyan" onclick="window.gimnasio?.abrirModalNuevaRutina()">
+                    <span>➕</span> Crear Mi Rutina
+                </button>
+                <button class="btn-primary btn-neon-gold" onclick="window.gimnasio?.abrirModalGenerarCoach()">
+                    <span>🤖</span> Pedir Rutina a AI Coach
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtro por creador: Todos | Usuario | Coach -->
+        <div class="custom-filter-tabs">
+            <button class="subtab-btn active" data-creador="todos" onclick="window.gimnasio?.filtrarPersonalizadas('todos')">Todas</button>
+            <button class="subtab-btn" data-creador="usuario" onclick="window.gimnasio?.filtrarPersonalizadas('usuario')">👤 Creadas por Mí</button>
+            <button class="subtab-btn" data-creador="coach" onclick="window.gimnasio?.filtrarPersonalizadas('coach')">🤖 Generadas por Coach</button>
+        </div>
+
+        <!-- Cuadrícula de rutinas personalizadas -->
+        <div id="grid-rutinas-personalizadas" class="routines-grid">
+            <!-- Rutinas guardadas inyectadas dinámicamente -->
+        </div>
+    </div>
+
+    <!-- ========================================================
+         PANEL DE SESIÓN ACTIVA (ENTRENAMIENTO EN VIVO DE UNA RUTINA)
+         ======================================================== -->
+    <div id="panel-sesion-activa" class="rutinas-tab-panel sesion-activa-container" style="display: none;">
+        <!-- Banner de Sesión en Curso -->
+        <div class="session-active-banner card-carbon">
+            <div class="session-active-info">
+                <div class="session-status-badge">
+                    <span class="status-dot"></span>
+                    <span>ENTRENAMIENTO EN CURSO</span>
+                </div>
+                <h2 id="session-routine-title">Sesión Activa</h2>
+                <p id="session-routine-desc" class="subtitle">Registra el peso real, repeticiones y marca cada serie completada.</p>
+            </div>
+            <button class="btn-ghost btn-exit-session" onclick="window.gimnasio?.salirSesionActiva()">
+                ✕ Cerrar Mesa de Entrenamiento
+            </button>
+        </div>
+
+        <!-- Contenedor dinámico de ejercicios y tablas de series -->
+        <div id="contenedor-ejercicios-sesion" class="session-exercises-list">
+            <!-- Se inyectan las tarjetas colapsables con series interactivas -->
+        </div>
+    </div>
+
 </section>
 
-<!-- MODAL SUPERPUESTO: GUÍA TÉCNICA Y BIOMECÁNICA -->
-<div id="modal-press-banca" class="modal-overlay" onclick="window.gimnasio?.closeModal('modal-press-banca')">
-    <div class="modal-card modal-industrial" onclick="event.stopPropagation()">
-        <!-- Encabezado del modal -->
+<!-- ========================================================
+     MODAL FLOTANTE 1: FICHA TÉCNICA BIOMECÁNICA & 3 POSTURAS CLAVE
+     ======================================================== -->
+<div id="modal-detalle-ejercicio" class="modal-overlay" onclick="window.gimnasio?.cerrarModalDetalle()">
+    <div class="modal-card modal-industrial modal-large" onclick="event.stopPropagation()">
+        <!-- Encabezado con datos del ejercicio -->
         <div class="modal-header">
             <div class="modal-title-group">
-                <span class="modal-tag">GUÍA TÉCNICA</span>
-                <h3>Press de Banca Plano</h3>
+                <div class="exercise-modal-badges" id="modal-ejercicio-badges">
+                    <!-- Badges de tipo y equipo -->
+                </div>
+                <h3 id="modal-ejercicio-nombre">Nombre Ejercicio</h3>
+                <p id="modal-ejercicio-resumen" class="modal-subtitle">Resumen biomecánico del ejercicio</p>
             </div>
-            <button class="modal-close-btn" onclick="window.gimnasio?.closeModal('modal-press-banca')">✕</button>
+            <button class="modal-close-btn" onclick="window.gimnasio?.cerrarModalDetalle()">✕</button>
         </div>
 
         <div class="modal-body">
-            <!-- Sección 1: Biomecánica -->
-            <div class="modal-section section-biomecanica">
-                <div class="section-badge">
-                    <span>🧠</span>
-                    <h4>Biomecánica & Patrón Motor</h4>
+            <!-- SECCIÓN DESTACADA: LAS 3 POSTURAS CLAVE CON RESALTADO MUSCULAR -->
+            <div class="modal-section section-posturas-biomecanicas">
+                <div class="section-badge badge-neon-cyan">
+                    <span>🔬</span>
+                    <h4>Las 3 Posturas Clave del Movimiento & Músculos Implicados</h4>
                 </div>
-                <ul class="modal-list">
-                    <li><strong>Retracción y depresión escapular:</strong> Bloquea las escápulas 'abajo y atrás' para crear una base estable y proteger el manguito rotador.</li>
-                    <li><strong>Trayectoria en 'J invertida':</strong> La barra baja al esternón medio y sube diagonalmente hacia la vertical de los hombros.</li>
-                    <li><strong>Ángulo del húmero:</strong> Mantén los codos en un ángulo de 45° a 60° respecto al torso para maximizar activación del pectoral y minimizar choque articular.</li>
-                    <li><strong>Leg Drive:</strong> Planta los pies con firmeza en el suelo y empuja horizontalmente sin despegar los glúteos del banco.</li>
-                </ul>
+                <p class="section-hint">Estudio anatómico de las tres fases críticas del levantamiento con mapa de tensión muscular en tiempo real:</p>
+
+                <!-- Selector de Posturas (Fase 1, 2, 3) -->
+                <div class="posture-phase-selector" id="posture-phase-selector">
+                    <button class="phase-btn active" data-phase="1" onclick="window.gimnasio?.seleccionarFasePostura(1)">
+                        1. Setup / Inicio
+                    </button>
+                    <button class="phase-btn" data-phase="2" onclick="window.gimnasio?.seleccionarFasePostura(2)">
+                        2. Máxima Tensión 🔥
+                    </button>
+                    <button class="phase-btn" data-phase="3" onclick="window.gimnasio?.seleccionarFasePostura(3)">
+                        3. Retorno Excéntrico
+                    </button>
+                </div>
+
+                <!-- Visor Interactivo de la Postura Seleccionada -->
+                <div class="posture-display-card" id="posture-display-card">
+                    <!-- SVG Anatómico y Cues inyectados dinámicamente -->
+                </div>
             </div>
 
-            <!-- Sección 2: Red Flags -->
+            <!-- SECCIÓN: MÚSCULOS RECLUTADOS -->
+            <div class="modal-section section-musculos">
+                <div class="section-badge">
+                    <span>🧬</span>
+                    <h4>Grupos Musculares Implicados</h4>
+                </div>
+                <div class="muscles-split-row">
+                    <div class="muscle-group-box">
+                        <span class="group-title">🔥 Motores Primarios (Alta Activación):</span>
+                        <div id="modal-musculos-principales" class="muscle-tags-wrap"></div>
+                    </div>
+                    <div class="muscle-group-box">
+                        <span class="group-title">⚡ Sinergistas & Estabilizadores:</span>
+                        <div id="modal-musculos-secundarios" class="muscle-tags-wrap"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN: GUÍA TÉCNICA PASO A PASO -->
+            <div class="modal-section section-tecnica">
+                <div class="section-badge">
+                    <span>📖</span>
+                    <h4>Ejecución Técnica Paso a Paso</h4>
+                </div>
+                <div class="technique-steps-grid" id="modal-tecnica-pasos">
+                    <!-- Setup, Concéntrica, Excéntrica, Respiración, Tempo -->
+                </div>
+            </div>
+
+            <!-- SECCIÓN: RED FLAGS & RIESGOS BIOMECÁNICOS -->
             <div class="modal-section section-redflags">
                 <div class="section-badge red-flag-badge">
                     <span>🚨</span>
-                    <h4>Red Flags (Errores Lesivos)</h4>
+                    <h4>Riesgos & Errores Críticos (Prevención de Lesiones)</h4>
                 </div>
-                <ul class="modal-list red-flag-list">
-                    <li>❌ <strong>Codos en T (90°):</strong> Estrés extremo en el labrum anterior y tendón del bíceps.</li>
-                    <li>❌ <strong>Rebotar la barra:</strong> Pérdida de tensión muscular en el punto de máxima ventaja mecánica y riesgo para el esternón.</li>
-                    <li>❌ <strong>Hiperextensión de muñecas:</strong> La barra debe apoyarse sobre el talón de la palma (hueso radio), no sobre los dedos doblados.</li>
-                    <li>❌ <strong>Levantar los glúteos del banco:</strong> Genera arqueo lumbar no soportado con alto riesgo de lesión espinal.</li>
+                <ul class="modal-list red-flag-list" id="modal-lista-riesgos">
+                    <!-- Lista de riesgos inyectada -->
                 </ul>
             </div>
+        </div>
 
-            <!-- Sección 3: Alternativas -->
-            <div class="modal-section section-alternativas">
-                <div class="section-badge alt-badge">
-                    <span>🔄</span>
-                    <h4>Alternativas & Variantes</h4>
+        <div class="modal-footer">
+            <button class="btn-ghost" onclick="window.gimnasio?.cerrarModalDetalle()">Cerrar Guía</button>
+            <button id="modal-btn-anadir-rutina" class="btn-primary" onclick="window.gimnasio?.prepararAnadirARutina()">
+                ➕ Añadir a Mi Rutina
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================
+     MODAL FLOTANTE 2: CREADOR DE RUTINA PERSONALIZADA (USUARIO)
+     ======================================================== -->
+<div id="modal-nueva-rutina" class="modal-overlay" onclick="window.gimnasio?.cerrarModalNuevaRutina()">
+    <div class="modal-card modal-industrial" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-title-group">
+                <span class="modal-tag">BIBLIOTECA PERSONALIZADA</span>
+                <h3>Nueva Rutina de Entrenamiento</h3>
+            </div>
+            <button class="modal-close-btn" onclick="window.gimnasio?.cerrarModalNuevaRutina()">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="input-nombre-rutina">Nombre de la Rutina:</label>
+                <input type="text" id="input-nombre-rutina" class="custom-text-input" placeholder="Ej: Mi Rutina de Pierna & Core">
+            </div>
+
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="select-nivel-rutina">Nivel Sugerido:</label>
+                    <select id="select-nivel-rutina" class="custom-select-input">
+                        <option value="Principiante">Principiante</option>
+                        <option value="Intermedio" selected>Intermedio</option>
+                        <option value="Avanzado">Avanzado</option>
+                    </select>
                 </div>
-                <div class="alternatives-grid">
-                    <div class="alt-item">
-                        <strong>Press Plano con Mancuernas</strong>
-                        <p>Mayor rango de estiramiento y libertad de rotación articular para los hombros.</p>
-                    </div>
-                    <div class="alt-item">
-                        <strong>Press Convergente en Máquina</strong>
-                        <p>Tensión constante en el pico de contracción con perfil de resistencia guiado.</p>
-                    </div>
-                    <div class="alt-item">
-                        <strong>Fondos en Paralelas Lastrados</strong>
-                        <p>Enfoque masivo en la porción esternocostal inferior con torso inclinado a 30°.</p>
-                    </div>
+                <div class="form-group">
+                    <label for="input-duracion-rutina">Duración Estimada (min):</label>
+                    <input type="number" id="input-duracion-rutina" class="custom-text-input" value="50" min="15" max="150">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Selecciona los Ejercicios de la Biblioteca:</label>
+                <div class="exercise-selector-checklist" id="checklist-ejercicios-creador">
+                    <!-- Lista con checkboxes interactivos generada por JS -->
                 </div>
             </div>
         </div>
 
         <div class="modal-footer">
-            <button class="btn-primary modal-action-btn" onclick="window.gimnasio?.closeModal('modal-press-banca')">Entendido</button>
+            <button class="btn-ghost" onclick="window.gimnasio?.cerrarModalNuevaRutina()">Cancelar</button>
+            <button class="btn-primary" onclick="window.gimnasio?.guardarNuevaRutinaUsuario()">Guardar Rutina</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================
+     MODAL FLOTANTE 3: GENERADOR CON AI COACH INTEGRADO
+     ======================================================== -->
+<div id="modal-coach-rutina" class="modal-overlay" onclick="window.gimnasio?.cerrarModalGenerarCoach()">
+    <div class="modal-card modal-industrial" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-title-group">
+                <span class="modal-tag tag-coach">🤖 AI PERFORMANCE COACH</span>
+                <h3>Generar Rutina Personalizada</h3>
+            </div>
+            <button class="modal-close-btn" onclick="window.gimnasio?.cerrarModalGenerarCoach()">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <p class="coach-prompt-desc">
+                El AI Coach analizará la biblioteca biomecánica y optimizará una rutina equilibrada de sobrecarga progresiva adaptada a tus prioridades.
+            </p>
+
+            <div class="form-group">
+                <label for="select-coach-objetivo">Objetivo Prioritario:</label>
+                <select id="select-coach-objetivo" class="custom-select-input">
+                    <option value="empuje">Torso & Potencia de Empuje (Pecho, Hombro, Tríceps)</option>
+                    <option value="piernas">Fuerza & Masa de Piernas (Sentadilla, Isquios, Zancadas)</option>
+                    <option value="combate">Combate & Acondicionamiento (Saco de Boxeo, Comba, Core)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="select-coach-tiempo">Tiempo Disponible:</label>
+                <select id="select-coach-tiempo" class="custom-select-input">
+                    <option value="35">35 minutos (Express intenso)</option>
+                    <option value="50" selected>50 minutos (Volumen estándar)</option>
+                    <option value="65">65 minutos (Especialización avanzada)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn-ghost" onclick="window.gimnasio?.cerrarModalGenerarCoach()">Cancelar</button>
+            <button class="btn-primary btn-neon-gold" onclick="window.gimnasio?.ejecutarGeneracionCoach()">
+                ⚡ Generar y Guardar en Mis Rutinas
+            </button>
         </div>
     </div>
 </div>

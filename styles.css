@@ -1295,3 +1295,1056 @@ body.modal-open {
     border-radius: 0 0 4px 4px;
     box-shadow: 0 0 10px var(--accent-color), 0 0 16px rgba(56, 189, 248, 0.8);
 }
+
+/* ==========================================
+   MÓDULO DE RUTINAS (LAS 3 BIBLIOTECAS)
+   ========================================== */
+
+/* Cabecera y Selector de Pestañas */
+.rutinas-header {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.rutinas-title-wrap h2 {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.02em;
+}
+
+.rutinas-nav-tabs {
+    display: flex;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 4px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    overflow-x: auto;
+}
+
+.rutinas-tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.rutinas-tab-btn:hover {
+    color: #fff;
+    background: rgba(51, 65, 85, 0.3);
+}
+
+.rutinas-tab-btn.active {
+    background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+    border-color: rgba(56, 189, 248, 0.5);
+    color: var(--accent-color);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.rutinas-tab-panel {
+    display: none;
+}
+
+.rutinas-tab-panel.active {
+    display: block;
+}
+
+/* ------------------------------------------
+   BIBLIOTECA 1: FILTROS & BUSCADOR
+   ------------------------------------------ */
+.catalog-filters {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.search-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input-wrap .search-icon {
+    position: absolute;
+    left: 12px;
+    font-size: 0.95rem;
+    color: #64748b;
+    pointer-events: none;
+}
+
+.search-input-wrap input {
+    width: 100%;
+    padding: 12px 38px 12px 38px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 0.85rem;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.search-input-wrap input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.btn-clear-search {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 4px 6px;
+}
+
+.btn-clear-search:hover {
+    color: #fff;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.filter-group-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.filter-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.filter-chip {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid #334155;
+    color: #94a3b8;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.filter-chip:hover {
+    border-color: #64748b;
+    color: #fff;
+}
+
+.filter-chip.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
+}
+
+.filter-status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 4px;
+    border-top: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+.count-badge {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+/* Cuadrícula de Ejercicios */
+.exercises-catalog-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+@media (min-width: 500px) {
+    .exercises-catalog-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.exercise-item-card {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    border-radius: 16px;
+}
+
+.exercise-item-card:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5), 0 0 14px rgba(56, 189, 248, 0.15);
+}
+
+.exercise-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.exercise-type-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.badge-type-empuje { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35); }
+.badge-type-pull { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.35); }
+.badge-type-piernas { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); }
+.badge-type-core { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); }
+.badge-type-combate { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); }
+.badge-type-mixto { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); }
+
+.exercise-difficulty-pill {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.7);
+    color: #94a3b8;
+    border: 1px solid #334155;
+}
+
+.exercise-card-main {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.exercise-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.25;
+}
+
+.exercise-brief {
+    font-size: 0.76rem;
+    color: #94a3b8;
+    line-height: 1.35;
+}
+
+.exercise-equipment-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.badge-tag {
+    font-size: 0.66rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.badge-equipment {
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid #334155;
+    color: #cbd5e1;
+}
+
+.badge-equipment-dumbbell { border-color: rgba(56, 189, 248, 0.3); }
+.badge-equipment-barbell { border-color: rgba(245, 158, 11, 0.3); }
+.badge-equipment-mat { border-color: rgba(16, 185, 129, 0.3); }
+.badge-equipment-bag { border-color: rgba(239, 68, 68, 0.3); }
+.badge-equipment-body { border-color: rgba(148, 163, 184, 0.3); }
+
+.exercise-muscles-row {
+    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+    padding-top: 6px;
+    border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.muscle-value {
+    color: #fff;
+}
+
+.btn-neon-guide {
+    width: 100%;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0.8) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 10px;
+    color: var(--accent-color);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    transition: all 0.2s ease;
+}
+
+.btn-neon-guide:hover {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.22) 0%, rgba(15, 23, 42, 0.9) 100%);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+    transform: translateY(-1px);
+}
+
+/* ------------------------------------------
+   VISOR BIOMECÁNICO & LAS 3 POSTURAS CLAVE (MODAL)
+   ------------------------------------------ */
+.modal-large {
+    max-width: 620px;
+    max-height: 90vh;
+}
+
+.exercise-modal-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.modal-subtitle {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.section-posturas-biomecanicas {
+    background: rgba(15, 23, 42, 0.7);
+    border-left: 3px solid #38bdf8;
+}
+
+.badge-neon-cyan {
+    color: var(--accent-color);
+}
+
+.section-hint {
+    font-size: 0.76rem;
+    color: #94a3b8;
+    margin-bottom: 12px;
+}
+
+/* Selector de las 3 fases */
+.posture-phase-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.phase-btn {
+    padding: 8px 6px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.phase-btn:hover {
+    color: #fff;
+    border-color: #475569;
+}
+
+.phase-btn.active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(15, 23, 42, 0.8) 100%);
+    border-color: var(--accent-color);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+/* Tarjeta del Visor de Postura */
+.posture-display-card {
+    background: rgba(10, 15, 29, 0.95);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.posture-svg-container {
+    width: 100%;
+    background: radial-gradient(circle at center, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.9) 70%);
+    border-radius: 10px;
+    border: 1px solid rgba(51, 65, 85, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 8px;
+}
+
+.posture-svg {
+    width: 100%;
+    height: auto;
+    max-height: 220px;
+}
+
+.posture-meta-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.posture-headline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.fase-indicator {
+    background: var(--accent-color);
+    color: #0f172a;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
+}
+
+.posture-headline h4 {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.muscle-highlight-badge {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.74rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.muscle-highlight-badge strong {
+    color: #ef4444;
+}
+
+.posture-desc {
+    font-size: 0.76rem;
+    color: #cbd5e1;
+    line-height: 1.4;
+}
+
+/* Desglose Muscular */
+.muscles-split-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+@media (min-width: 480px) {
+    .muscles-split-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.muscle-group-box {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.group-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+}
+
+.muscle-tags-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.muscle-pill {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.muscle-pill.primary {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #fbbf24;
+}
+
+.muscle-pill.secondary {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #7dd3fc;
+}
+
+/* Pasos de técnica */
+.technique-steps-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.technique-step-card {
+    display: flex;
+    gap: 12px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.step-num {
+    font-size: 1rem;
+    font-weight: 900;
+    color: var(--accent-color);
+    font-family: monospace;
+}
+
+.technique-step-card strong {
+    color: #fff;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.technique-step-card p {
+    color: #cbd5e1;
+}
+
+.technique-meta-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    color: #cbd5e1;
+}
+
+/* ------------------------------------------
+   BIBLIOTECA 2 & 3: RUTINAS
+   ------------------------------------------ */
+.panel-intro-card {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.intro-icon {
+    font-size: 1.8rem;
+    line-height: 1;
+}
+
+.panel-intro-card h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.panel-intro-card p {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+.personalizadas-actions-bar {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.actions-info h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.actions-info p {
+    font-size: 0.76rem;
+    color: #94a3b8;
+}
+
+.actions-buttons-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.custom-filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.subtab-btn {
+    padding: 6px 12px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.subtab-btn.active {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.routines-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.routine-card {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-radius: 16px;
+}
+
+.routine-card.border-coach-glow {
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.1);
+}
+
+.routine-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.routine-category-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.routine-title {
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.3;
+}
+
+.routine-description {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+.routine-exercises-container {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.exercises-header-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.routine-exercises-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.routine-exercise-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+.routine-exercise-row:last-child {
+    border-bottom: none;
+}
+
+.ex-name-part {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.ex-idx {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #64748b;
+    font-family: monospace;
+    width: 14px;
+}
+
+.ex-title.link-tech {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    transition: color 0.18s ease;
+}
+
+.ex-name-part:hover .ex-title.link-tech {
+    color: var(--accent-color);
+    text-decoration: underline;
+}
+
+.ex-target-part {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.badge-series {
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid #475569;
+    color: #cbd5e1;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+.badge-rest {
+    font-size: 0.65rem;
+    color: #94a3b8;
+}
+
+.badge-time {
+    background: rgba(30, 41, 59, 0.8);
+    color: #94a3b8;
+    border: 1px solid #334155;
+}
+
+.badge-level {
+    background: rgba(15, 23, 42, 0.8);
+    color: #cbd5e1;
+    border: 1px solid #475569;
+}
+
+.badge-coach {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    font-weight: 800;
+}
+
+.badge-user {
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--accent-color);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    font-weight: 800;
+}
+
+.coach-quote-box {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(15, 23, 42, 0.8) 100%);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 10px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.74rem;
+    color: #fde68a;
+    line-height: 1.35;
+}
+
+.coach-quote-icon {
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.routine-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.btn-delete-routine {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 4px;
+    transition: color 0.2s ease;
+}
+
+.btn-delete-routine:hover {
+    color: #ef4444;
+}
+
+/* Botones con brillo Neón */
+.btn-neon-cyan {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.2) 100%);
+    border: 1.5px solid var(--accent-color);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+}
+
+.btn-neon-cyan:hover {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.3) 0%, rgba(14, 165, 233, 0.3) 100%);
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.5);
+    transform: translateY(-1px);
+}
+
+.btn-neon-gold {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.2) 100%);
+    border: 1.5px solid #f59e0b;
+    color: #fbbf24;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.btn-neon-gold:hover {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(217, 119, 6, 0.3) 100%);
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.45);
+    transform: translateY(-1px);
+}
+
+/* ------------------------------------------
+   SESIÓN ACTIVA (ENTRENAMIENTO EN VIVO)
+   ------------------------------------------ */
+.session-active-banner {
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.session-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 20px;
+    margin-bottom: 6px;
+}
+
+.btn-exit-session {
+    border-color: #ef4444;
+    color: #fca5a5;
+    white-space: nowrap;
+}
+
+.btn-exit-session:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+.session-exercises-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Formularios y Selectores de Modales */
+.custom-text-input,
+.custom-select-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid #334155;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.custom-text-input:focus,
+.custom-select-input:focus {
+    border-color: var(--accent-color);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #94a3b8;
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.exercise-selector-checklist {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.exercise-select-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.18s ease;
+}
+
+.exercise-select-item:hover {
+    background: rgba(51, 65, 85, 0.4);
+}
+
+.exercise-select-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.select-text-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.select-text-col strong {
+    font-size: 0.8rem;
+    color: #fff;
+}
+
+.select-meta {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.tag-coach {
+    color: #fbbf24;
+}
+
+.coach-prompt-desc {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    line-height: 1.45;
+    margin-bottom: 14px;
+}
+
+/* Toast Notifications */
+.toast-notification {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--accent-color);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.4);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    z-index: 3000;
+    animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-notification.toast-success {
+    border-color: #22c55e;
+    color: #86efac;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 15px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
