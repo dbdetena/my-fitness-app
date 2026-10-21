@@ -8,32 +8,47 @@ import {
     onSnapshot 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// Referencias del DOM
-let inputPeso, btnGuardar, displayPeso, statusBadge, feedbackElement;
+// Referencias a elementos del DOM en la vista Dashboard
+let inputPeso = null;
+let btnGuardar = null;
+let displayPeso = null;
+let statusBadge = null;
+let unsubscribeFirestore = null;
 
-function initDOM() {
+// Inicializa el módulo de salud cuando el router inyecta la vista 'dashboard'
+export function initSalud() {
+    // Limpiar listener previo si existiera
+    cleanupSalud();
+
     inputPeso = document.getElementById("pesoInput");
     btnGuardar = document.getElementById("btnGuardarPeso");
     displayPeso = document.getElementById("ultimoPesoDisplay");
     statusBadge = document.getElementById("dbStatusBadge");
-    feedbackElement = document.getElementById("pesoFeedback");
 
     if (btnGuardar) {
-        btnGuardar.addEventListener("click", guardarPeso);
+        btnGuardar.onclick = guardarPeso;
     }
 
     if (inputPeso) {
-        inputPeso.addEventListener("keydown", (e) => {
+        inputPeso.onkeydown = (e) => {
             if (e.key === "Enter") {
                 guardarPeso();
             }
-        });
+        };
     }
 
     escucharUltimoPeso();
 }
 
-// Escuchar cambios en tiempo real en Firestore
+// Detiene la escucha en tiempo real al salir del dashboard (ahorro de recursos)
+export function cleanupSalud() {
+    if (typeof unsubscribeFirestore === "function") {
+        unsubscribeFirestore();
+        unsubscribeFirestore = null;
+    }
+}
+
+// Conexión en tiempo real con Firestore
 function escucharUltimoPeso() {
     if (!displayPeso) return;
 
@@ -44,7 +59,7 @@ function escucharUltimoPeso() {
             limit(1)
         );
 
-        onSnapshot(q, (snapshot) => {
+        unsubscribeFirestore = onSnapshot(q, (snapshot) => {
             if (statusBadge) {
                 statusBadge.textContent = "🟢 Firestore conectado";
                 statusBadge.style.color = "#4ade80";
@@ -53,10 +68,10 @@ function escucharUltimoPeso() {
             if (!snapshot.empty) {
                 const docData = snapshot.docs[0].data();
                 const pesoVal = docData.peso;
-                const fechaVal = docData.fecha || "Hoy";
-                displayPeso.innerText = `Último registro: ${pesoVal} kg (${fechaVal})`;
+                const fechaVal = docData.fecha || "Reciente";
+                displayPeso.innerText = `${pesoVal} kg (${fechaVal})`;
                 displayPeso.style.color = "#38bdf8";
-                displayPeso.style.fontWeight = "600";
+                displayPeso.style.fontWeight = "700";
             } else {
                 displayPeso.innerText = "No hay registros de peso todavía.";
                 displayPeso.style.color = "#94a3b8";
@@ -67,11 +82,15 @@ function escucharUltimoPeso() {
                 statusBadge.textContent = "🔴 Error al conectar Firestore";
                 statusBadge.style.color = "#f87171";
             }
-            displayPeso.innerText = "Error al conectar con Firestore. Revisa permisos.";
+            if (displayPeso) {
+                displayPeso.innerText = "Error de conexión con la base de datos.";
+            }
         });
     } catch (e) {
-        console.error("Error al inicializar query de Firestore:", e);
-        displayPeso.innerText = "Error al consultar peso.";
+        console.error("Error al configurar listener de Firestore:", e);
+        if (displayPeso) {
+            displayPeso.innerText = "Error al inicializar Firestore.";
+        }
     }
 }
 
@@ -83,7 +102,7 @@ export async function guardarPeso() {
     const pesoValor = inputPeso ? inputPeso.value.trim() : "";
 
     if (!pesoValor || isNaN(pesoValor) || parseFloat(pesoValor) <= 0) {
-        mostrarFeedback("⚠️ Por favor, introduce un valor de peso válido.", "#facc15");
+        mostrarFeedback("⚠️ Por favor, introduce un peso válido.", "#facc15");
         if (inputPeso) inputPeso.focus();
         return;
     }
@@ -91,7 +110,7 @@ export async function guardarPeso() {
     const valorNumerico = parseFloat(pesoValor);
 
     // Estado visual del botón durante el guardado
-    const originalText = btnGuardar ? btnGuardar.innerText : "Guardar";
+    const textoOriginal = btnGuardar ? btnGuardar.innerText : "Guardar";
     if (btnGuardar) {
         btnGuardar.disabled = true;
         btnGuardar.innerText = "Guardando...";
@@ -116,39 +135,24 @@ export async function guardarPeso() {
     } finally {
         if (btnGuardar) {
             btnGuardar.disabled = false;
-            btnGuardar.innerText = originalText;
+            btnGuardar.innerText = textoOriginal;
             btnGuardar.style.opacity = "1";
             btnGuardar.style.cursor = "pointer";
         }
     }
 }
 
-// Hacer disponible globalmente para onclick inline
+// Hacer disponible globalmente
 window.guardarPeso = guardarPeso;
 
 function mostrarFeedback(mensaje, color) {
     let fb = document.getElementById("pesoFeedback");
-    if (!fb) {
-        fb = document.createElement("p");
-        fb.id = "pesoFeedback";
-        fb.style.fontSize = "0.85rem";
-        fb.style.marginTop = "8px";
-        if (inputPeso && inputPeso.parentElement) {
-            inputPeso.parentElement.parentElement.appendChild(fb);
-        }
-    }
+    if (!fb) return;
     fb.textContent = mensaje;
     fb.style.color = color;
     fb.style.display = "block";
 
     setTimeout(() => {
         if (fb) fb.style.display = "none";
-    }, 4500);
-}
-
-// Inicializar de inmediato si el DOM ya está listo (evita perder DOMContentLoaded en módulos ES)
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initDOM);
-} else {
-    initDOM();
+    }, 4000);
 }

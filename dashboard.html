@@ -1,0 +1,63 @@
+<!-- Vista: Dashboard (Hoy) -->
+<section class="view-container animate-fade-in">
+    <!-- Tarjeta Principal: Peso y Salud -->
+    <div class="card active-card card-health">
+        <div class="card-header-row">
+            <span class="icon">⚖️</span>
+            <div>
+                <h2>Peso y Salud</h2>
+                <p class="card-subtitle">Seguimiento ponderal en tiempo real</p>
+            </div>
+        </div>
+
+        <div class="weight-display-box">
+            <span class="weight-label">Último peso registrado:</span>
+            <p id="ultimoPesoDisplay" class="weight-value">Cargando...</p>
+        </div>
+
+        <div class="input-group weight-input-group">
+            <input type="number" id="pesoInput" step="0.1" min="30" max="300" placeholder="Ej: 75.5" autocomplete="off" inputmode="decimal">
+            <button id="btnGuardarPeso" class="btn-primary">Guardar</button>
+        </div>
+
+        <p id="pesoFeedback" class="feedback-msg"></p>
+    </div>
+
+    <!-- Tarjeta de Acceso Rápido: Entrenamiento de Hoy -->
+    <div class="card card-industrial" onclick="window.router.cargarVista('gimnasio')">
+        <div class="card-header-row">
+            <span class="icon">💪</span>
+            <div>
+                <h2>Entrenamiento de Hoy</h2>
+                <p class="card-subtitle">Empuje / Torso (Press Banca, Hombro, Tríceps)</p>
+            </div>
+        </div>
+        <div class="quick-status-row">
+            <span class="badge badge-accent">3 Ejercicios pendientes</span>
+            <span class="link-arrow">Ver rutina →</span>
+        </div>
+    </div>
+
+    <!-- Tarjeta de Resumen Rápido: Nutrición y Balance -->
+    <div class="card card-summary" onclick="window.router.cargarVista('nutricion')">
+        <div class="card-header-row">
+            <span class="icon">🥗</span>
+            <div>
+                <h2>Objetivo Nutricional</h2>
+                <p class="card-subtitle">Meta: 2.450 kcal | 165g Proteína</p>
+            </div>
+        </div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" style="width: 65%;"></div>
+        </div>
+        <div class="progress-labels">
+            <span>1.600 kcal consumidas</span>
+            <span>65% completado</span>
+        </div>
+    </div>
+
+    <!-- Estado de sincronización en tiempo real -->
+    <div class="sync-status-footer">
+        <span id="dbStatusBadge" class="status-indicator">Conectando a Firestore...</span>
+    </div>
+</section>

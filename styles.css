@@ -1,10 +1,16 @@
 :root {
     --bg-color: #0f172a;
     --card-bg: #1e293b;
+    --card-border: #334155;
     --text-color: #f8fafc;
     --text-muted: #94a3b8;
     --accent-color: #38bdf8;
     --accent-hover: #0ea5e9;
+    --accent-glow: rgba(56, 189, 248, 0.35);
+    --success-color: #4ade80;
+    --danger-color: #f87171;
+    --nav-height: 66px;
+    --app-max-width: 520px;
 }
 
 * {
@@ -12,76 +18,882 @@
     margin: 0;
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
     background-color: var(--bg-color);
     color: var(--text-color);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
     min-height: 100vh;
-}
-
-header {
-    text-align: center;
-    margin-bottom: 24px;
-}
-
-header h1 {
-    font-size: 1.5rem;
-    margin-bottom: 4px;
-    color: var(--accent-color);
-}
-
-.subtitle {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
-
-.dashboard {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    flex: 1;
-}
-
-.card {
-    background-color: var(--card-bg);
-    border-radius: 16px;
-    padding: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    padding-bottom: calc(var(--nav-height) + 24px);
+    overflow-x: hidden;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
+/* ==========================================
+   APP HEADER
+   ========================================== */
+.app-header {
+    width: 100%;
+    max-width: var(--app-max-width);
+    padding: 20px 16px 12px;
     text-align: center;
-    cursor: pointer;
-    transition: transform 0.2s, background-color 0.2s;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.4);
 }
 
-.card:active {
-    transform: scale(0.98);
-    background-color: #334155;
+.app-header h1 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent-color);
+    text-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+    margin-bottom: 4px;
 }
 
-.card .icon {
-    font-size: 2.5rem;
-    margin-bottom: 12px;
+.subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* ==========================================
+   CONTENEDOR PRINCIPAL (#app-content)
+   ========================================== */
+.app-content {
+    width: 100%;
+    max-width: var(--app-max-width);
+    padding: 16px;
+    flex: 1;
+    transition: opacity 0.18s ease-in-out;
+}
+
+.view-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==========================================
+   TARJETAS BASE & ESTÉTICA INDUSTRIAL
+   ========================================== */
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-carbon {
+    background: linear-gradient(145deg, #1e293b 0%, #151f30 100%);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    position: relative;
+    overflow: hidden;
+}
+
+.card-carbon::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+    opacity: 0.6;
+}
+
+.card-header-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.card-header-row .icon {
+    font-size: 1.8rem;
+    line-height: 1;
 }
 
 .card h2 {
-    font-size: 1.2rem;
-    margin-bottom: 6px;
+    font-size: 1.15rem;
+    font-weight: 700;
 }
 
-.card p {
-    font-size: 0.85rem;
+.card-subtitle {
+    font-size: 0.8rem;
     color: var(--text-muted);
 }
 
-footer {
+/* ==========================================
+   VISTA DASHBOARD: PESO Y SALUD
+   ========================================== */
+.weight-display-box {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(51, 65, 85, 0.7);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
     text-align: center;
-    margin-top: 24px;
+}
+
+.weight-label {
+    display: block;
     font-size: 0.75rem;
     color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.weight-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--accent-color);
+}
+
+.weight-input-group {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.weight-input-group input {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--card-border);
+    background: #0f172a;
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.weight-input-group input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.btn-primary {
+    padding: 12px 20px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent-color);
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s, opacity 0.2s;
+    white-space: nowrap;
+}
+
+.btn-primary:active {
+    transform: scale(0.97);
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+.feedback-msg {
+    display: none;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    text-align: center;
+    font-weight: 600;
+}
+
+.quick-status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-accent {
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--accent-color);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.link-arrow {
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
+.progress-bar-container {
+    height: 8px;
+    background: #0f172a;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0 6px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+    border-radius: 10px;
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.sync-status-footer {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.status-indicator {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* ==========================================
+   VISTA GIMNASIO: ESTÉTICA INDUSTRIAL
+   ========================================== */
+.section-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+}
+
+.workout-pill {
+    padding: 4px 10px;
+    background: rgba(56, 189, 248, 0.1);
+    color: var(--accent-color);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 16px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.exercise-card {
+    border-radius: 18px;
+    overflow: hidden;
+    transition: all 0.25s ease;
+}
+
+.exercise-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 18px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.exercise-main-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.exercise-icon {
+    font-size: 1.8rem;
+}
+
+.exercise-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.exercise-title-wrap h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.exercise-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.btn-info-neon {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    transition: all 0.2s ease;
+}
+
+.btn-info-neon:hover {
+    background: var(--accent-color);
+    color: #0f172a;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.6);
+    transform: scale(1.1);
+}
+
+.collapse-indicator .chevron {
+    display: inline-block;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    transition: transform 0.25s ease;
+}
+
+/* Estado Colapsado */
+.exercise-card.collapsed .chevron {
+    transform: rotate(-90deg);
+}
+
+.exercise-card.collapsed .exercise-header {
+    border-bottom-color: transparent;
+}
+
+.exercise-card.collapsed .exercise-body {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    pointer-events: none;
+}
+
+.exercise-body {
+    padding: 16px;
+    transition: max-height 0.3s ease, opacity 0.25s ease, padding 0.25s ease;
+    max-height: 800px;
+    opacity: 1;
+}
+
+/* ==========================================
+   TABLA DE SERIES CON CHECKBOXES NEÓN
+   ========================================== */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.sets-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.sets-table th {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 6px;
+    text-align: center;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.set-row {
+    transition: background-color 0.2s ease;
+}
+
+.set-row td {
+    padding: 10px 4px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.set-badge {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    border-radius: 6px;
+    background: #0f172a;
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 0.75rem;
+    border: 1px solid #334155;
+}
+
+.col-prev, .col-target {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.input-set-data {
+    width: 58px;
+    padding: 6px 4px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #fff;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-set-data:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 6px var(--accent-glow);
+}
+
+/* Checkbox Neón */
+.custom-neon-check {
+    position: relative;
+    display: inline-block;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+}
+
+.custom-neon-check input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.custom-neon-check .checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 26px;
+    width: 26px;
+    background: #0f172a;
+    border: 2px solid #475569;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.custom-neon-check:hover input ~ .checkmark {
+    border-color: var(--accent-color);
+}
+
+.custom-neon-check input:checked ~ .checkmark {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 12px var(--accent-color), inset 0 0 6px rgba(255,255,255,0.4);
+}
+
+.custom-neon-check .checkmark::after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 8px;
+    top: 4px;
+    width: 6px;
+    height: 12px;
+    border: solid #0f172a;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg);
+}
+
+.custom-neon-check input:checked ~ .checkmark::after {
+    display: block;
+}
+
+/* Fila de serie completada */
+.set-row.set-completed {
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.set-row.set-completed .input-set-data {
+    border-color: rgba(56, 189, 248, 0.4);
+    color: var(--accent-color);
+    background: rgba(15, 23, 42, 0.9);
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.15);
+}
+
+.set-row.set-completed .set-badge {
+    background: var(--accent-color);
+    color: #0f172a;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.set-row.set-completed .col-prev,
+.set-row.set-completed .col-target {
+    opacity: 0.6;
+}
+
+.exercise-footer-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px dashed #475569;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.rest-timer {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* ==========================================
+   MODAL SUPERPUESTO (BIOMECÁNICA & RED FLAGS)
+   ========================================== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background: #1e293b;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.2);
+    transform: scale(0.94);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+}
+
+.modal-overlay.active .modal-card {
+    transform: scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 20px;
+    border-bottom: 1px solid #334155;
+    background: rgba(15, 23, 42, 0.6);
+}
+
+.modal-tag {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: var(--accent-color);
+    letter-spacing: 0.08em;
+}
+
+.modal-header h3 {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.modal-close-btn {
+    background: rgba(51, 65, 85, 0.5);
+    border: none;
+    color: var(--text-muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+    background: #475569;
+    color: #fff;
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.modal-section {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 12px;
+    padding: 14px 16px;
+    border-left: 3px solid var(--accent-color);
+}
+
+.section-redflags {
+    border-left-color: var(--danger-color);
+}
+
+.section-alternativas {
+    border-left-color: #a855f7;
+}
+
+.section-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.section-badge h4 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.modal-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: #cbd5e1;
+}
+
+.modal-list strong {
+    color: #fff;
+}
+
+.red-flag-list li {
+    color: #fca5a5;
+}
+
+.alternatives-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.alt-item {
+    background: rgba(30, 41, 59, 0.7);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    font-size: 0.8rem;
+}
+
+.alt-item strong {
+    color: var(--accent-color);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.alt-item p {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid #334155;
+    background: rgba(15, 23, 42, 0.6);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.modal-action-btn {
+    width: 100%;
+}
+
+/* ==========================================
+   VISTAS PLACEHOLDER (NUTRICIÓN, DIARIO, COACH)
+   ========================================== */
+.placeholder-view {
+    display: flex;
+    justify-content: center;
+    padding-top: 20px;
+}
+
+.placeholder-card {
+    text-align: center;
+    padding: 36px 24px;
+    width: 100%;
+}
+
+.placeholder-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+}
+
+.placeholder-desc {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 8px auto 20px;
+    max-width: 320px;
+}
+
+.construction-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(250, 204, 21, 0.1);
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    color: #facc15;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #facc15;
+    border-radius: 50%;
+    animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.4);
+        opacity: 0.4;
+    }
+}
+
+/* ==========================================
+   BARRA DE NAVEGACIÓN INFERIOR (.bottom-nav)
+   ========================================== */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--nav-height);
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid rgba(51, 65, 85, 0.6);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.nav-item {
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.15s ease;
+    flex: 1;
+    position: relative;
+}
+
+.nav-item .nav-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.nav-item .nav-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+/* Estado activo del botón de navegación */
+.nav-item.active {
+    color: var(--accent-color);
+}
+
+.nav-item.active .nav-icon {
+    transform: translateY(-2px) scale(1.1);
+    filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.nav-item.active .nav-label {
+    font-weight: 700;
+}
+
+.nav-item.active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 25%;
+    right: 25%;
+    height: 3px;
+    background: var(--accent-color);
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 0 8px var(--accent-color);
 }

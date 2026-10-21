@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mi Panel Fitness</title>
 
     <!-- Enlaces directos para iconos en Android y navegadores móviles -->
@@ -16,52 +16,42 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header>
+    <!-- Cabecera principal -->
+    <header class="app-header">
         <h1>Mi Panel Fitness</h1>
-        <p class="subtitle">Control diario de salud, nutrición y entrenamiento</p>
+        <p id="view-subtitle" class="subtitle">Control diario de salud, nutrición y entrenamiento</p>
     </header>
 
-    <main class="dashboard">
-        <!-- Tarjeta 1: Peso y Salud -->
-        <section class="card active-card">
-            <div class="icon">⚖️</div>
-            <h2>Peso y Salud</h2>
-            <p id="ultimoPesoDisplay">Cargando último peso...</p>
-            <div class="input-group" style="margin-top: 12px; display: flex; gap: 8px; width: 100%;">
-                <input type="number" id="pesoInput" step="0.1" placeholder="Ej: 75.5" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff;">
-                <button id="btnGuardarPeso" onclick="guardarPeso()" style="padding: 10px 16px; border-radius: 8px; border: none; background: #38bdf8; color: #0f172a; font-weight: bold; cursor: pointer; transition: all 0.2s;">Guardar</button>
-            </div>
-            <p id="pesoFeedback" style="display: none; margin-top: 8px; font-size: 0.8rem;"></p>
-        </section>
-
-        <!-- Tarjeta 2: Nutrición y Calorías -->
-        <section class="card" onclick="alert('Módulo de Nutrición próximamente')">
-            <div class="icon">🥗</div>
-            <h2>Nutrición</h2>
-            <p>Conteo rápido de calorías y macros</p>
-        </section>
-
-        <!-- Tarjeta 3: Gimnasio y Series -->
-        <section class="card" onclick="alert('Módulo de Gimnasio próximamente')">
-            <div class="icon">💪</div>
-            <h2>Gimnasio</h2>
-            <p>Sobrecarga progresiva y series</p>
-        </section>
-
-        <!-- Tarjeta 4: Resumen Diario -->
-        <section class="card" onclick="alert('Balance energético próximamente')">
-            <div class="icon">📊</div>
-            <h2>Balance Diario</h2>
-            <p>Calorías consumidas vs quemadas</p>
-        </section>
+    <!-- Contenedor dinámico SPA -->
+    <main id="app-content" class="app-content">
+        <!-- Las vistas parciales se inyectan aquí dinámicamente mediante router.js -->
     </main>
 
-    <footer>
-        <p>FitnessPersonalDBdT conectado</p>
-        <p id="dbStatusBadge" style="margin-top: 4px; font-size: 0.75rem; color: #94a3b8;">Conectando a Firestore...</p>
-    </footer>
+    <!-- Barra de navegación inferior fija -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Hoy</span>
+        </button>
+        <button class="nav-item" data-view="gimnasio" id="nav-gimnasio">
+            <span class="nav-icon">💪</span>
+            <span class="nav-label">Rutinas</span>
+        </button>
+        <button class="nav-item" data-view="nutricion" id="nav-nutricion">
+            <span class="nav-icon">🥗</span>
+            <span class="nav-label">Nutrición</span>
+        </button>
+        <button class="nav-item" data-view="diario" id="nav-diario">
+            <span class="nav-icon">📓</span>
+            <span class="nav-label">Diario</span>
+        </button>
+        <button class="nav-item" data-view="coach" id="nav-coach">
+            <span class="nav-icon">⚡</span>
+            <span class="nav-label">Coach</span>
+        </button>
+    </nav>
 
-    <!-- Registro del Service Worker para habilitar la instalación PWA -->
+    <!-- Registro del Service Worker para PWA -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -72,7 +62,8 @@
       }
     </script>
 
-    <!-- Scripts principales -->
+    <!-- Motor SPA y Módulos -->
     <script type="module" src="salud.js"></script>
+    <script type="module" src="router.js"></script>
 </body>
 </html>

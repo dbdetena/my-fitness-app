@@ -1,0 +1,208 @@
+<!-- Vista: Gimnasio y Series (Estética Industrial Carbón) -->
+<section class="view-container animate-fade-in gimnasio-view">
+    <div class="section-title-row">
+        <div>
+            <h2>Sesión: Empuje & Pectoral</h2>
+            <p class="subtitle">Sobrecarga progresiva y registro de series</p>
+        </div>
+        <span class="workout-pill">Semana 4 / Día 1</span>
+    </div>
+
+    <!-- Tarjeta de Ejercicio Colapsable: Press de Banca -->
+    <div class="exercise-card card-carbon" id="card-press-banca">
+        <!-- Cabecera de la tarjeta colapsable -->
+        <div class="exercise-header" onclick="window.gimnasio?.toggleCollapse('card-press-banca')">
+            <div class="exercise-main-info">
+                <span class="exercise-icon">🏋️‍♂️</span>
+                <div>
+                    <div class="exercise-title-wrap">
+                        <h3>Press de Banca Plano</h3>
+                        <!-- Botón Info ℹ️ Neón para abrir Modal (detiene propagación para no colapsar) -->
+                        <button class="btn-info-neon" title="Guía técnica y biomecánica" onclick="event.stopPropagation(); window.gimnasio?.openModal('modal-press-banca')">
+                            ℹ️
+                        </button>
+                    </div>
+                    <p class="exercise-meta">Barra olímpica • 3 series efectivas • RIR 1-2</p>
+                </div>
+            </div>
+            <div class="collapse-indicator">
+                <span class="chevron">▼</span>
+            </div>
+        </div>
+
+        <!-- Contenido colapsable (tabla de series) -->
+        <div class="exercise-body">
+            <div class="table-responsive">
+                <table class="sets-table">
+                    <thead>
+                        <tr>
+                            <th class="col-set">SET</th>
+                            <th class="col-prev">PREVIO</th>
+                            <th class="col-target">OBJETIVO</th>
+                            <th class="col-input">PESO (kg)</th>
+                            <th class="col-input">REPS</th>
+                            <th class="col-check">CHECK</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Serie 1 -->
+                        <tr class="set-row" id="row-set-1">
+                            <td class="col-set"><span class="set-badge">1</span></td>
+                            <td class="col-prev">80 kg × 8</td>
+                            <td class="col-target">82.5 kg × 8</td>
+                            <td class="col-input">
+                                <input type="number" step="0.5" class="input-set-data" value="82.5" placeholder="82.5">
+                            </td>
+                            <td class="col-input">
+                                <input type="number" step="1" class="input-set-data" value="8" placeholder="8">
+                            </td>
+                            <td class="col-check">
+                                <label class="custom-neon-check">
+                                    <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('row-set-1', this)">
+                                    <span class="checkmark"></span>
+                                </label>
+                            </td>
+                        </tr>
+
+                        <!-- Serie 2 -->
+                        <tr class="set-row" id="row-set-2">
+                            <td class="col-set"><span class="set-badge">2</span></td>
+                            <td class="col-prev">80 kg × 8</td>
+                            <td class="col-target">82.5 kg × 7</td>
+                            <td class="col-input">
+                                <input type="number" step="0.5" class="input-set-data" value="82.5" placeholder="82.5">
+                            </td>
+                            <td class="col-input">
+                                <input type="number" step="1" class="input-set-data" value="7" placeholder="7">
+                            </td>
+                            <td class="col-check">
+                                <label class="custom-neon-check">
+                                    <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('row-set-2', this)">
+                                    <span class="checkmark"></span>
+                                </label>
+                            </td>
+                        </tr>
+
+                        <!-- Serie 3 -->
+                        <tr class="set-row" id="row-set-3">
+                            <td class="col-set"><span class="set-badge">3</span></td>
+                            <td class="col-prev">80 kg × 7</td>
+                            <td class="col-target">82.5 kg × 6</td>
+                            <td class="col-input">
+                                <input type="number" step="0.5" class="input-set-data" value="82.5" placeholder="82.5">
+                            </td>
+                            <td class="col-input">
+                                <input type="number" step="1" class="input-set-data" value="6" placeholder="6">
+                            </td>
+                            <td class="col-check">
+                                <label class="custom-neon-check">
+                                    <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('row-set-3', this)">
+                                    <span class="checkmark"></span>
+                                </label>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Botón añadir serie o nota -->
+            <div class="exercise-footer-actions">
+                <button class="btn-ghost" onclick="alert('Funcionalidad de añadir serie próximamente')">+ Añadir Serie</button>
+                <span class="rest-timer">⏱️ Descanso sugerido: 2:30 min</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Segundo ejercicio de ejemplo para completar la vista de sesión -->
+    <div class="exercise-card card-carbon collapsed" id="card-press-militar">
+        <div class="exercise-header" onclick="window.gimnasio?.toggleCollapse('card-press-militar')">
+            <div class="exercise-main-info">
+                <span class="exercise-icon">⚡</span>
+                <div>
+                    <div class="exercise-title-wrap">
+                        <h3>Press Militar con Mancuernas</h3>
+                    </div>
+                    <p class="exercise-meta">Deltoides anterior & lateral • 3 series de 10-12</p>
+                </div>
+            </div>
+            <div class="collapse-indicator">
+                <span class="chevron">▼</span>
+            </div>
+        </div>
+        <div class="exercise-body">
+            <p style="padding: 16px; color: var(--text-muted); font-size: 0.85rem; text-align: center;">
+                Pulsa en la cabecera para expandir la rutina completa.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- MODAL SUPERPUESTO: GUÍA TÉCNICA Y BIOMECÁNICA -->
+<div id="modal-press-banca" class="modal-overlay" onclick="window.gimnasio?.closeModal('modal-press-banca')">
+    <div class="modal-card modal-industrial" onclick="event.stopPropagation()">
+        <!-- Encabezado del modal -->
+        <div class="modal-header">
+            <div class="modal-title-group">
+                <span class="modal-tag">GUÍA TÉCNICA</span>
+                <h3>Press de Banca Plano</h3>
+            </div>
+            <button class="modal-close-btn" onclick="window.gimnasio?.closeModal('modal-press-banca')">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Sección 1: Biomecánica -->
+            <div class="modal-section section-biomecanica">
+                <div class="section-badge">
+                    <span>🧠</span>
+                    <h4>Biomecánica & Patrón Motor</h4>
+                </div>
+                <ul class="modal-list">
+                    <li><strong>Retracción y depresión escapular:</strong> Bloquea las escápulas 'abajo y atrás' para crear una base estable y proteger el manguito rotador.</li>
+                    <li><strong>Trayectoria en 'J invertida':</strong> La barra baja al esternón medio y sube diagonalmente hacia la vertical de los hombros.</li>
+                    <li><strong>Ángulo del húmero:</strong> Mantén los codos en un ángulo de 45° a 60° respecto al torso para maximizar activación del pectoral y minimizar choque articular.</li>
+                    <li><strong>Leg Drive:</strong> Planta los pies con firmeza en el suelo y empuja horizontalmente sin despegar los glúteos del banco.</li>
+                </ul>
+            </div>
+
+            <!-- Sección 2: Red Flags -->
+            <div class="modal-section section-redflags">
+                <div class="section-badge red-flag-badge">
+                    <span>🚨</span>
+                    <h4>Red Flags (Errores Lesivos)</h4>
+                </div>
+                <ul class="modal-list red-flag-list">
+                    <li>❌ <strong>Codos en T (90°):</strong> Estrés extremo en el labrum anterior y tendón del bíceps.</li>
+                    <li>❌ <strong>Rebotar la barra:</strong> Pérdida de tensión muscular en el punto de máxima ventaja mecánica y riesgo para el esternón.</li>
+                    <li>❌ <strong>Hiperextensión de muñecas:</strong> La barra debe apoyarse sobre el talón de la palma (hueso radio), no sobre los dedos doblados.</li>
+                    <li>❌ <strong>Levantar los glúteos del banco:</strong> Genera arqueo lumbar no soportado con alto riesgo de lesión espinal.</li>
+                </ul>
+            </div>
+
+            <!-- Sección 3: Alternativas -->
+            <div class="modal-section section-alternativas">
+                <div class="section-badge alt-badge">
+                    <span>🔄</span>
+                    <h4>Alternativas & Variantes</h4>
+                </div>
+                <div class="alternatives-grid">
+                    <div class="alt-item">
+                        <strong>Press Plano con Mancuernas</strong>
+                        <p>Mayor rango de estiramiento y libertad de rotación articular para los hombros.</p>
+                    </div>
+                    <div class="alt-item">
+                        <strong>Press Convergente en Máquina</strong>
+                        <p>Tensión constante en el pico de contracción con perfil de resistencia guiado.</p>
+                    </div>
+                    <div class="alt-item">
+                        <strong>Fondos en Paralelas Lastrados</strong>
+                        <p>Enfoque masivo en la porción esternocostal inferior con torso inclinado a 30°.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn-primary modal-action-btn" onclick="window.gimnasio?.closeModal('modal-press-banca')">Entendido</button>
+        </div>
+    </div>
+</div>
