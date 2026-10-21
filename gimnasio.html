@@ -130,42 +130,95 @@
     </div>
 
     <!-- ========================================================
-         PANEL DE SESIÓN ACTIVA (ENTRENAMIENTO EN VIVO DE UNA RUTINA)
+         PANEL DE SESIÓN ACTIVA (ENTRENAMIENTO EN VIVO ULTRA-VISUAL)
          ======================================================== -->
     <div id="panel-sesion-activa" class="rutinas-tab-panel sesion-activa-container" style="display: none;">
-        <!-- Banner de Sesión en Curso -->
-        <div class="session-active-banner card-carbon">
-            <div class="session-active-info">
-                <div class="session-status-badge">
-                    <span class="status-dot"></span>
-                    <span>ENTRENAMIENTO EN CURSO</span>
-                </div>
-                <h2 id="session-routine-title">Sesión Activa</h2>
-                <p id="session-routine-desc" class="subtitle">Registra el peso real, repeticiones y marca cada serie completada.</p>
+        
+        <!-- CABECERA SUPERIOR MINIMALISTA -->
+        <div class="session-top-bar">
+            <div class="session-badge-wrap">
+                <span class="live-pulse-dot"></span>
+                <span id="session-routine-badge" class="session-title-badge">ENTRENAMIENTO EN CURSO</span>
             </div>
-            <button class="btn-ghost btn-exit-session" onclick="window.gimnasio?.salirSesionActiva()">
-                ✕ Cerrar Mesa de Entrenamiento
+            <button class="btn-ghost-danger btn-exit-session" onclick="window.gimnasio?.salirSesionActiva()">
+                ✕ Abandonar Sesión
             </button>
         </div>
 
-        <!-- Contenedor dinámico de ejercicios y tablas de series -->
+        <!-- RELOJ / CRONÓMETRO GIGANTE CON BOTÓN DE PAUSA GRANDE -->
+        <div class="session-timer-hero card-carbon">
+            <div class="timer-display-wrap">
+                <span class="timer-label">CRONÓMETRO DE SESIÓN</span>
+                <div class="timer-digital-huge" id="session-cronometro-display">00:00</div>
+                <div class="timer-splits-live" id="session-timer-splits-bar">
+                    <span class="stat-pill-mini">🔥 Calentamiento: <strong id="metric-warmup-status">Pendiente</strong></span>
+                    <span class="stat-pill-mini">📊 Series: <strong id="metric-sets-progress">0 / 0</strong></span>
+                    <span class="stat-pill-mini">⚡ Estado: <strong id="metric-session-pace">Activo</strong></span>
+                </div>
+            </div>
+
+            <!-- BOTÓN DE PAUSA / REANUDAR GIGANTE (Fácil de pulsar durante el ejercicio sin precisión) -->
+            <button type="button" id="btn-timer-toggle-pause" class="btn-timer-huge btn-neon-pause" onclick="window.gimnasio?.togglePausarCronometro()">
+                <span id="btn-timer-icon" class="timer-action-icon">⏸️</span>
+                <span id="btn-timer-text" class="timer-action-text">PAUSAR ENTRENAMIENTO</span>
+            </button>
+        </div>
+
+        <!-- LISTA SECUENCIAL DE EJERCICIOS (1º Calentamiento con checks + Siguientes con registros) -->
         <div id="contenedor-ejercicios-sesion" class="session-exercises-list">
-            <!-- Se inyectan las tarjetas colapsables con series interactivas -->
+            <!-- Inyectado dinámicamente por gimnasio.js -->
         </div>
 
-        <!-- Cierre de Sesión y Registro Obligatorio en Bitácora -->
-        <div class="session-finish-card card-carbon">
-            <div class="session-finish-info">
-                <span class="finish-icon">🏁</span>
-                <div>
-                    <h4>¿Has completado el entrenamiento?</h4>
-                    <p>Al finalizar, registraremos obligatoriamente tus sensaciones en el Cuaderno de Bitácora para supervisión de la IA.</p>
+        <!-- CIERRE DE SESIÓN: BOTÓN DE MICRÓFONO GIGANTE & REGISTRO DE EVOLUCIÓN EN BITÁCORA -->
+        <div class="session-closure-card card-carbon">
+            <div class="closure-header-row">
+                <div class="closure-title-group">
+                    <span class="closure-badge">FINALIZACIÓN & FEEDBACK</span>
+                    <h3>Registrar Sensaciones de la Sesión</h3>
+                    <p class="closure-subtext">Dicta por voz sin teclear. El cronómetro y las marcas de tiempo de cada serie se registran como métricas de evolución.</p>
                 </div>
             </div>
-            <button class="btn-neon-finish-session" onclick="window.gimnasio?.abrirCierreSesionBitacora()">
-                <span>🏁 Finalizar & Registrar en Bitácora</span>
-            </button>
+
+            <!-- BOTÓN DE MICRÓFONO GIGANTE -->
+            <div class="closure-mic-section">
+                <button type="button" id="btn-session-huge-mic" class="btn-huge-mic" onclick="window.gimnasio?.alternarVozSesionDirecta()">
+                    <div class="mic-icon-wrap">
+                        <span class="mic-symbol">🎙️</span>
+                        <div class="mic-sonar-ring"></div>
+                        <div class="mic-sonar-ring delay"></div>
+                    </div>
+                    <div class="mic-text-col">
+                        <strong id="huge-mic-title">DICTAR COMENTARIOS POR VOZ</strong>
+                        <span id="huge-mic-subtitle">Pulsa para hablar sin tocar el teclado</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- ÁREA DE TRANSCRIPCIÓN EN TIEMPO REAL -->
+            <div class="closure-transcript-box">
+                <textarea id="session-voice-textarea" class="session-transcript-area" placeholder="Pulsa el botón de micrófono arriba o escribe tus sensaciones aquí... Ejemplo: 'Muy buen bombeo, calentamiento efectivo sin dolor en el hombro. Subí 2.5kg en la última serie.'"></textarea>
+            </div>
+
+            <!-- SELECTOR TÁCTIL RÁPIDO DE RPE (1 al 10 con botones grandes) -->
+            <div class="rpe-selector-touch">
+                <span class="rpe-touch-label">Esfuerzo Percibido (RPE):</span>
+                <div class="rpe-chips-bar" id="session-rpe-chips">
+                    <button type="button" class="rpe-btn-chip" data-rpe="6" onclick="window.gimnasio?.seleccionarRpe(6)">6 Moderado</button>
+                    <button type="button" class="rpe-btn-chip" data-rpe="7" onclick="window.gimnasio?.seleccionarRpe(7)">7 Duro</button>
+                    <button type="button" class="rpe-btn-chip active" data-rpe="8" onclick="window.gimnasio?.seleccionarRpe(8)">8 Intenso</button>
+                    <button type="button" class="rpe-btn-chip" data-rpe="9" onclick="window.gimnasio?.seleccionarRpe(9)">9 Al Límite</button>
+                    <button type="button" class="rpe-btn-chip" data-rpe="10" onclick="window.gimnasio?.seleccionarRpe(10)">10 Fallo 🔥</button>
+                </div>
+            </div>
+
+            <!-- BOTÓN GIGANTE FINAL PARA COMPLETAR Y GUARDAR -->
+            <div class="closure-submit-row">
+                <button type="button" class="btn-primary btn-neon-gold btn-huge-complete" onclick="window.gimnasio?.guardarSesionCompletaYSalir()">
+                    <span>🏁 Guardar Sesión con Métricas & Bitácora</span>
+                </button>
+            </div>
         </div>
+
     </div>
 
 </section>

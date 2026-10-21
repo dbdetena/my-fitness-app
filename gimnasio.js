@@ -19,7 +19,26 @@ const state = {
     filtroCreadorPersonalizada: "todos",
     ejercicioModalActual: null,
     fasePosturaActual: 1,
-    rutinaEnSesion: null
+    rutinaEnSesion: null,
+    cronometro: {
+        intervalId: null,
+        segundos: 0,
+        pausado: false,
+        tiempoInicio: null
+    },
+    metricasSesion: {
+        calentamientoInicio: null,
+        calentamientoFin: null,
+        calentamientoSegundos: null,
+        checksCalentamiento: {},
+        seriesTotales: 0,
+        seriesCompletadas: 0,
+        splits: [],
+        rpe: 8,
+        porVoz: false
+    },
+    grabandoVozSesion: false,
+    reconocimientoVozSesion: null
 };
 
 export function initGimnasio() {
@@ -47,11 +66,11 @@ export function initGimnasio() {
         ejecutarGeneracionCoach,
         toggleCollapse,
         toggleSetComplete,
-        marcarCalentamientoListo,
-        abrirCierreSesionBitacora,
-        cerrarModalDebrief,
-        alternarVozDebrief,
-        confirmarGuardarBitacoraYSalir
+        togglePausarCronometro,
+        toggleCheckCalentamiento,
+        alternarVozSesionDirecta,
+        seleccionarRpe,
+        guardarSesionCompletaYSalir
     };
 
     // Renderizado inicial de las 3 bibliotecas
@@ -683,9 +702,20 @@ export function ejecutarGeneracionCoach() {
 }
 
 // ==========================================
-// MESA DE ENTRENAMIENTO EN VIVO (SESIÓN ACTIVA)
+// MESA DE ENTRENAMIENTO EN VIVO (SESIÓN ACTIVA ULTRA-VISUAL)
 // ==========================================
-export function iniciarEntrenamientoRutina(tipo, rutinaId) {
+export function iniciarEntrenamientoRutina(arg1, arg2) {
+    let tipo = "estandar";
+    let rutinaId = null;
+
+    if (arg1 === "estandar" || arg1 === "personalizada") {
+        tipo = arg1;
+        rutinaId = arg2;
+    } else {
+        rutinaId = arg1;
+        tipo = arg2 || "estandar";
+    }
+
     let rutina = null;
     if (tipo === "estandar") {
         rutina = RUTINAS_ESTANDAR.find(r => r.id === rutinaId);
@@ -696,30 +726,69 @@ export function iniciarEntrenamientoRutina(tipo, rutinaId) {
     if (!rutina) return;
     state.rutinaEnSesion = rutina;
 
-    // Ocultar paneles de bibliotecas y mostrar panel de sesión activa
-    document.querySelectorAll(".rutinas-tab-panel").forEach(p => {
-        p.classList.remove("active");
-        p.style.display = "none";
+    // Reset de métricas y cronómetro
+    detenerCronometroSesion();
+    state.cronometro = {
+        intervalId: null,
+        segundos: 0,
+        pausado: false,
+        tiempoInicio: new Date()
+    };
+
+    let seriesTotales = 0;
+    (rutina.ejercicios || []).forEach(e => {
+        seriesTotales += (e.series || 3);
     });
 
-    const sesionPanel = document.getElementById("panel-sesion-activa");
-    if (sesionPanel) {
-        sesionPanel.style.display = "block";
-        sesionPanel.classList.add("active");
+    state.metricasSesion = {
+        calentamientoInicio: new Date(),
+        calentamientoFin: null,
+        calentamientoSegundos: null,
+        checksCalentamiento: {},
+        seriesTotales,
+        seriesCompletadas: 0,
+        splits: [],
+        rpe: 8,
+        porVoz: false
+    };
+
+    // Actualizar badges
+    const badgeEl = document.getElementById("session-routine-badge");
+    if (badgeEl) badgeEl.textContent = `SESIÓN ACTIVA: ${rutina.nombre.toUpperCase()}`;
+
+    const setsProgEl = document.getElementById("metric-sets-progress");
+    if (setsProgEl) setsProgEl.textContent = `0 / ${seriesTotales} (0%)`;
+
+    const warmStatusEl = document.getElementById("metric-warmup-status");
+    if (warmStatusEl) {
+        warmStatusEl.textContent = "Pendiente";
+        warmStatusEl.className = "text-amber";
     }
 
-    const titleEl = document.getElementById("session-routine-title");
-    const descEl = document.getElementById("session-routine-desc");
+    const paceEl = document.getElementById("metric-session-pace");
+    if (paceEl) {
+        paceEl.textContent = "Activo";
+        paceEl.className = "text-cyan";
+    }
+
+    const pauseBtnIcon = document.getElementById("btn-timer-icon");
+    const pauseBtnText = document.getElementById("btn-timer-text");
+    const pauseBtn = document.getElementById("btn-timer-toggle-pause");
+    if (pauseBtnIcon) pauseBtnIcon.textContent = "⏸️";
+    if (pauseBtnText) pauseBtnText.textContent = "PAUSAR ENTRENAMIENTO";
+    if (pauseBtn) {
+        pauseBtn.className = "btn-timer-huge btn-neon-pause";
+    }
+
+    // Iniciar cronómetro visual grande
+    iniciarCronometroSesion();
+
+    // Inyectar Ejercicios: 1º Calentamiento con checks + Sucesivos
     const contenedor = document.getElementById("contenedor-ejercicios-sesion");
-
-    if (titleEl) titleEl.textContent = rutina.nombre;
-    if (descEl) descEl.textContent = `Sesión activa • ${rutina.duracion || '50 min'} • ${rutina.ejercicios.length} ejercicios`;
-
     if (contenedor) {
-        // Calentamiento Preventivo Inteligente (Primer Ejercicio sugerido siempre)
         const calentamientoHtml = generarCardCalentamiento(rutina);
 
-        const ejerciciosHtml = rutina.ejercicios.map((item, idx) => {
+        const ejerciciosHtml = (rutina.ejercicios || []).map((item, idx) => {
             const ej = BASE_EJERCICIOS.find(e => e.id === item.ejercicioId);
             const nombre = ej ? ej.nombre : item.ejercicioId;
             const icono = ej ? ej.tipoIcono : "🏋️";
@@ -733,34 +802,37 @@ export function iniciarEntrenamientoRutina(tipo, rutinaId) {
                     <td class="col-set"><span class="set-badge">${s}</span></td>
                     <td class="col-target">${item.reps || "8-10"}</td>
                     <td class="col-input">
-                        <input type="number" step="0.5" class="input-set-data" placeholder="kg">
+                        <input type="number" step="0.5" class="input-set-data input-kg" placeholder="kg">
                     </td>
                     <td class="col-input">
-                        <input type="number" step="1" class="input-set-data" placeholder="reps">
+                        <input type="number" step="1" class="input-set-data input-reps" placeholder="reps">
                     </td>
                     <td class="col-check">
-                        <label class="custom-neon-check">
-                            <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('${rowId}', this)">
-                            <span class="checkmark"></span>
-                        </label>
+                        <div class="check-with-split">
+                            <label class="custom-neon-check touch-large">
+                                <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('${rowId}', this, '${nombre.replace(/'/g, "\\'")}', ${s})">
+                                <span class="checkmark"></span>
+                            </label>
+                            <span id="split-${rowId}" class="set-split-tag"></span>
+                        </div>
                     </td>
                 </tr>
                 `;
             }
 
             return `
-            <div class="exercise-card card-carbon" id="session-card-${idx}">
+            <div class="exercise-card card-carbon session-exercise-card" id="session-card-${idx}">
                 <div class="exercise-header" onclick="window.gimnasio?.toggleCollapse('session-card-${idx}')">
                     <div class="exercise-main-info">
                         <span class="exercise-icon">${icono}</span>
                         <div>
                             <div class="exercise-title-wrap">
-                                <h3>${nombre}</h3>
-                                <button class="btn-info-neon" title="Guía técnica" onclick="event.stopPropagation(); window.gimnasio?.abrirModalDetalle('${item.ejercicioId}')">
-                                    ℹ️
+                                <h3>${idx + 2}. ${nombre}</h3>
+                                <button class="btn-info-neon" title="Guía técnica 3D" onclick="event.stopPropagation(); window.gimnasio?.abrirModalDetalle('${item.ejercicioId}')">
+                                    ℹ️ Ficha 3D
                                 </button>
                             </div>
-                            <p class="exercise-meta">${numSeries} series planificadas • Descanso: ${item.descanso || 90}s</p>
+                            <p class="exercise-meta">${numSeries} series • Descanso: ${item.descanso || 90}s</p>
                         </div>
                     </div>
                     <div class="collapse-indicator">
@@ -773,11 +845,11 @@ export function iniciarEntrenamientoRutina(tipo, rutinaId) {
                         <table class="sets-table">
                             <thead>
                                 <tr>
-                                    <th class="col-set">SET</th>
+                                    <th class="col-set">SERIE</th>
                                     <th class="col-target">OBJETIVO</th>
                                     <th class="col-input">PESO (kg)</th>
                                     <th class="col-input">REPS</th>
-                                    <th class="col-check">CHECK</th>
+                                    <th class="col-check">CHECK & TIEMPO</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -796,12 +868,28 @@ export function iniciarEntrenamientoRutina(tipo, rutinaId) {
         contenedor.innerHTML = calentamientoHtml + ejerciciosHtml;
     }
 
-    // Scroll suave a la cabecera
+    // Resetear área de transcripción de voz al final
+    const voiceArea = document.getElementById("session-voice-textarea");
+    if (voiceArea) voiceArea.value = "";
+    seleccionarRpe(8);
+
+    // Ocultar bibliotecas y mostrar pantalla de sesión
+    document.querySelectorAll(".rutinas-tab-panel").forEach(p => {
+        p.classList.remove("active");
+        p.style.display = "none";
+    });
+
+    const sesionPanel = document.getElementById("panel-sesion-activa");
+    if (sesionPanel) {
+        sesionPanel.style.display = "block";
+        sesionPanel.classList.add("active");
+    }
+
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 /**
- * Genera el bloque dinámico de Calentamiento Preventivo & Activación (Ejercicio 0)
+ * Genera el primer ejercicio: Calentamiento Preventivo Ultra-Visual con Checks táctiles
  */
 function generarCardCalentamiento(rutina) {
     if (!rutina || !rutina.ejercicios) return "";
@@ -812,195 +900,447 @@ function generarCardCalentamiento(rutina) {
         if (ej && ej.tipo) tipos.add(ej.tipo);
     });
 
-    let cardioDesc = "Salto a la comba suave o skipping en el sitio (2 a 3 min) hasta percibir calor corporal y sudor ligero.";
-    let movilidadDesc = "Círculos de brazos, aperturas torácicas y rotación de cadera para activar el flujo sinovial.";
-    let aproximacionDesc = "1-2 series de 8-10 reps con barra vacía o el 40%-50% de la carga de trabajo antes del primer ejercicio pesado.";
+    let cardioSummary = "Salto de comba o skipping en el sitio (2 a 3 min)";
+    let movilidadSummary = "Círculos de brazos, rotaciones torácicas y de cadera";
+    let aproximacionSummary = "1-2 series livianas con barra vacía o 40% de carga";
 
     if (tipos.has("empuje") && tipos.has("pull")) {
-        movilidadDesc = "Rotaciones externas de manguito rotador con mancuerna liviana (15 reps), dislocaciones escapulares con banda elástica y descompresión en barra fija (Dead Hang pasivo 30s).";
-        cardioDesc = "Salto suave a la comba o sombra de boxeo (2.5 min) llevando pulsaciones a 115-125 ppm.";
+        movilidadSummary = "Rotaciones manguito rotador, dislocaciones con banda y dead hang";
+        cardioSummary = "Comba rítmica o sombra de boxeo (2.5 min • 115-125 ppm)";
     } else if (tipos.has("empuje")) {
-        movilidadDesc = "Círculos escapulares progresivos, rotaciones de hombro a 90° con mancuernas mínimas, flexiones escapulares en suelo y estiramiento activo de pectoral mayor.";
-        cardioDesc = "Sombra de boxeo suave o comba ligera (2 min) aumentando cadencia para abrir el flujo sanguíneo a deltoides, pectorales y tríceps.";
+        movilidadSummary = "Rotaciones de hombro a 90°, flexiones escapulares y estiramiento pectoral";
+        cardioSummary = "Sombra de boxeo suave o comba ligera (2 min • 120 ppm)";
     } else if (tipos.has("pull")) {
-        movilidadDesc = "Descompresión en barra fija (Dead Hang activo 3x15s con retracción escapular), gato-camello espinal en alfombra y aperturas escapulares con banda.";
-        cardioDesc = "Salto de comba rítmico (2.5 min) sincronizando respiración diafragmática profunda.";
+        movilidadSummary = "Dead hang activo (3x15s con retracción escapular) y gato-camello espinal";
+        cardioSummary = "Salto de comba constante coordinando respiración (2.5 min)";
     } else if (tipos.has("piernas")) {
-        movilidadDesc = "Dorsiflexión de tobillo contra pared (10 por pierna), apertura de cadera 90/90 en alfombra, sentadillas profundas Cossack y glute bridge con pausa de 2 segundos.";
-        cardioDesc = "Jumping jacks o skipping suave (3 min) elevando el pulso a 120-130 ppm para lubricar las articulaciones femorotibiales.";
-        aproximacionDesc = "10 sentadillas de peso corporal + 1 serie con barra vacía (10 reps) controlando el tempo de bajada (3s).";
+        movilidadSummary = "Dorsiflexión de tobillo, movilidad de cadera 90/90 y cossack squats";
+        cardioSummary = "Skipping suave o jumping jacks (3 min • 120-130 ppm)";
+        aproximacionSummary = "10 sentadillas libres + 1 serie con barra vacía lenta (3s bajada)";
     } else if (tipos.has("combate")) {
-        movilidadDesc = "Rotaciones balísticas de tronco y cadera, movilidad articular de muñecas (flexión/extensión), cuello y giros de tobillo.";
-        cardioDesc = "Salto de comba rítmico progresivo (3 min) coordinando rebote suave en metatarsos y respiración constante.";
+        movilidadSummary = "Rotaciones dinámicas de tronco, flexión/extensión de muñecas y tobillos";
+        cardioSummary = "Salto de comba coordinado con juego de pies (3 min • ritmo activo)";
     }
 
     return `
-    <div class="exercise-card card-carbon card-warmup-hero animate-fade-in" id="session-card-warmup">
-        <div class="warmup-banner-top">
-            <div class="warmup-badge-tags">
-                <span class="badge-warmup-pill">🔥 EJERCICIO 0 • CALENTAMIENTO PREVENTIVO</span>
-                <span class="badge-ai-sync">🤖 Supervisado por IA & Bitácora</span>
+    <div class="exercise-card card-carbon warmup-visual-card animate-fade-in" id="session-card-warmup">
+        <div class="warmup-visual-header">
+            <div class="warmup-tag-row">
+                <span class="badge-warmup-pill">🔥 1. CALENTAMIENTO PREVENTIVO</span>
+                <span class="badge-target-hr">🎯 Objetivo cardíaco: 110 - 130 ppm</span>
             </div>
-            <div class="warmup-header-text">
-                <h3>Activación Muscular, Movilidad & Rampa Térmica</h3>
-                <p class="warmup-goal-hint">Objetivo: Elevar temperatura corporal, llevar pulsaciones a zona segura (110-130 ppm) y lubricar articulaciones para <strong>evitar lesiones</strong> antes de cargar peso.</p>
-            </div>
+            <h3>Preparación Cardiovascular, Articular & SNC</h3>
+            <p class="warmup-visual-desc">Marca cada bloque conforme lo ejecutes para registrar las marcas de tiempo y proteger tus articulaciones:</p>
         </div>
 
-        <div class="warmup-body">
-            <div class="warmup-protocol-grid">
-                <!-- Paso 1: Rampa Cardiovascular -->
-                <div class="warmup-protocol-item">
-                    <span class="warmup-step-badge">Paso 1</span>
-                    <div class="warmup-step-content">
-                        <strong>Rampa Térmica & Frecuencia Cardíaca:</strong>
-                        <p>${cardioDesc}</p>
-                        <span class="warmup-stat-chip">🎯 110-130 ppm • 2-3 min</span>
+        <div class="warmup-checks-list">
+            <!-- Check 1: Cardiovascular -->
+            <label class="warmup-check-item" id="warmup-item-1">
+                <div class="warmup-check-left">
+                    <input type="checkbox" class="warmup-large-checkbox" onchange="window.gimnasio?.toggleCheckCalentamiento(1, this)">
+                    <div class="warmup-check-text">
+                        <strong class="check-title">🏃 1. Rampa Térmica Cardiovascular (2-3 min)</strong>
+                        <span class="check-detail">${cardioSummary}</span>
                     </div>
                 </div>
+                <div class="warmup-split-tag" id="warmup-tag-1">--:--</div>
+            </label>
 
-                <!-- Paso 2: Movilidad Articular Específica -->
-                <div class="warmup-protocol-item">
-                    <span class="warmup-step-badge">Paso 2</span>
-                    <div class="warmup-step-content">
-                        <strong>Movilidad Dinámica para esta Rutina:</strong>
-                        <p>${movilidadDesc}</p>
-                        <span class="warmup-stat-chip">🦴 Cápsula articular lista</span>
+            <!-- Check 2: Movilidad Articular -->
+            <label class="warmup-check-item" id="warmup-item-2">
+                <div class="warmup-check-left">
+                    <input type="checkbox" class="warmup-large-checkbox" onchange="window.gimnasio?.toggleCheckCalentamiento(2, this)">
+                    <div class="warmup-check-text">
+                        <strong class="check-title">🔄 2. Movilidad Articular Dinámica</strong>
+                        <span class="check-detail">${movilidadSummary}</span>
                     </div>
                 </div>
+                <div class="warmup-split-tag" id="warmup-tag-2">--:--</div>
+            </label>
 
-                <!-- Paso 3: Series de Aproximación -->
-                <div class="warmup-protocol-item">
-                    <span class="warmup-step-badge">Paso 3</span>
-                    <div class="warmup-step-content">
-                        <strong>Aproximación Neuromuscular:</strong>
-                        <p>${aproximacionDesc}</p>
-                        <span class="warmup-stat-chip">⚡ SNC activado</span>
+            <!-- Check 3: Activación SNC -->
+            <label class="warmup-check-item" id="warmup-item-3">
+                <div class="warmup-check-left">
+                    <input type="checkbox" class="warmup-large-checkbox" onchange="window.gimnasio?.toggleCheckCalentamiento(3, this)">
+                    <div class="warmup-check-text">
+                        <strong class="check-title">⚡ 3. Activación Neuromuscular & Series Ligeras</strong>
+                        <span class="check-detail">${aproximacionSummary}</span>
                     </div>
                 </div>
-            </div>
+                <div class="warmup-split-tag" id="warmup-tag-3">--:--</div>
+            </label>
+        </div>
 
-            <div class="warmup-action-wrap">
-                <button type="button" id="btn-warmup-check" class="btn-neon-warmup" onclick="window.gimnasio?.marcarCalentamientoListo()">
-                    <span>✅ Marcar Calentamiento Completado • Músculos Listos</span>
-                </button>
-            </div>
+        <div id="warmup-completion-notice" class="warmup-completion-badge" style="display: none;">
+            <span>✨ ¡Calentamiento Completado! Músculos preparados, líquido sinovial activo y articulaciones protegidas.</span>
         </div>
     </div>
     `;
 }
 
-export function marcarCalentamientoListo() {
-    const card = document.getElementById("session-card-warmup");
-    const btn = document.getElementById("btn-warmup-check");
-    if (!card || !btn) return;
+/**
+ * Manejador de checks del Calentamiento
+ */
+export function toggleCheckCalentamiento(paso, checkbox) {
+    const item = document.getElementById(`warmup-item-${paso}`);
+    const tag = document.getElementById(`warmup-tag-${paso}`);
+    const tiempoActual = obtenerTiempoActualStr();
 
-    card.classList.toggle("warmup-completed");
-    if (card.classList.contains("warmup-completed")) {
-        btn.innerHTML = `<span>✨ Calentamiento Completado • Articulaciones Preparadas</span>`;
-        btn.classList.add("btn-completed");
-        if (navigator.vibrate) navigator.vibrate(40);
-        mostrarToastLocal("🔥 Calentamiento registrado. ¡A por las series efectivas!");
+    if (checkbox.checked) {
+        if (item) item.classList.add("checked");
+        if (tag) {
+            tag.textContent = `✓ ${tiempoActual}`;
+            tag.classList.add("recorded");
+        }
+        state.metricasSesion.checksCalentamiento[paso] = tiempoActual;
+        state.metricasSesion.splits.push({
+            tipo: "calentamiento_paso",
+            paso,
+            tiempo: tiempoActual,
+            segundos: state.cronometro.segundos
+        });
+        if (navigator.vibrate) navigator.vibrate(25);
     } else {
-        btn.innerHTML = `<span>✅ Marcar Calentamiento Completado • Músculos Listos</span>`;
-        btn.classList.remove("btn-completed");
+        if (item) item.classList.remove("checked");
+        if (tag) {
+            tag.textContent = "--:--";
+            tag.classList.remove("recorded");
+        }
+        delete state.metricasSesion.checksCalentamiento[paso];
+    }
+
+    const checks = state.metricasSesion.checksCalentamiento;
+    const card = document.getElementById("session-card-warmup");
+    const notice = document.getElementById("warmup-completion-notice");
+    const statusPill = document.getElementById("metric-warmup-status");
+
+    if (checks[1] && checks[2] && checks[3]) {
+        state.metricasSesion.calentamientoFin = tiempoActual;
+        state.metricasSesion.calentamientoSegundos = state.cronometro.segundos;
+        if (card) card.classList.add("warmup-all-ready");
+        if (notice) notice.style.display = "flex";
+        if (statusPill) {
+            statusPill.textContent = `Listo (${tiempoActual})`;
+            statusPill.className = "text-green";
+        }
+        state.metricasSesion.splits.push({
+            tipo: "calentamiento_completo",
+            tiempo: tiempoActual,
+            segundos: state.cronometro.segundos
+        });
+        mostrarToastLocal(`🔥 Calentamiento completado a los ${tiempoActual}. ¡A por las series efectivas!`);
+        if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+    } else {
+        if (card) card.classList.remove("warmup-all-ready");
+        if (notice) notice.style.display = "none";
+        if (statusPill) {
+            statusPill.textContent = "En curso...";
+            statusPill.className = "text-amber";
+        }
     }
 }
 
-export function abrirCierreSesionBitacora() {
-    const modal = document.getElementById("modal-bitacora-post-sesion");
-    const nameEl = document.getElementById("debrief-routine-name");
-    const timeEl = document.getElementById("debrief-timestamp");
-    const textarea = document.getElementById("debrief-textarea-voz");
+/**
+ * Control del cronómetro de la sesión
+ */
+export function togglePausarCronometro() {
+    const btnIcon = document.getElementById("btn-timer-icon");
+    const btnText = document.getElementById("btn-timer-text");
+    const btn = document.getElementById("btn-timer-toggle-pause");
+    const paceStatus = document.getElementById("metric-session-pace");
+    const display = document.getElementById("session-cronometro-display");
 
-    if (nameEl && state.rutinaEnSesion) {
-        nameEl.textContent = state.rutinaEnSesion.nombre;
-    }
-    if (timeEl) {
-        timeEl.textContent = formatearFechaTimestamp(new Date());
-    }
-    if (textarea) {
-        textarea.value = "";
-        textarea.dataset.porVoz = "false";
-    }
-
-    if (modal) {
-        modal.classList.add("active");
-        document.body.classList.add("modal-open");
+    if (state.cronometro.pausado) {
+        state.cronometro.pausado = false;
+        if (btnIcon) btnIcon.textContent = "⏸️";
+        if (btnText) btnText.textContent = "PAUSAR ENTRENAMIENTO";
+        if (btn) {
+            btn.classList.remove("btn-neon-resume");
+            btn.classList.add("btn-neon-pause");
+        }
+        if (paceStatus) {
+            paceStatus.textContent = "Activo";
+            paceStatus.className = "text-cyan";
+        }
+        if (display) display.classList.remove("timer-paused");
+        mostrarToastLocal("▶️ Cronómetro reanudado");
+    } else {
+        state.cronometro.pausado = true;
+        if (btnIcon) btnIcon.textContent = "▶️";
+        if (btnText) btnText.textContent = "REANUDAR ENTRENAMIENTO";
+        if (btn) {
+            btn.classList.remove("btn-neon-pause");
+            btn.classList.add("btn-neon-resume");
+        }
+        if (paceStatus) {
+            paceStatus.textContent = "Pausado ⏸️";
+            paceStatus.className = "text-amber";
+        }
+        if (display) display.classList.add("timer-paused");
+        mostrarToastLocal("⏸️ Entrenamiento en pausa");
     }
 }
 
-export function cerrarModalDebrief() {
-    const modal = document.getElementById("modal-bitacora-post-sesion");
-    if (modal) {
-        modal.classList.remove("active");
-        document.body.classList.remove("modal-open");
+function iniciarCronometroSesion() {
+    if (state.cronometro.intervalId) clearInterval(state.cronometro.intervalId);
+    state.cronometro.segundos = 0;
+    state.cronometro.pausado = false;
+
+    actualizarDisplayCronometro();
+
+    state.cronometro.intervalId = setInterval(() => {
+        if (!state.cronometro.pausado) {
+            state.cronometro.segundos++;
+            actualizarDisplayCronometro();
+        }
+    }, 1000);
+}
+
+function detenerCronometroSesion() {
+    if (state.cronometro.intervalId) {
+        clearInterval(state.cronometro.intervalId);
+        state.cronometro.intervalId = null;
     }
 }
 
-export function alternarVozDebrief() {
-    if (window.diario?.alternarGrabacionVoz) {
-        window.diario.alternarGrabacionVoz("debrief-textarea-voz", "btn-debrief-voz");
+function actualizarDisplayCronometro() {
+    const display = document.getElementById("session-cronometro-display");
+    if (!display) return;
+    display.textContent = formatearSegundos(state.cronometro.segundos);
+}
+
+function formatearSegundos(totalSegundos) {
+    const h = Math.floor(totalSegundos / 3600);
+    const m = Math.floor((totalSegundos % 3600) / 60);
+    const s = totalSegundos % 60;
+
+    const ss = String(s).padStart(2, "0");
+    const mm = String(m).padStart(2, "0");
+
+    if (h > 0) {
+        return `${h}:${mm}:${ss}`;
+    }
+    return `${mm}:${ss}`;
+}
+
+function obtenerTiempoActualStr() {
+    return formatearSegundos(state.cronometro.segundos);
+}
+
+/**
+ * Marca o desmarca una serie de ejercicio registrando el split de tiempo
+ */
+export function toggleSetComplete(rowId, checkbox, ejNombre, setNum) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+
+    const splitTag = document.getElementById(`split-${rowId}`);
+    const tiempoActual = obtenerTiempoActualStr();
+
+    if (checkbox.checked) {
+        row.classList.add("set-completed");
+        const pesoInput = row.querySelector(".input-kg");
+        const repsInput = row.querySelector(".input-reps");
+        const peso = pesoInput && pesoInput.value ? parseFloat(pesoInput.value) : null;
+        const reps = repsInput && repsInput.value ? parseInt(repsInput.value, 10) : null;
+
+        if (splitTag) {
+            splitTag.textContent = `⏱️ ${tiempoActual}`;
+            splitTag.classList.add("visible");
+        }
+
+        state.metricasSesion.seriesCompletadas++;
+        state.metricasSesion.splits.push({
+            tipo: "serie",
+            ejercicio: ejNombre,
+            set: setNum,
+            peso,
+            reps,
+            tiempo: tiempoActual,
+            segundos: state.cronometro.segundos
+        });
+
+        if (navigator.vibrate) navigator.vibrate(25);
+    } else {
+        row.classList.remove("set-completed");
+        if (splitTag) {
+            splitTag.textContent = "";
+            splitTag.classList.remove("visible");
+        }
+        state.metricasSesion.seriesCompletadas = Math.max(0, state.metricasSesion.seriesCompletadas - 1);
+    }
+
+    // Actualizar barra de progreso de series
+    const setsProgEl = document.getElementById("metric-sets-progress");
+    if (setsProgEl) {
+        const pct = Math.round((state.metricasSesion.seriesCompletadas / (state.metricasSesion.seriesTotales || 1)) * 100);
+        setsProgEl.textContent = `${state.metricasSesion.seriesCompletadas} / ${state.metricasSesion.seriesTotales} (${pct}%)`;
     }
 }
 
-export function confirmarGuardarBitacoraYSalir() {
-    const textarea = document.getElementById("debrief-textarea-voz");
-    const rpeInput = document.getElementById("debrief-rpe");
+/**
+ * Dictado por voz directo con el botón gigante de la sesión
+ */
+export function alternarVozSesionDirecta() {
+    const btn = document.getElementById("btn-session-huge-mic");
+    const titleEl = document.getElementById("huge-mic-title");
+    const subtitleEl = document.getElementById("huge-mic-subtitle");
+    const textarea = document.getElementById("session-voice-textarea");
 
-    const feedback = textarea && textarea.value.trim() 
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert("Tu navegador no soporta Web Speech API para transcripción por voz. Puedes escribir tus comentarios en el campo de texto.");
+        return;
+    }
+
+    if (state.grabandoVozSesion) {
+        if (state.reconocimientoVozSesion) {
+            try { state.reconocimientoVozSesion.stop(); } catch(e) {}
+        }
+        state.grabandoVozSesion = false;
+        state.reconocimientoVozSesion = null;
+        if (btn) btn.classList.remove("recording");
+        if (titleEl) titleEl.textContent = "DICTAR COMENTARIOS POR VOZ";
+        if (subtitleEl) subtitleEl.textContent = "Pulsa para hablar sin tocar el teclado";
+        mostrarToastLocal("🛑 Grabación de voz finalizada");
+        return;
+    }
+
+    try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = "es-ES";
+        recognition.interimResults = true;
+        recognition.continuous = true;
+
+        state.grabandoVozSesion = true;
+        state.reconocimientoVozSesion = recognition;
+        state.metricasSesion.porVoz = true;
+
+        if (btn) btn.classList.add("recording");
+        if (titleEl) titleEl.textContent = "🔴 GRABANDO... DICTA TUS SENSACIONES";
+        if (subtitleEl) subtitleEl.textContent = "Habla con naturalidad • Pulsa para detener";
+        mostrarToastLocal("🎙️ Escuchando... habla sobre tus sensaciones, molestias o marcas.");
+
+        let textoBase = textarea ? textarea.value : "";
+
+        recognition.onresult = (event) => {
+            let finalStr = "";
+            let interimStr = "";
+
+            for (let i = 0; i < event.results.length; i++) {
+                const res = event.results[i];
+                if (res.isFinal) {
+                    finalStr += res[0].transcript + " ";
+                } else {
+                    interimStr += res[0].transcript;
+                }
+            }
+
+            if (textarea) {
+                const sep = textoBase && !textoBase.endsWith(" ") ? " " : "";
+                textarea.value = (textoBase + sep + finalStr + interimStr).trimStart();
+            }
+        };
+
+        recognition.onerror = (e) => {
+            console.warn("Speech error:", e.error);
+            if (btn) btn.classList.remove("recording");
+            if (titleEl) titleEl.textContent = "DICTAR COMENTARIOS POR VOZ";
+            if (subtitleEl) subtitleEl.textContent = "Pulsa para hablar sin tocar el teclado";
+            state.grabandoVozSesion = false;
+        };
+
+        recognition.onend = () => {
+            if (state.grabandoVozSesion) {
+                if (btn) btn.classList.remove("recording");
+                if (titleEl) titleEl.textContent = "DICTAR COMENTARIOS POR VOZ";
+                if (subtitleEl) subtitleEl.textContent = "Pulsa para hablar sin tocar el teclado";
+                state.grabandoVozSesion = false;
+            }
+        };
+
+        recognition.start();
+
+    } catch (e) {
+        console.error("Error al iniciar dictado por voz:", e);
+    }
+}
+
+/**
+ * Selector rápido táctil de RPE
+ */
+export function seleccionarRpe(val) {
+    state.metricasSesion.rpe = val;
+    document.querySelectorAll("#session-rpe-chips .rpe-btn-chip").forEach(b => {
+        const rpeAttr = parseInt(b.getAttribute("data-rpe"), 10);
+        b.classList.toggle("active", rpeAttr === val);
+    });
+}
+
+/**
+ * Guarda la sesión completa con todas sus métricas y la registra en la Bitácora
+ */
+export function guardarSesionCompletaYSalir() {
+    if (state.grabandoVozSesion && state.reconocimientoVozSesion) {
+        try { state.reconocimientoVozSesion.stop(); } catch(e) {}
+        state.grabandoVozSesion = false;
+    }
+
+    const textarea = document.getElementById("session-voice-textarea");
+    const textoUsuario = textarea && textarea.value.trim() 
         ? textarea.value.trim() 
-        : `Sesión completada con éxito. Buen volumen de trabajo y sensaciones estables.`;
-    
-    const rpe = rpeInput && rpeInput.value ? rpeInput.value : 8;
-    const porVoz = textarea && textarea.dataset.porVoz === "true";
-    const rutinaNombre = state.rutinaEnSesion ? state.rutinaEnSesion.nombre : "Entrenamiento General";
+        : `Sesión completada (${state.rutinaEnSesion?.nombre || 'Entrenamiento'}). Buen trabajo y calentamiento registrado.`;
 
-    // Guardar en la bitácora persistente
+    const duracionSegundos = state.cronometro.segundos;
+    const duracionFormato = formatearSegundos(duracionSegundos);
+
+    const metricas = {
+        duracionSegundos,
+        duracionFormato,
+        calentamientoFormato: state.metricasSesion.calentamientoFin || null,
+        calentamientoSegundos: state.metricasSesion.calentamientoSegundos || null,
+        seriesTotales: state.metricasSesion.seriesTotales,
+        seriesCompletadas: state.metricasSesion.seriesCompletadas,
+        splits: state.metricasSesion.splits,
+        splitsCount: state.metricasSesion.splits.length,
+        rutinaId: state.rutinaEnSesion?.id || "sesion-libre"
+    };
+
     guardarEntradaBitacora({
-        texto: feedback,
+        texto: textoUsuario,
         categoria: "post-entreno",
-        rutinaRelacionada: rutinaNombre,
-        rpe,
-        porVoz
+        rutinaRelacionada: state.rutinaEnSesion?.nombre || "Entrenamiento",
+        rpe: state.metricasSesion.rpe || 8,
+        porVoz: state.metricasSesion.porVoz,
+        metricas
     });
 
-    cerrarModalDebrief();
+    detenerCronometroSesion();
 
-    // Ocultar panel de sesión activa y volver
     const sesionPanel = document.getElementById("panel-sesion-activa");
     if (sesionPanel) sesionPanel.style.display = "none";
     cambiarTab(state.tabActual || "estandar");
 
-    mostrarToastLocal("🎉 ¡Entrenamiento registrado en la Bitácora con éxito!");
+    mostrarToastLocal(`🎉 ¡Entrenamiento registrado en Bitácora! Tiempo: ${duracionFormato} • ${metricas.seriesCompletadas} series.`);
 }
 
 export function salirSesionActiva() {
-    if (confirm("¿Quieres finalizar el entrenamiento y registrar tus sensaciones obligatorias en la Bitácora?")) {
-        abrirCierreSesionBitacora();
-        return;
+    if (confirm("¿Deseas salir del entrenamiento? El cronómetro se detendrá.")) {
+        detenerCronometroSesion();
+        if (state.grabandoVozSesion && state.reconocimientoVozSesion) {
+            try { state.reconocimientoVozSesion.stop(); } catch(e) {}
+            state.grabandoVozSesion = false;
+        }
+        const sesionPanel = document.getElementById("panel-sesion-activa");
+        if (sesionPanel) sesionPanel.style.display = "none";
+        cambiarTab(state.tabActual || "estandar");
     }
-    const sesionPanel = document.getElementById("panel-sesion-activa");
-    if (sesionPanel) sesionPanel.style.display = "none";
-    cambiarTab(state.tabActual || "estandar");
 }
 
 export function toggleCollapse(cardId) {
     const card = document.getElementById(cardId);
     if (!card) return;
     card.classList.toggle("collapsed");
-}
-
-export function toggleSetComplete(rowId, checkbox) {
-    const row = document.getElementById(rowId);
-    if (!row) return;
-
-    if (checkbox.checked) {
-        row.classList.add("set-completed");
-        if (navigator.vibrate) navigator.vibrate(25);
-    } else {
-        row.classList.remove("set-completed");
-    }
 }
 
 function mostrarToastLocal(mensaje) {

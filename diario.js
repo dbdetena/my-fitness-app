@@ -82,7 +82,7 @@ export function obtenerEntradasBitacora() {
 /**
  * Guarda una nueva entrada en la bitácora
  */
-export function guardarEntradaBitacora({ texto, categoria = "general", rutinaRelacionada = null, rpe = null, energia = "normal", porVoz = false }) {
+export function guardarEntradaBitacora({ texto, categoria = "general", rutinaRelacionada = null, rpe = null, energia = "normal", porVoz = false, metricas = null }) {
     if (!texto || !texto.trim()) return null;
 
     const entradas = obtenerEntradasBitacora();
@@ -106,7 +106,8 @@ export function guardarEntradaBitacora({ texto, categoria = "general", rutinaRel
         rpe: rpe ? parseInt(rpe, 10) : null,
         energia,
         texto: texto.trim(),
-        porVoz
+        porVoz,
+        metricas: metricas || null
     };
 
     // Añadir al principio (orden cronológico inverso)
@@ -260,6 +261,15 @@ export function renderizarListaBitacora() {
         const badgeRutina = e.rutinaRelacionada ? `<span class="badge-routine-tag">🏋️ ${e.rutinaRelacionada}</span>` : "";
         const badgeRpe = e.rpe ? `<span class="badge-rpe">RPE ${e.rpe}/10</span>` : "";
 
+        const metricasHtml = e.metricas ? `
+        <div class="entry-metrics-pills">
+            <span class="metric-pill pill-duration">⏱️ ${e.metricas.duracionFormato || '00:00'}</span>
+            ${e.metricas.calentamientoFormato ? `<span class="metric-pill pill-warmup">🔥 Calentamiento: ${e.metricas.calentamientoFormato}</span>` : ''}
+            <span class="metric-pill pill-sets">📊 Series: ${e.metricas.seriesCompletadas || 0}/${e.metricas.seriesTotales || 0}</span>
+            ${e.metricas.splits && e.metricas.splits.length ? `<span class="metric-pill pill-splits">⚡ ${e.metricas.splits.length} marcas</span>` : ''}
+        </div>
+        ` : '';
+
         return `
         <div class="bitacora-entry-card card-carbon animate-fade-in" id="entry-${e.id}">
             <div class="entry-header">
@@ -276,12 +286,13 @@ export function renderizarListaBitacora() {
             </div>
 
             <div class="entry-body">
+                ${metricasHtml}
                 <p class="entry-text">${e.texto}</p>
             </div>
 
             <div class="entry-footer-ai">
                 <span class="ai-sparkle">🤖</span>
-                <span class="ai-learning-hint">Registrado para supervisión de calentamiento y progresiones de la IA.</span>
+                <span class="ai-learning-hint">Métricas y notas supervisadas para optimizar tus futuros calentamientos y progresiones.</span>
             </div>
         </div>
         `;
