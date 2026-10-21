@@ -1,17 +1,9 @@
 import { initSalud, cleanupSalud } from "./salud.js";
 import { initGimnasio, cleanupGimnasio } from "./gimnasio.js";
+import { initFraseDelDia } from "./quotes.js";
 
 // Estado de la vista actual
 let vistaActual = null;
-
-// Mapa de subtítulos según la vista activa
-const SUBTITULOS_VISTAS = {
-    dashboard: "Control diario de salud, nutrición y entrenamiento",
-    gimnasio: "Sobrecarga progresiva y series efectivas",
-    nutricion: "Conteo de calorías, macros y balance",
-    diario: "Registro de notas, descanso y sensaciones",
-    coach: "Recomendaciones inteligentes de sobrecarga"
-};
 
 // Mapa de controladores de ciclo de vida para cada vista
 const LIFECYCLE_HOOKS = {
@@ -63,10 +55,7 @@ export async function cargarVista(vista) {
         // 3. Actualizar estado de navegación activa
         actualizarNavegacion(vista);
 
-        // 4. Actualizar subtítulo en la cabecera
-        actualizarCabecera(vista);
-
-        // 5. Ejecutar inicialización de scripts de la nueva vista
+        // 4. Ejecutar inicialización de scripts de la nueva vista
         if (LIFECYCLE_HOOKS[vista]?.init) {
             LIFECYCLE_HOOKS[vista].init();
         }
@@ -100,14 +89,6 @@ function actualizarNavegacion(vista) {
     });
 }
 
-// Actualiza el texto secundario de la cabecera
-function actualizarCabecera(vista) {
-    const subtitulo = document.getElementById("view-subtitle");
-    if (subtitulo && SUBTITULOS_VISTAS[vista]) {
-        subtitulo.textContent = SUBTITULOS_VISTAS[vista];
-    }
-}
-
 // Configurar eventos de los botones de navegación inferior
 function setupNavegacion() {
     const nav = document.querySelector(".bottom-nav");
@@ -127,6 +108,9 @@ function setupNavegacion() {
 // Inicialización de la SPA
 function initRouter() {
     setupNavegacion();
+
+    // Inicializar frase motivadora del día
+    initFraseDelDia();
 
     // Abrir automáticamente la vista 'dashboard' al iniciar
     cargarVista("dashboard");

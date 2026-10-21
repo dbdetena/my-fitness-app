@@ -16,10 +16,16 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Cabecera principal -->
+    <!-- Cabecera principal con Frase Motivadora Diaria -->
     <header class="app-header">
-        <h1>Mi Panel Fitness</h1>
-        <p id="view-subtitle" class="subtitle">Control diario de salud, nutrición y entrenamiento</p>
+        <div class="header-brand-row">
+            <h1>Mi Panel Fitness</h1>
+        </div>
+        <div class="quote-wrapper">
+            <span class="quote-symbol">“</span>
+            <p id="quote-text" class="quote-text">Cargando frase del día...</p>
+            <span class="quote-symbol">”</span>
+        </div>
     </header>
 
     <!-- Contenedor dinámico SPA -->
@@ -27,26 +33,64 @@
         <!-- Las vistas parciales se inyectan aquí dinámicamente mediante router.js -->
     </main>
 
-    <!-- Barra de navegación inferior fija -->
+    <!-- Barra de navegación inferior fija estilo Industrial Carbon & Neon -->
     <nav class="bottom-nav">
-        <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
-            <span class="nav-icon">📊</span>
+        <!-- 1. Hoy -->
+        <button class="nav-item active" data-view="dashboard" id="nav-dashboard" aria-label="Hoy">
+            <div class="nav-icon-box">
+                <svg viewBox="0 0 24 24" class="nav-svg">
+                    <path class="nav-shape" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    <polyline class="nav-line" points="4 12 8 12 10.5 8 13.5 16 16 10 17.5 12 20 12"/>
+                </svg>
+            </div>
             <span class="nav-label">Hoy</span>
         </button>
-        <button class="nav-item" data-view="gimnasio" id="nav-gimnasio">
-            <span class="nav-icon">💪</span>
+
+        <!-- 2. Rutinas (Gimnasio) -->
+        <button class="nav-item" data-view="gimnasio" id="nav-gimnasio" aria-label="Rutinas">
+            <div class="nav-icon-box">
+                <svg viewBox="0 0 24 24" class="nav-svg">
+                    <line class="nav-bar-line" x1="5" y1="19" x2="19" y2="5" />
+                    <line class="nav-plate-line" x1="4" y1="14.5" x2="9.5" y2="20" />
+                    <line class="nav-plate-sub" x1="2" y1="16.5" x2="7.5" y2="22" />
+                    <line class="nav-plate-line" x1="14.5" y1="4" x2="20" y2="9.5" />
+                    <line class="nav-plate-sub" x1="16.5" y1="2" x2="22" y2="7.5" />
+                </svg>
+            </div>
             <span class="nav-label">Rutinas</span>
         </button>
-        <button class="nav-item" data-view="nutricion" id="nav-nutricion">
-            <span class="nav-icon">🥗</span>
+
+        <!-- 3. Nutrición -->
+        <button class="nav-item" data-view="nutricion" id="nav-nutricion" aria-label="Nutrición">
+            <div class="nav-icon-box">
+                <svg viewBox="0 0 24 24" class="nav-svg">
+                    <path class="nav-shape" d="M12 6.5 C 10 3 4.5 3.5 4.5 9 C 4.5 15 9.5 18.5 12 19.5 C 14.5 18.5 19.5 15 19.5 9 C 19.5 3.5 14 3 12 6.5 Z" />
+                    <path class="nav-accent-fill" d="M12 5.5 C 12 2.5 15 1.5 16 2.5 C 16 4.5 14 5.5 12 5.5 Z" />
+                </svg>
+            </div>
             <span class="nav-label">Nutrición</span>
         </button>
-        <button class="nav-item" data-view="diario" id="nav-diario">
-            <span class="nav-icon">📓</span>
+
+        <!-- 4. Diario -->
+        <button class="nav-item" data-view="diario" id="nav-diario" aria-label="Diario">
+            <div class="nav-icon-box">
+                <svg viewBox="0 0 24 24" class="nav-svg">
+                    <rect class="nav-shape" x="5" y="3.5" width="14" height="17" rx="3" />
+                    <line class="nav-line" x1="8.5" y1="8" x2="15.5" y2="8" />
+                    <polyline class="nav-accent-line" points="8.5 15.5 11 13 13 14.5 15.5 11" />
+                </svg>
+            </div>
             <span class="nav-label">Diario</span>
         </button>
-        <button class="nav-item" data-view="coach" id="nav-coach">
-            <span class="nav-icon">⚡</span>
+
+        <!-- 5. Coach -->
+        <button class="nav-item" data-view="coach" id="nav-coach" aria-label="Coach">
+            <div class="nav-icon-box">
+                <svg viewBox="0 0 24 24" class="nav-svg">
+                    <polygon class="nav-shape" points="12 2.5 20 7 20 17 12 21.5 4 17 4 7" />
+                    <polygon class="nav-accent-fill" points="13 6 8.5 12 11.5 12 10.5 17.5 15.5 11 12.5 11" />
+                </svg>
+            </div>
             <span class="nav-label">Coach</span>
         </button>
     </nav>
