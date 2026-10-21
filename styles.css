@@ -42,8 +42,7 @@ body.modal-open {
 .app-header {
     width: 100%;
     max-width: var(--app-max-width);
-    padding: 20px 16px 12px;
-    text-align: center;
+    padding: 18px 16px 12px;
     position: sticky;
     top: 0;
     background: rgba(15, 23, 42, 0.95);
@@ -52,13 +51,47 @@ body.modal-open {
     border-bottom: 1px solid rgba(51, 65, 85, 0.4);
 }
 
+.header-brand-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    padding: 0 4px;
+}
+
 .app-header h1 {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
     font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--accent-color);
     text-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
-    margin-bottom: 4px;
+}
+
+.btn-icon-gear {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #94a3b8;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    cursor: pointer;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 4px 10px rgba(0, 0, 0, 0.4);
+    transition: all 0.22s ease;
+}
+
+.btn-icon-gear:hover {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
+    transform: rotate(35deg) scale(1.05);
+}
+
+.btn-icon-gear:active {
+    transform: scale(0.95);
 }
 
 .subtitle {
@@ -962,6 +995,91 @@ body.modal-open {
 
 .modal-action-btn {
     width: 100%;
+}
+
+/* ==========================================
+   MODAL DE CONFIGURACIÓN & PWA
+   ========================================== */
+.config-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.config-header-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.config-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.config-card h4 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.config-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+.btn-neon-warning {
+    width: 100%;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%);
+    border: 1.5px solid #f59e0b;
+    color: #fbbf24;
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+}
+
+.btn-neon-warning:hover {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(239, 68, 68, 0.25) 100%);
+    box-shadow: 0 0 22px rgba(245, 158, 11, 0.45);
+    transform: translateY(-2px);
+}
+
+.btn-neon-warning:active {
+    transform: scale(0.98);
+}
+
+.config-version-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 4px 4px 0;
+}
+
+.version-badge {
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--accent-color);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
 }
 
 /* ==========================================

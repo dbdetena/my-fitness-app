@@ -1,6 +1,7 @@
 import { initSalud, cleanupSalud } from "./salud.js";
 import { initGimnasio, cleanupGimnasio } from "./gimnasio.js";
 import { initFraseDelDia } from "./quotes.js";
+import { initConfig } from "./config.js";
 
 // Estado de la vista actual
 let vistaActual = null;
@@ -108,6 +109,9 @@ function setupNavegacion() {
 // Inicialización de la SPA
 function initRouter() {
     setupNavegacion();
+
+    // Inicializar configuración y forzar actualización PWA
+    initConfig();
 
     // Inicializar frase motivadora del día
     initFraseDelDia();

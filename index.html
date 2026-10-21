@@ -16,10 +16,13 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Cabecera principal con Frase Motivadora Diaria -->
+    <!-- Cabecera principal con Frase Motivadora Diaria y Ajustes -->
     <header class="app-header">
         <div class="header-brand-row">
             <h1>Mi Panel Fitness</h1>
+            <button id="btn-config" class="btn-icon-gear" title="Configuración y Actualización" aria-label="Configuración" onclick="window.abrirModalConfig?.()">
+                ⚙️
+            </button>
         </div>
         <div class="quote-wrapper">
             <span class="quote-symbol">“</span>
@@ -95,6 +98,43 @@
         </button>
     </nav>
 
+    <!-- MODAL DE CONFIGURACIÓN & FORZAR ACTUALIZACIÓN PWA -->
+    <div id="modal-config" class="modal-overlay" onclick="window.cerrarModalConfig?.()">
+        <div class="modal-card modal-industrial" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-tag">SISTEMA & PWA</span>
+                    <h3>Configuración</h3>
+                </div>
+                <button class="modal-close-btn" onclick="window.cerrarModalConfig?.()">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="config-card">
+                    <div class="config-header-row">
+                        <span class="config-icon">🔄</span>
+                        <div>
+                            <h4>Sincronización & Caché PWA</h4>
+                            <p class="config-desc">Si tu móvil sigue mostrando una versión antigua tras un despliegue, pulsa este botón para forzar una limpieza profunda del Service Worker y recargar desde el servidor.</p>
+                        </div>
+                    </div>
+                    <button id="btn-forzar-actualizacion" class="btn-neon-warning" onclick="window.forzarActualizacionApp?.()">
+                        <span>⚡</span> Forzar actualización de la app
+                    </button>
+                </div>
+
+                <div class="config-version-row">
+                    <span>Versión de la App: <strong>1.2.0 (PWA)</strong></span>
+                    <span class="version-badge">GitHub Sync</span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-ghost" style="width: 100%;" onclick="window.cerrarModalConfig?.()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Registro del Service Worker para PWA -->
     <script>
       if ('serviceWorker' in navigator) {
@@ -107,6 +147,7 @@
     </script>
 
     <!-- Motor SPA y Módulos -->
+    <script type="module" src="config.js"></script>
     <script type="module" src="salud.js"></script>
     <script type="module" src="router.js"></script>
 </body>
