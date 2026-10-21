@@ -1,4 +1,4 @@
-// Base de datos exhaustiva de Ejercicios Habituales
+﻿// Base de datos exhaustiva de Ejercicios Habituales
 // Clasificación por Tipo (Piernas, Empuje, Pull, Core, Combate) y Equipamiento necesario
 
 export const EQUIPAMIENTO_CONFIG = {
@@ -20,374 +20,6 @@ export const TIPOS_EJERCICIO = {
     core: { id: "core", nombre: "Core & Abdomen", icono: "🧱", color: "#10b981" },
     combate: { id: "combate", nombre: "Combate & Cardio", icono: "🥊", color: "#ef4444" }
 };
-
-// Generador de ilustraciones anatómicas vectoriales estilizadas con resaltado muscular neón
-function generarSvgPostura(tipoPostura, ejercicioId) {
-    const glowId = `glow-${ejercicioId}-${tipoPostura}`;
-    
-    switch(ejercicioId) {
-        case "press-banca":
-            if (tipoPostura === 1) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <rect x="50" y="115" width="220" height="12" rx="4" fill="#334155" stroke="#475569" stroke-width="2"/>
-                    <rect x="70" y="127" width="12" height="40" fill="#1e293b"/>
-                    <rect x="238" y="127" width="12" height="40" fill="#1e293b"/>
-                    <line x1="210" y1="50" x2="210" y2="115" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
-                    <circle cx="210" cy="50" r="7" fill="#94a3b8"/>
-                    <line x1="170" y1="46" x2="250" y2="46" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round"/>
-                    <circle cx="178" cy="46" r="12" fill="#38bdf8" opacity="0.3"/>
-                    <circle cx="178" cy="46" r="8" fill="#38bdf8"/>
-                    <polyline points="80,115 65,135 60,165 45,165" fill="none" stroke="#64748b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M 85,112 Q 130,100 175,108 L 195,112" fill="none" stroke="#94a3b8" stroke-width="12" stroke-linecap="round"/>
-                    <circle cx="205" cy="107" r="9" fill="#94a3b8"/>
-                    <line x1="175" y1="108" x2="195" y2="78" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/>
-                    <line x1="195" y1="78" x2="210" y2="48" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <path d="M 170,106 Q 185,104 195,109" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="110" y="88" fill="#38bdf8" font-size="10" font-family="monospace">Arco Lumbar & Retracción</text>
-                    <path d="M 130,95 L 130,105" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="2,2"/>
-                </svg>`;
-            } else if (tipoPostura === 2) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="4" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <rect x="50" y="115" width="220" height="12" rx="4" fill="#334155" stroke="#475569" stroke-width="2"/>
-                    <rect x="70" y="127" width="12" height="40" fill="#1e293b"/>
-                    <rect x="238" y="127" width="12" height="40" fill="#1e293b"/>
-                    <polyline points="80,115 65,135 60,165 45,165" fill="none" stroke="#64748b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M 85,112 Q 130,100 175,108 L 195,112" fill="none" stroke="#94a3b8" stroke-width="12" stroke-linecap="round"/>
-                    <circle cx="205" cy="107" r="9" fill="#94a3b8"/>
-                    <line x1="175" y1="108" x2="160" y2="124" stroke="#cbd5e1" stroke-width="8" stroke-linecap="round"/>
-                    <line x1="160" y1="124" x2="155" y2="92" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/>
-                    <circle cx="155" cy="90" r="6" fill="#f8fafc" stroke="#38bdf8" stroke-width="2"/>
-                    <line x1="115" y1="90" x2="195" y2="90" stroke="#f8fafc" stroke-width="5" stroke-linecap="round"/>
-                    <circle cx="120" cy="90" r="13" fill="#f59e0b" opacity="0.3"/>
-                    <circle cx="120" cy="90" r="9" fill="#f59e0b"/>
-                    <path d="M 160,103 Q 175,98 185,105" stroke="#ef4444" stroke-width="7" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <line x1="160" y1="122" x2="173" y2="110" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="145" y="145" fill="#f59e0b" font-size="10" font-family="monospace">Ángulo Codo: 45°-60°</text>
-                </svg>`;
-            } else {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="4" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <rect x="50" y="115" width="220" height="12" rx="4" fill="#334155" stroke="#475569" stroke-width="2"/>
-                    <rect x="70" y="127" width="12" height="40" fill="#1e293b"/>
-                    <rect x="238" y="127" width="12" height="40" fill="#1e293b"/>
-                    <polyline points="80,115 65,135 60,165 45,165" fill="none" stroke="#64748b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M 85,112 Q 130,100 175,108 L 195,112" fill="none" stroke="#94a3b8" stroke-width="12" stroke-linecap="round"/>
-                    <circle cx="205" cy="107" r="9" fill="#94a3b8"/>
-                    <line x1="175" y1="108" x2="176" y2="70" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/>
-                    <line x1="176" y1="70" x2="178" y2="40" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="138" y1="38" x2="218" y2="38" stroke="#f8fafc" stroke-width="5" stroke-linecap="round"/>
-                    <circle cx="145" cy="38" r="13" fill="#38bdf8" opacity="0.3"/>
-                    <circle cx="145" cy="38" r="9" fill="#38bdf8"/>
-                    <path d="M 166,105 Q 175,102 184,106" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <line x1="176" y1="70" x2="176" y2="92" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="75" y="42" fill="#38bdf8" font-size="10" font-family="monospace">Pico de Contracción</text>
-                </svg>`;
-            }
-
-        case "sentadilla":
-            if (tipoPostura === 1) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="30" y1="165" x2="290" y2="165" stroke="#475569" stroke-width="3"/>
-                    <line x1="140" y1="165" x2="145" y2="108" stroke="#94a3b8" stroke-width="10" stroke-linecap="round"/>
-                    <line x1="175" y1="165" x2="170" y2="108" stroke="#94a3b8" stroke-width="10" stroke-linecap="round"/>
-                    <line x1="157" y1="108" x2="157" y2="52" stroke="#cbd5e1" stroke-width="13" stroke-linecap="round"/>
-                    <circle cx="157" cy="36" r="11" fill="#cbd5e1"/>
-                    <line x1="105" y1="50" x2="210" y2="50" stroke="#f8fafc" stroke-width="6" stroke-linecap="round"/>
-                    <circle cx="115" cy="50" r="14" fill="#f59e0b" opacity="0.3"/>
-                    <circle cx="115" cy="50" r="10" fill="#f59e0b"/>
-                    <polyline points="155,54 185,62 178,50" fill="none" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
-                    <line x1="157" y1="62" x2="157" y2="102" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="195" y="90" fill="#38bdf8" font-size="10" font-family="monospace">Presión Intra-abdominal</text>
-                </svg>`;
-            } else if (tipoPostura === 2) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="4" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="30" y1="165" x2="290" y2="165" stroke="#475569" stroke-width="3"/>
-                    <circle cx="130" cy="165" r="5" fill="#64748b"/>
-                    <line x1="130" y1="165" x2="168" y2="128" stroke="#94a3b8" stroke-width="9" stroke-linecap="round"/>
-                    <line x1="168" y1="128" x2="118" y2="125" stroke="#94a3b8" stroke-width="11" stroke-linecap="round"/>
-                    <line x1="118" y1="125" x2="148" y2="82" stroke="#cbd5e1" stroke-width="12" stroke-linecap="round"/>
-                    <circle cx="155" cy="68" r="10" fill="#cbd5e1"/>
-                    <line x1="105" y1="80" x2="195" y2="80" stroke="#f8fafc" stroke-width="6" stroke-linecap="round"/>
-                    <circle cx="112" cy="80" r="14" fill="#ef4444" opacity="0.35"/>
-                    <circle cx="112" cy="80" r="10" fill="#ef4444"/>
-                    <line x1="162" y1="128" x2="124" y2="125" stroke="#ef4444" stroke-width="8" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <path d="M 118,125 Q 106,134 116,145" stroke="#f59e0b" stroke-width="7" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <line x1="150" y1="80" x2="150" y2="165" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3,3"/>
-                    <text x="175" y="105" fill="#ef4444" font-size="10" font-family="monospace">Cuádriceps & Glúteo 100%</text>
-                    <text x="175" y="120" fill="#38bdf8" font-size="9" font-family="monospace">Plomada en medio pie</text>
-                </svg>`;
-            } else {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="30" y1="165" x2="290" y2="165" stroke="#475569" stroke-width="3"/>
-                    <line x1="138" y1="165" x2="158" y2="122" stroke="#94a3b8" stroke-width="9" stroke-linecap="round"/>
-                    <line x1="158" y1="122" x2="142" y2="95" stroke="#94a3b8" stroke-width="10" stroke-linecap="round"/>
-                    <line x1="142" y1="95" x2="155" y2="60" stroke="#cbd5e1" stroke-width="12" stroke-linecap="round"/>
-                    <circle cx="158" cy="46" r="10" fill="#cbd5e1"/>
-                    <line x1="110" y1="58" x2="205" y2="58" stroke="#f8fafc" stroke-width="6" stroke-linecap="round"/>
-                    <circle cx="118" cy="58" r="12" fill="#38bdf8" opacity="0.3"/>
-                    <circle cx="118" cy="58" r="9" fill="#38bdf8"/>
-                    <line x1="154" y1="120" x2="144" y2="97" stroke="#38bdf8" stroke-width="7" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <line x1="185" y1="100" x2="185" y2="65" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-                    <polyline points="180,72 185,65 190,72" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-                    <text x="195" y="80" fill="#38bdf8" font-size="10" font-family="monospace">Extensión de Cadera</text>
-                </svg>`;
-            }
-
-        case "dominadas":
-            if (tipoPostura === 1) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="50" y1="20" x2="270" y2="20" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="125" y1="20" x2="142" y2="58" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="195" y1="20" x2="178" y2="58" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <circle cx="160" cy="54" r="9" fill="#cbd5e1"/>
-                    <line x1="160" y1="63" x2="160" y2="120" stroke="#94a3b8" stroke-width="12" stroke-linecap="round"/>
-                    <polyline points="160,120 162,155 168,172" fill="none" stroke="#64748b" stroke-width="7" stroke-linecap="round"/>
-                    <path d="M 148,68 Q 160,78 172,68" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="180" y="85" fill="#38bdf8" font-size="10" font-family="monospace">Activación Escapular</text>
-                </svg>`;
-            } else if (tipoPostura === 2) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="4" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="50" y1="45" x2="270" y2="45" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="125" y1="45" x2="132" y2="76" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="195" y1="45" x2="188" y2="76" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <circle cx="160" cy="30" r="9" fill="#cbd5e1"/>
-                    <line x1="160" y1="39" x2="160" y2="105" stroke="#cbd5e1" stroke-width="12" stroke-linecap="round"/>
-                    <polyline points="160,105 162,145 168,162" fill="none" stroke="#64748b" stroke-width="7" stroke-linecap="round"/>
-                    <path d="M 140,58 L 150,85 L 160,95 L 170,85 L 180,58" fill="none" stroke="#ef4444" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#${glowId})"/>
-                    <line x1="132" y1="74" x2="148" y2="58" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <line x1="188" y1="74" x2="172" y2="58" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="195" y="75" fill="#ef4444" font-size="10" font-family="monospace">Dorsal Mayor 100%</text>
-                    <text x="195" y="90" fill="#f59e0b" font-size="9" font-family="monospace">Bíceps Braquial</text>
-                </svg>`;
-            } else {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="50" y1="30" x2="270" y2="30" stroke="#64748b" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="125" y1="30" x2="138" y2="68" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="195" y1="30" x2="182" y2="68" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <circle cx="160" cy="48" r="9" fill="#cbd5e1"/>
-                    <line x1="160" y1="57" x2="160" y2="115" stroke="#94a3b8" stroke-width="12" stroke-linecap="round"/>
-                    <polyline points="160,115 162,150 168,168" fill="none" stroke="#64748b" stroke-width="7" stroke-linecap="round"/>
-                    <path d="M 148,68 Q 160,82 172,68" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <line x1="188" y1="65" x2="188" y2="100" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-                    <polyline points="183,92 188,100 193,92" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-                    <text x="198" y="95" fill="#38bdf8" font-size="10" font-family="monospace">Tempo Excéntrico: 3s</text>
-                </svg>`;
-            }
-
-        case "saco-boxeo":
-            if (tipoPostura === 1) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="20" y1="165" x2="300" y2="165" stroke="#475569" stroke-width="3"/>
-                    <line x1="240" y1="10" x2="240" y2="40" stroke="#64748b" stroke-width="3"/>
-                    <rect x="220" y="40" width="40" height="95" rx="10" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
-                    <polyline points="105,165 115,130 130,130" fill="none" stroke="#94a3b8" stroke-width="7" stroke-linecap="round"/>
-                    <polyline points="145,165 140,128 130,130" fill="none" stroke="#94a3b8" stroke-width="7" stroke-linecap="round"/>
-                    <line x1="130" y1="130" x2="135" y2="78" stroke="#cbd5e1" stroke-width="11" stroke-linecap="round"/>
-                    <circle cx="137" cy="65" r="9" fill="#cbd5e1"/>
-                    <circle cx="150" cy="66" r="7" fill="#ef4444"/>
-                    <circle cx="155" cy="74" r="7" fill="#ef4444"/>
-                    <line x1="130" y1="130" x2="135" y2="92" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="60" y="70" fill="#38bdf8" font-size="10" font-family="monospace">Guardia Alta & Mentón Abajo</text>
-                </svg>`;
-            } else if (tipoPostura === 2) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="4" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="20" y1="165" x2="300" y2="165" stroke="#475569" stroke-width="3"/>
-                    <line x1="240" y1="10" x2="242" y2="40" stroke="#64748b" stroke-width="3"/>
-                    <rect x="225" y="40" width="40" height="95" rx="10" fill="#1e293b" stroke="#ef4444" stroke-width="2.5"/>
-                    <polyline points="100,165 118,132 135,130" fill="none" stroke="#94a3b8" stroke-width="7" stroke-linecap="round"/>
-                    <polyline points="152,160 148,128 135,130" fill="none" stroke="#94a3b8" stroke-width="7" stroke-linecap="round"/>
-                    <line x1="135" y1="130" x2="148" y2="78" stroke="#cbd5e1" stroke-width="11" stroke-linecap="round"/>
-                    <circle cx="150" cy="65" r="9" fill="#cbd5e1"/>
-                    <line x1="148" y1="78" x2="185" y2="72" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="185" y1="72" x2="225" y2="70" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-                    <circle cx="225" cy="70" r="8" fill="#ef4444" stroke="#f8fafc" stroke-width="2"/>
-                    <line x1="135" y1="128" x2="148" y2="82" stroke="#ef4444" stroke-width="6" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <line x1="185" y1="72" x2="225" y2="70" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <circle cx="225" cy="70" r="14" fill="#f59e0b" opacity="0.4" filter="url(#${glowId})"/>
-                    <text x="60" y="55" fill="#ef4444" font-size="10" font-family="monospace">Poder Kinético: Tobillo > Cadera > Puño</text>
-                </svg>`;
-            } else {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <line x1="20" y1="165" x2="300" y2="165" stroke="#475569" stroke-width="3"/>
-                    <line x1="240" y1="10" x2="240" y2="40" stroke="#64748b" stroke-width="3"/>
-                    <rect x="220" y="40" width="40" height="95" rx="10" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
-                    <polyline points="105,165 115,130 130,130" fill="none" stroke="#94a3b8" stroke-width="7" stroke-linecap="round"/>
-                    <polyline points="145,165 140,128 130,130" fill="none" stroke="#94a3b8" stroke-width="7" stroke-linecap="round"/>
-                    <line x1="130" y1="130" x2="135" y2="78" stroke="#cbd5e1" stroke-width="11" stroke-linecap="round"/>
-                    <circle cx="137" cy="65" r="9" fill="#cbd5e1"/>
-                    <circle cx="150" cy="66" r="7" fill="#ef4444"/>
-                    <path d="M 205,72 Q 180,60 160,68" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-                    <polyline points="166,62 160,68 166,74" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
-                    <text x="75" y="105" fill="#38bdf8" font-size="10" font-family="monospace">Repliegue Inmediato (Sin caer guardia)</text>
-                </svg>`;
-            }
-
-        case "plancha-alfombra":
-            if (tipoPostura === 1) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <rect x="40" y="142" width="240" height="8" rx="2" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5"/>
-                    <line x1="210" y1="142" x2="185" y2="142" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="210" y1="142" x2="210" y2="105" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/>
-                    <circle cx="230" cy="100" r="9" fill="#cbd5e1"/>
-                    <line x1="210" y1="108" x2="135" y2="114" stroke="#cbd5e1" stroke-width="11" stroke-linecap="round"/>
-                    <line x1="135" y1="114" x2="70" y2="136" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
-                    <circle cx="68" cy="140" r="4" fill="#64748b"/>
-                    <line x1="200" y1="110" x2="140" y2="114" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="80" y="80" fill="#38bdf8" font-size="10" font-family="monospace">Alineación Hombro-Cadera-Tobillo</text>
-                </svg>`;
-            } else if (tipoPostura === 2) {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="4" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <rect x="40" y="142" width="240" height="8" rx="2" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5"/>
-                    <line x1="210" y1="142" x2="185" y2="142" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="210" y1="142" x2="210" y2="105" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/>
-                    <circle cx="230" cy="100" r="9" fill="#cbd5e1"/>
-                    <line x1="210" y1="108" x2="135" y2="112" stroke="#cbd5e1" stroke-width="11" stroke-linecap="round"/>
-                    <line x1="135" y1="112" x2="70" y2="136" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
-                    <circle cx="68" cy="140" r="4" fill="#64748b"/>
-                    <line x1="205" y1="110" x2="135" y2="113" stroke="#ef4444" stroke-width="7" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <path d="M 135,112 Q 120,115 125,124" stroke="#f59e0b" stroke-width="6" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <line x1="205" y1="118" x2="205" y2="136" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" filter="url(#${glowId})"/>
-                    <text x="60" y="70" fill="#ef4444" font-size="10" font-family="monospace">Transverso del Abdomen 100%</text>
-                    <text x="60" y="85" fill="#f59e0b" font-size="9" font-family="monospace">Apretón de Glúteos (Sin arqueo lumbar)</text>
-                </svg>`;
-            } else {
-                return `
-                <svg viewBox="0 0 320 180" class="posture-svg">
-                    <defs>
-                        <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
-                    </defs>
-                    <rect x="40" y="142" width="240" height="8" rx="2" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5"/>
-                    <line x1="210" y1="142" x2="185" y2="142" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/>
-                    <line x1="210" y1="142" x2="210" y2="108" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/>
-                    <circle cx="230" cy="103" r="9" fill="#cbd5e1"/>
-                    <line x1="210" y1="110" x2="135" y2="114" stroke="#cbd5e1" stroke-width="11" stroke-linecap="round"/>
-                    <line x1="135" y1="114" x2="70" y2="136" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
-                    <circle cx="68" cy="140" r="4" fill="#64748b"/>
-                    <circle cx="170" cy="112" r="14" fill="#38bdf8" opacity="0.25" filter="url(#${glowId})"/>
-                    <text x="80" y="75" fill="#38bdf8" font-size="10" font-family="monospace">Respiración Profunda y Ritmo Constante</text>
-                </svg>`;
-            }
-
-        default:
-            return `
-            <svg viewBox="0 0 320 180" class="posture-svg">
-                <defs>
-                    <filter id="${glowId}" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="3.5" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                    </filter>
-                </defs>
-                <line x1="20" y1="165" x2="300" y2="165" stroke="#475569" stroke-width="3"/>
-                <line x1="135" y1="165" x2="150" y2="115" stroke="#94a3b8" stroke-width="9" stroke-linecap="round"/>
-                <line x1="150" y1="115" x2="150" y2="65" stroke="#cbd5e1" stroke-width="12" stroke-linecap="round"/>
-                <circle cx="150" cy="48" r="11" fill="#cbd5e1"/>
-                <line x1="150" y1="65" x2="185" y2="85" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round"/>
-                <circle cx="185" cy="85" r="9" fill="#f59e0b" filter="url(#${glowId})"/>
-                <line x1="150" y1="75" x2="150" y2="110" stroke="#38bdf8" stroke-width="7" stroke-linecap="round" filter="url(#${glowId})"/>
-                <text x="85" y="30" fill="#38bdf8" font-size="10" font-family="monospace">Fase ${tipoPostura}: Biomecánica & Alineación</text>
-            </svg>`;
-    }
-}
 
 export const BASE_EJERCICIOS = [
     {
@@ -421,21 +53,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Posición Inicial & Setup Escapular",
                 musculosDestacados: "Trapecio medio/inferior y romboides (bloqueo escapular firme)",
                 detalles: "Arco lumbar compacto, glúteos en contacto con el banco, pies anclados al suelo y agarre 1.5 veces el ancho biacromial.",
-                svgIllustration: generarSvgPostura(1, "press-banca")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Punto de Máxima Carga (Esternón Medio)",
                 musculosDestacados: "Pectoral Mayor en máximo estiramiento bajo tensión, Deltoides Anterior y Tríceps",
                 detalles: "Barra sobre el esternón medio, antebrazos perpendiculares al suelo y codos a 45°-60° protegiendo la cápsula articular anterior.",
-                svgIllustration: generarSvgPostura(2, "press-banca")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Bloqueo Concéntrico & Retorno Seguro",
                 musculosDestacados: "Pico de contracción del Pectoral y bloqueo terminal por el Tríceps",
                 detalles: "Barra sobre la vertical de los hombros, escápulas aún ancladas atrás sin proyectar los hombros hacia adelante.",
-                svgIllustration: generarSvgPostura(3, "press-banca")
             }
         ]
     },
@@ -469,21 +98,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Setup & Presión Intra-abdominal",
                 musculosDestacados: "Erectores espinales, Core y Trapecios",
                 detalles: "Espalda neutra, barra calzada y fijada firmemente, pies clavados con efecto trípode (talón, dedo gordo y quinto meta).",
-                svgIllustration: generarSvgPostura(1, "sentadilla")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Profundidad Máxima (Rompiendo Paralela)",
                 musculosDestacados: "Cuádriceps y Glúteo Mayor en máxima tensión de estiramiento",
                 detalles: "Cadera debajo de rodillas, plomada de la barra sobre el medio pie y rodillas alineadas con los dedos.",
-                svgIllustration: generarSvgPostura(2, "sentadilla")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Ascenso Explosivo & Extensión de Cadera",
                 musculosDestacados: "Contracción terminal de Glúteo y Cuádriceps",
                 detalles: "Torso y caderas ascienden al mismo ritmo sin que la pelvis suba antes que el pecho (evitar sentadilla tipo 'buenos días').",
-                svgIllustration: generarSvgPostura(3, "sentadilla")
             }
         ]
     },
@@ -517,21 +143,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Suspensión Activa (Active Hang)",
                 musculosDestacados: "Dorsal Ancho activado y depresión escapular",
                 detalles: "Brazos extendidos, escápulas hacia abajo y atrás, abdomen compacto para evitar hiperextensión lumbar.",
-                svgIllustration: generarSvgPostura(1, "dominadas")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Tracción Pico (Barbilla sobre barra)",
                 musculosDestacados: "Dorsal Ancho 100%, Bíceps braquial y Redondo Mayor",
                 detalles: "Codos pegados a la línea lateral del torso, pecho proyectado al techo y retracción escapular máxima.",
-                svgIllustration: generarSvgPostura(2, "dominadas")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Descenso Excéntrico Controlado",
                 musculosDestacados: "Tensión excéntrica del Dorsal Ancho y flexores del codo",
                 detalles: "Descenso uniforme en 3 segundos sin tirones ni rebotes.",
-                svgIllustration: generarSvgPostura(3, "dominadas")
             }
         ]
     },
@@ -565,21 +188,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Postura de Guardia & Balance",
                 musculosDestacados: "Gemelos, Cuádriceps y Deltoides Anterior",
                 detalles: "Centro de gravedad bajo, codos cubriendo costillas flotantes y puños protegiendo pómulos.",
-                svgIllustration: generarSvgPostura(1, "saco-boxeo")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Impacto con Rotación de Cadera",
                 musculosDestacados: "Oblicuos, Dorsal, Pectoral y Tríceps",
                 detalles: "Pivoteo del pie posterior, cadera disparada hacia adelante y transferencia rotacional cinética completa.",
-                svgIllustration: generarSvgPostura(2, "saco-boxeo")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Repliegue Veloz a la Guardia",
                 musculosDestacados: "Dorsal y Deltoides Posterior en recuperación",
                 detalles: "El puño regresa a la cara antes de que el saco termine de oscilar, listos para defender o esquivar.",
-                svgIllustration: generarSvgPostura(3, "saco-boxeo")
             }
         ]
     },
@@ -613,21 +233,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Alineación Inicial sobre Alfombra",
                 musculosDestacados: "Serrato anterior y Deltoides",
                 detalles: "Codos bajo hombros en ángulo recto de 90° sobre la alfombra, cuello neutro mirando hacia las manos.",
-                svgIllustration: generarSvgPostura(1, "plancha-alfombra")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Tensión Máxima & Bloqueo Pélvico",
                 musculosDestacados: "Transverso abdominal, Recto del abdomen y Glúteos 100%",
                 detalles: "Línea recta perfecta hombro-cadera-tobillo. Máxima co-contracción de glúteos y core.",
-                svgIllustration: generarSvgPostura(2, "plancha-alfombra")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Mantenimiento y Respiración Diafragmática",
                 musculosDestacados: "Musculatura estabilizadora profunda espinal",
                 detalles: "Control de fatiga manteniendo la posición sin temblores descompensados.",
-                svgIllustration: generarSvgPostura(3, "plancha-alfombra")
             }
         ]
     },
@@ -660,21 +277,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Posición de Salida (Nivel Clavículas)",
                 musculosDestacados: "Deltoides anterior y Core",
                 detalles: "Mancuernas en vertical de los codos, pecho inflado y escápulas estables.",
-                svgIllustration: generarSvgPostura(1, "press-militar")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Bloqueo Arriba",
                 musculosDestacados: "Deltoides Lateral y Tríceps",
                 detalles: "Mancuernas alineadas sobre la corona de la cabeza sin golpearlas.",
-                svgIllustration: generarSvgPostura(2, "press-militar")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Retorno Lento",
                 musculosDestacados: "Tensión excéntrica del hombro",
                 detalles: "Baja resistiendo la gravedad manteniendo antebrazos verticales.",
-                svgIllustration: generarSvgPostura(3, "press-militar")
             }
         ]
     },
@@ -707,21 +321,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Bloqueo Erguido & Retracción",
                 musculosDestacados: "Dorsales fijando mancuernas y Glúteos",
                 detalles: "Mirada al frente, espalda recta y mancuernas rozando los cuádriceps.",
-                svgIllustration: generarSvgPostura(1, "peso-muerto-rumano")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Bisagra de Cadera Profunda",
                 musculosDestacados: "Isquiosurales y Glúteos en máximo estiramiento",
                 detalles: "Caderas desplazadas atrás, mancuernas rozando la tibia y columna 100% neutra.",
-                svgIllustration: generarSvgPostura(2, "peso-muerto-rumano")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Extensión Pélvica Potente",
                 musculosDestacados: "Apretón de Glúteos en la cumbre",
                 detalles: "Vuelve a la vertical sin arquear la espalda hacia atrás.",
-                svgIllustration: generarSvgPostura(3, "peso-muerto-rumano")
             }
         ]
     },
@@ -754,21 +365,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Paso al Frente & Alineación",
                 musculosDestacados: "Cuádriceps y Glúteo Medio estabilizador",
                 detalles: "Torso ligeramente inclinado 10° al frente para enfocar más el glúteo.",
-                svgIllustration: generarSvgPostura(1, "zancadas-mancuerna")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Punto de Máxima Profundidad (90°/90°)",
                 musculosDestacados: "Glúteo y Cuádriceps pierna delantera",
                 detalles: "Ambas rodillas en ángulos cercanos a 90°. Rodilla trasera a 2 cm del suelo.",
-                svgIllustration: generarSvgPostura(2, "zancadas-mancuerna")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Impulso y Transición al Siguiente Paso",
                 musculosDestacados: "Empuje de talón y extensión de rodilla",
                 detalles: "Impulso firme sin tambaleos laterales.",
-                svgIllustration: generarSvgPostura(3, "zancadas-mancuerna")
             }
         ]
     },
@@ -801,21 +409,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Bloqueo de Bisagra de Torso",
                 musculosDestacados: "Erectores espinales e Isquiosurales",
                 detalles: "Espalda completamente plana y barra colgando de los hombros.",
-                svgIllustration: generarSvgPostura(1, "remo-barra")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Contracción Escapular (Barra al Ombligo)",
                 musculosDestacados: "Dorsal Ancho, Romboides y Bíceps",
                 detalles: "Codos superando la línea de la espalda y escápulas completamente juntas.",
-                svgIllustration: generarSvgPostura(2, "remo-barra")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Estiramiento Fascial Excéntrico",
                 musculosDestacados: "Tensión excéntrica del Dorsal Ancho",
                 detalles: "Descenso gradual sin perder la horizontalidad del torso.",
-                svgIllustration: generarSvgPostura(3, "remo-barra")
             }
         ]
     },
@@ -848,21 +453,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Agarre Neutro Inicial",
                 musculosDestacados: "Braquial y Bíceps en reposo",
                 detalles: "Brazos estirados al costado del cuerpo sin balanceos.",
-                svgIllustration: generarSvgPostura(1, "curl-biceps")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Supinación & Pico de Contracción",
                 musculosDestacados: "Bíceps braquial en máxima tensión de acortamiento",
                 detalles: "Muñeca girada hacia afuera con el meñique más alto que el pulgar.",
-                svgIllustration: generarSvgPostura(2, "curl-biceps")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Descenso Excéntrico Estirado",
                 musculosDestacados: "Fase excéntrica del bíceps",
                 detalles: "Control de 3 segundos hasta estirar completamente el codo.",
-                svgIllustration: generarSvgPostura(3, "curl-biceps")
             }
         ]
     },
@@ -895,21 +497,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Bloqueo Superior & Inclinación",
                 musculosDestacados: "Tríceps y Pectoral",
                 detalles: "Codos casi extendidos, escápulas deprimidas y torso inclinado.",
-                svgIllustration: generarSvgPostura(1, "fondos-paralelas")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Fondo a 90° de Flexión",
                 musculosDestacados: "Pectoral Menor y Mayor en máximo estiramiento",
                 detalles: "Codos en 90°, antebrazo perpendicular y hombro estable.",
-                svgIllustration: generarSvgPostura(2, "fondos-paralelas")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Empuje y Cierre Concéntrico",
                 musculosDestacados: "Tríceps y Pectoral inferior",
                 detalles: "Empuje potente hasta la cima.",
-                svgIllustration: generarSvgPostura(3, "fondos-paralelas")
             }
         ]
     },
@@ -942,21 +541,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: De Rodillas sobre Alfombra",
                 musculosDestacados: "Core activado y pelvis neutra",
                 detalles: "Rodillas protegidas por la esterilla, brazos firmes.",
-                svgIllustration: generarSvgPostura(1, "rueda-abdominal")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Extensión Máxima en Vuelo",
                 musculosDestacados: "Recto abdominal y Transverso al 100%",
                 detalles: "Cuerpo casi rozando el suelo con arco lumbar plano y firme.",
-                svgIllustration: generarSvgPostura(2, "rueda-abdominal")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Repliegue con Tracción Abdominal",
                 musculosDestacados: "Dorsales y abdominales cerrando la bisagra",
                 detalles: "Regreso sin mover las caderas hacia atrás primero.",
-                svgIllustration: generarSvgPostura(3, "rueda-abdominal")
             }
         ]
     },
@@ -989,21 +585,18 @@ export const BASE_EJERCICIOS = [
                 titulo: "Fase 1: Muñecas Pegadas & Postura Erguida",
                 musculosDestacados: "Core y Deltoides estabilizando",
                 detalles: "Hombros relajados, mirada fija al frente.",
-                svgIllustration: generarSvgPostura(1, "salto-comba")
             },
             {
                 fase: 2,
                 titulo: "Fase 2: Elevación en Suspensión Elástica",
                 musculosDestacados: "Gemelos y Tendón de Aquiles",
                 detalles: "Paso de la cuerda con mínimo despegue del suelo.",
-                svgIllustration: generarSvgPostura(2, "salto-comba")
             },
             {
                 fase: 3,
                 titulo: "Fase 3: Aterrizaje Amortiguado en Metatarsos",
                 musculosDestacados: "Musculatura del pie y Sóleo",
                 detalles: "Rebote suave y continuo sin apoyar los talones.",
-                svgIllustration: generarSvgPostura(3, "salto-comba")
             }
         ]
     }

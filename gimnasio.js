@@ -355,10 +355,7 @@ function renderizarPosturaFase(faseNum) {
     if (!postura) return;
 
     displayCard.innerHTML = `
-        <div class="posture-svg-container animate-fade-in">
-            ${postura.svgIllustration}
-        </div>
-        <div class="posture-meta-box">
+        <div class="posture-meta-box animate-fade-in">
             <div class="posture-headline">
                 <span class="fase-indicator">Fase ${postura.fase} de 3</span>
                 <h4>${postura.titulo}</h4>
@@ -367,7 +364,10 @@ function renderizarPosturaFase(faseNum) {
                 <span class="pulse-spark">🔥</span>
                 <strong>Músculos en Máxima Tensión:</strong> ${postura.musculosDestacados}
             </div>
-            <p class="posture-desc">${postura.detalles}</p>
+            <div class="posture-desc-box">
+                <span class="desc-label">💡 Cues & Puntos Clave de la Fase:</span>
+                <p class="posture-desc">${postura.detalles}</p>
+            </div>
         </div>
     `;
 }
