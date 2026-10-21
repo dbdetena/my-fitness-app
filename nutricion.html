@@ -1,7 +1,26 @@
 <!-- Vista: Nutrición y Calorías -->
 <section class="view-container animate-fade-in placeholder-view">
     <div class="card card-carbon placeholder-card">
-        <div class="placeholder-icon">🥗</div>
+        <!-- Emblema de Acero, Carbón y Neón (a juego con el icono de la app) -->
+        <div class="section-hero-emblem">
+            <svg viewBox="0 0 100 100" class="hero-emblem-svg">
+                <!-- Resplandor Neón Cian de fondo -->
+                <g filter="url(#neon-glow-cyan)">
+                    <path d="M 50,34 C 42,20 20,22 20,44 C 20,68 40,82 50,86 C 60,82 80,68 80,44 C 80,22 58,20 50,34 Z" 
+                          fill="none" stroke="#38bdf8" stroke-width="5" stroke-linejoin="round" />
+                    <path d="M 50,28 C 50,14 62,10 68,12 C 68,20 58,28 50,28 Z" 
+                          fill="#38bdf8" />
+                </g>
+                <!-- Estructura Acero Biselado -->
+                <path d="M 50,34 C 42,20 20,22 20,44 C 20,68 40,82 50,86 C 60,82 80,68 80,44 C 80,22 58,20 50,34 Z" 
+                      fill="none" stroke="url(#metal-steel-light)" stroke-width="3.5" stroke-linejoin="round" />
+                <path d="M 50,28 C 50,14 62,10 68,12 C 68,20 58,28 50,28 Z" 
+                      fill="url(#metal-steel-light)" stroke="url(#metal-steel-dark)" stroke-width="1.5" />
+                <!-- Núcleo de Calorías/Energía -->
+                <circle cx="50" cy="54" r="8" fill="url(#metal-steel-light)" filter="url(#neon-glow-cyan)" />
+            </svg>
+        </div>
+
         <h2>Nutrición & Macros</h2>
         <p class="placeholder-desc">Registro rápido de calorías, distribución de macronutrientes y timing nutricional.</p>
         <div class="construction-pill">

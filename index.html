@@ -16,18 +16,18 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Cabecera principal con Frase Motivadora Diaria y Ajustes -->
+    <!-- Cabecera principal: Frase Motivadora Diaria y Ajustes -->
     <header class="app-header">
-        <div class="header-brand-row">
-            <h1>Mi Panel Fitness</h1>
+        <div class="header-content-row">
+            <div class="header-spacer" aria-hidden="true"></div>
+            <div class="quote-wrapper">
+                <span class="quote-symbol">“</span>
+                <p id="quote-text" class="quote-text">Cargando frase del día...</p>
+                <span class="quote-symbol">”</span>
+            </div>
             <button id="btn-config" class="btn-icon-gear" title="Configuración y Actualización" aria-label="Configuración" onclick="window.abrirModalConfig?.()">
                 ⚙️
             </button>
-        </div>
-        <div class="quote-wrapper">
-            <span class="quote-symbol">“</span>
-            <p id="quote-text" class="quote-text">Cargando frase del día...</p>
-            <span class="quote-symbol">”</span>
         </div>
     </header>
 
