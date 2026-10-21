@@ -29,8 +29,9 @@
             <p id="ultimoPesoDisplay">Cargando último peso...</p>
             <div class="input-group" style="margin-top: 12px; display: flex; gap: 8px; width: 100%;">
                 <input type="number" id="pesoInput" step="0.1" placeholder="Ej: 75.5" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff;">
-                <button onclick="guardarPeso()" style="padding: 10px 16px; border-radius: 8px; border: none; background: #38bdf8; color: #0f172a; font-weight: bold; cursor: pointer;">Guardar</button>
+                <button id="btnGuardarPeso" onclick="guardarPeso()" style="padding: 10px 16px; border-radius: 8px; border: none; background: #38bdf8; color: #0f172a; font-weight: bold; cursor: pointer; transition: all 0.2s;">Guardar</button>
             </div>
+            <p id="pesoFeedback" style="display: none; margin-top: 8px; font-size: 0.8rem;"></p>
         </section>
 
         <!-- Tarjeta 2: Nutrición y Calorías -->
@@ -57,6 +58,7 @@
 
     <footer>
         <p>FitnessPersonalDBdT conectado</p>
+        <p id="dbStatusBadge" style="margin-top: 4px; font-size: 0.75rem; color: #94a3b8;">Conectando a Firestore...</p>
     </footer>
 
     <!-- Registro del Service Worker para habilitar la instalación PWA -->
