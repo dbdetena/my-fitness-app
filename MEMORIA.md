@@ -7,13 +7,19 @@
 - **Despliegue:** GitHub Pages + PWA instalable (`sw.js`, `manifest.json`).
 - **Dispositivo Objetivo:** Móvil Android corporativo (Mobile-First estricto).
 
-## 2. IDENTIDAD VISUAL (ESTÉTICA INDUSTRIAL / NEÓN)
+## 2. IDENTIDAD VISUAL Y REGLAS DE UI (ESTÉTICA INDUSTRIAL / NEÓN)
 La app debe transmitir la sensación de maquinaria de alta precisión (estilo fibra de carbono, acero pulido y luces de neón).
 - **Fondo Base:** `#0f172a` (Oscuro profundo).
 - **Tarjetas / Contenedores (Acero Mate):** `#1e293b`.
 - **Acento (Neón Cian):** `#38bdf8` para elementos activos, iluminaciones y el botón `ℹ️`.
 - **Estados Activos:** Uso intensivo de sombras (box-shadow) en color cian para simular retroiluminación cuando un botón se pulsa o un checkbox se marca.
 - **Botones:** Redondeados (`border-radius: 8px`), sin bordes nativos, grandes y táctiles (mínimo 44x44px).
+- **Cabecera de Sesión Activa:**
+  - Título destacado: tamaño `1.15rem` - `1.2rem`, `font-weight: bold`, color neón cian (`#38bdf8`) con resplandor (`text-shadow`), ocupando el ancho completo centrado.
+  - Cero distracciones: se prohíben botones de navegación o exploración durante el entrenamiento en curso.
+  - Botón `✕ Abandonar` centrado inmediatamente debajo del título con separación vertical adecuada (`gap: 12px`).
+- **Scroll Horizontal en Pestañas Móviles:** Las barras de pestañas y selectores de rutinas usan `overflow-x: auto` con barra de scroll oculta para garantizar que no se apilen ni deformen en pantallas estrechas.
+- **Bloqueo Estricto en Pausa:** Con el cronómetro pausado, todos los checkboxes e inputs de series se deshabilitan visual y funcionalmente (`not-allowed`, menor opacidad) con banner de aviso para evitar registros accidentales.
 
 ## 3. USABILIDAD PREMIUM (UX) Y ESTADOS PERSISTENTES
 - **Cero bloqueos visuales:** Transiciones suaves entre vistas, sin recargas de página.
@@ -31,7 +37,19 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
 4. **Diario de Notas (`diario.html` / `diario.js`):** Diario oficial de registros, dictado por voz directo (Web Speech API) y registro de alertas/incidencias. Título limpio sin descripción inferior y filtros escalados (`Todas`, `🏋️ Entrenos`, `🚨 Alertas`) en una sola línea fija.
 5. **Coach (`coach.html` / `coach.js`):** Integración con Gemini IA para cruzar todos los datos y dar sugerencias contextuales.
 
-## 5. REGLAS PARA EL ASISTENTE IA (ANTIGRAVITY)
+## 5. MODELO DE DATOS Y DECISIONES DE BASE DE DATOS (LOCAL-FIRST & FIRESTORE)
+- **Estrategia Local-First:** `localStorage` actúa como almacén de alta disponibilidad para la sesión viva (`fitness_active_session`) y bitácora local (`fitness_bitacora_entries`), sincronizado con Firebase Firestore (`FitnessPersonalDBdT`).
+- **Esquema de Eventos Temporales (`splits` en `progreso-manager.js`):**
+  - Cada sesión finalizada archiva un registro atómico con marcas de tiempo relativas:
+    - `calentamiento_paso` / `calentamiento_completo`: duración exacta de cada fase preventiva.
+    - `serie`: ejercicio, set, carga (`peso`), repeticiones (`reps`), marca temporal (`tiempo`) y segundo acumulado (`segundos`).
+- **Analítica de Sobrecarga Progresiva y Densidad:**
+  - Comparativa cruzada automática contra el entrenamiento anterior de la misma rutina (identificando mejoras de carga `+kg` o volumen `+reps`).
+  - Cálculo de intervalos reales de descanso entre series a partir de los `splits`.
+- **Trazabilidad de Cierres e Incidencias:**
+  - Sesiones interrumpidas o cerradas por inactividad (+60 min) persisten como documento con categoría `alerta`, asegurando que no se pierdan datos ni métricas de series previas.
+
+## 6. REGLAS PARA EL ASISTENTE IA (ANTIGRAVITY)
 1. Antes de empezar cualquier tarea, repasa este archivo.
 2. Tras completar una función de forma exitosa en el entorno local, ejecuta automáticamente: `git add .`, `git commit -m "[Descripción]"` y `git push origin main`.
 3. Todo código JS debe estar modularizado. No inyectar lógica compleja en el HTML.
