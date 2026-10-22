@@ -135,6 +135,16 @@
         </div>
     </div>
 
+    <!-- Botón Flotante Universal (FAB) para Sesión Activa en 2º Plano -->
+    <button id="fab-sesion-activa" class="fab-active-session" style="display: none;" onclick="window.volverASesionActiva?.()" aria-label="Volver a la Sesión Activa">
+        <span class="fab-pulse-ring"></span>
+        <span class="fab-icon">⏱️</span>
+        <div class="fab-text-box">
+            <span class="fab-label">Sesión Activa</span>
+            <span id="fab-timer-display" class="fab-timer">00:00</span>
+        </div>
+    </button>
+
     <!-- Registro del Service Worker para PWA -->
     <script>
       if ('serviceWorker' in navigator) {
@@ -147,6 +157,7 @@
     </script>
 
     <!-- Motor SPA y Módulos -->
+    <script type="module" src="session-manager.js"></script>
     <script type="module" src="config.js"></script>
     <script type="module" src="salud.js"></script>
     <script type="module" src="router.js"></script>

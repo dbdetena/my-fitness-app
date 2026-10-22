@@ -3991,5 +3991,263 @@ body.modal-open {
     color: #d8b4fe;
 }
 
+/* ========================================================
+   DIARIO DE NOTAS: FILTROS ESCALADOS EN UNA LÍNEA (MOBILE-FIRST)
+   ======================================================== */
+.bitacora-filters-row.single-line-filters {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin-top: 10px !important;
+    margin-bottom: 12px !important;
+    flex-wrap: nowrap !important;
+}
+
+.bitacora-filters-row.single-line-filters .bitacora-filter-chip {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 9px 4px !important;
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(56, 189, 248, 0.25) !important;
+    background: rgba(15, 23, 42, 0.85) !important;
+    color: #94a3b8 !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+}
+
+.bitacora-filters-row.single-line-filters .bitacora-filter-chip:hover {
+    color: #fff !important;
+    border-color: rgba(56, 189, 248, 0.6) !important;
+}
+
+.bitacora-filters-row.single-line-filters .bitacora-filter-chip.active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(14, 165, 233, 0.4) 100%) !important;
+    border-color: #38bdf8 !important;
+    color: #38bdf8 !important;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.35) !important;
+}
+
+/* ========================================================
+   BOTÓN FLOTANTE UNIVERSAL (FAB) PARA SESIÓN ACTIVA EN 2º PLANO
+   ======================================================== */
+.fab-active-session {
+    position: fixed;
+    bottom: 84px; /* Encima de la barra de navegación inferior móvil */
+    right: 16px;
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 9999px;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1.5px solid #00f0ff;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.4), 0 8px 24px rgba(0, 0, 0, 0.7);
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+    touch-action: manipulation;
+}
+
+.fab-active-session:hover,
+.fab-active-session:focus-visible {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 0 26px rgba(0, 240, 255, 0.6), 0 10px 28px rgba(0, 0, 0, 0.8);
+}
+
+.fab-active-session:active {
+    transform: scale(0.97);
+}
+
+.fab-pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    border-radius: 9999px;
+    border: 1.5px solid #00f0ff;
+    animation: fab-pulse 2s infinite cubic-bezier(0.24, 0, 0.38, 1);
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+@keyframes fab-pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: scale(1.08);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 0;
+    }
+}
+
+.fab-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 4px #00f0ff);
+}
+
+.fab-text-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.1;
+}
+
+.fab-label {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7dd3fc;
+}
+
+.fab-timer {
+    font-size: 0.95rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    color: #fff;
+}
+
+/* Estado pausado del FAB */
+.fab-active-session.paused {
+    border-color: #f59e0b;
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.4), 0 8px 24px rgba(0, 0, 0, 0.7);
+}
+
+.fab-active-session.paused .fab-pulse-ring {
+    border-color: #f59e0b;
+}
+
+.fab-active-session.paused .fab-label {
+    color: #fde68a;
+}
+
+/* ========================================================
+   MINI BANNER DE SESIÓN EN CURSO (DENTRO DE RUTINAS)
+   ======================================================== */
+.session-active-mini-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%);
+    border: 1.5px solid rgba(0, 240, 255, 0.5);
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.2);
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.session-active-mini-banner:hover {
+    border-color: #00f0ff;
+    box-shadow: 0 0 22px rgba(0, 240, 255, 0.35);
+    transform: translateY(-1px);
+}
+
+.mini-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.mini-banner-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.mini-banner-label {
+    font-size: 0.62rem;
+    font-weight: 800;
+    color: #38bdf8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.mini-banner-text strong {
+    font-size: 0.88rem;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mini-banner-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.mini-banner-timer {
+    font-size: 0.95rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: #00f0ff;
+}
+
+.btn-mini-resume {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border-radius: 8px;
+    background: rgba(0, 240, 255, 0.15);
+    border: 1px solid #00f0ff;
+    color: #00f0ff;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Acciones en la cabecera de la sesión activa */
+.session-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-minimize-session {
+    padding: 7px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 8px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    color: #7dd3fc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-minimize-session:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: #38bdf8;
+    color: #fff;
+}
+
 
 

@@ -3,6 +3,7 @@ import { initGimnasio, cleanupGimnasio } from "./gimnasio.js";
 import { initDiario, cleanupDiario } from "./diario.js";
 import { initFraseDelDia } from "./quotes.js";
 import { initConfig } from "./config.js";
+import { actualizarFabUniversal, obtenerSesionActiva } from "./session-manager.js";
 
 // Estado de la vista actual
 let vistaActual = null;
@@ -31,8 +32,16 @@ export async function cargarVista(vista) {
     const contenedor = document.getElementById("app-content");
     if (!contenedor) return;
 
-    // Si ya estamos en esta vista, no recargar
-    if (vistaActual === vista) return;
+    // Si ya estamos en esta vista, restaurar sesión activa si aplica
+    if (vistaActual === vista) {
+        if (vista === "gimnasio") {
+            const sesion = obtenerSesionActiva();
+            if (sesion && window.gimnasio?.restaurarSesionActivaEnPantalla) {
+                window.gimnasio.restaurarSesionActivaEnPantalla(sesion);
+            }
+        }
+        return;
+    }
 
     // 1. Ejecutar cleanup de la vista anterior si existe
     if (vistaActual && LIFECYCLE_HOOKS[vistaActual]?.cleanup) {
@@ -67,6 +76,9 @@ export async function cargarVista(vista) {
         }
 
         vistaActual = vista;
+
+        // 5. Actualizar estado del FAB universal de sesión activa
+        actualizarFabUniversal();
     } catch (error) {
         console.error(`Error al cargar la vista '${vista}':`, error);
         contenedor.innerHTML = `
@@ -121,12 +133,27 @@ function initRouter() {
     // Inicializar frase motivadora del día
     initFraseDelDia();
 
+    // Escuchar vuelta a primer plano de Android / PWA
+    window.addEventListener("focus", () => {
+        actualizarFabUniversal();
+        window.gimnasio?.actualizarMiniBannerSesion?.();
+    });
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+            actualizarFabUniversal();
+            window.gimnasio?.actualizarMiniBannerSesion?.();
+        }
+    });
+
     // Abrir automáticamente la vista 'dashboard' al iniciar
     cargarVista("dashboard");
 }
 
 // Exportar globalmente para eventos inline
-window.router = { cargarVista };
+window.router = { 
+    cargarVista,
+    getVistaActual: () => vistaActual 
+};
 
 // Arrancar cuando el DOM esté listo
 if (document.readyState === "loading") {

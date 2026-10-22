@@ -1,15 +1,14 @@
 <!-- Vista: Diario de Entrenamiento & Cuaderno de Bitácora -->
 <section class="view-container animate-fade-in bitacora-view">
     
-    <!-- CABECERA DEL DIARIO DE BITÁCORA -->
+    <!-- CABECERA DEL DIARIO DE NOTAS -->
     <div class="bitacora-header">
         <div class="bitacora-title-wrap">
             <div class="bitacora-emblem-badge">
                 <span>📖</span>
-                <span>Bitácora Oficial</span>
+                <span>Diario Oficial</span>
             </div>
-            <h2>Cuaderno de Bitácora</h2>
-            <p class="subtitle">Registro con marca de tiempo y dictado por voz. La IA analiza estas notas para supervisar tu calentamiento y optimizar tus progresiones.</p>
+            <h2>Diario de Notas</h2>
         </div>
 
         <!-- Estadísticas Rápidas -->
@@ -35,7 +34,7 @@
             <div class="composer-title-row">
                 <span class="composer-icon">✍️</span>
                 <div>
-                    <h4>Añadir Nota a la Bitácora</h4>
+                    <h4>Añadir Nota al Diario</h4>
                     <span class="live-clock-badge">🕒 Fecha y hora automáticas en cada registro</span>
                 </div>
             </div>
@@ -46,14 +45,14 @@
                     <option value="general">📝 Nota Libre / Reflexión</option>
                     <option value="recuperacion">⚡ Energía, Sueño & Descanso</option>
                     <option value="post-entreno">🏋️ Resumen de Entrenamiento</option>
-                    <option value="molestia">🚨 Alerta / Molestia Articular</option>
+                    <option value="molestia">🚨 Alerta / Incidencia / Molestia</option>
                     <option value="nutricion">🥗 Nutrición & Hidratación</option>
                 </select>
             </div>
         </div>
 
         <div class="composer-body">
-            <textarea id="input-bitacora-texto" class="bitacora-textarea" placeholder="Escribe o pulsa el botón de micrófono para dictar por voz tus sensaciones, energía, fatiga, molestias o impresiones del entrenamiento..."></textarea>
+            <textarea id="input-bitacora-texto" class="bitacora-textarea" placeholder="Escribe o pulsa el botón de micrófono para dictar por voz tus sensaciones, energía, fatiga, incidencias o impresiones..."></textarea>
         </div>
 
         <div class="composer-footer">
@@ -69,12 +68,12 @@
             </div>
 
             <button type="button" class="btn-neon-cyan btn-save-note" onclick="window.diario?.registrarNotaManual()">
-                <span>💾 Guardar en Bitácora</span>
+                <span>💾 Guardar en Diario</span>
             </button>
         </div>
     </div>
 
-    <!-- FILTROS Y TIMELINE DE LA BITÁCORA -->
+    <!-- FILTROS Y TIMELINE DEL DIARIO -->
     <div class="bitacora-timeline-section">
         <div class="timeline-header-bar">
             <div class="timeline-title-group">
@@ -82,10 +81,9 @@
                 <span class="timeline-hint">Supervisión acumulada para IA</span>
             </div>
 
-            <div class="bitacora-filters-row">
+            <div class="bitacora-filters-row single-line-filters">
                 <button class="bitacora-filter-chip active" data-filtro="todos" onclick="window.diario?.setFiltro('todos')">Todas</button>
-                <button class="bitacora-filter-chip" data-filtro="post-entreno" onclick="window.diario?.setFiltro('post-entreno')">🏋️ Post-Entreno</button>
-                <button class="bitacora-filter-chip" data-filtro="voz" onclick="window.diario?.setFiltro('voz')">🎙️ Dictadas</button>
+                <button class="bitacora-filter-chip" data-filtro="post-entreno" onclick="window.diario?.setFiltro('post-entreno')">🏋️ Entrenos</button>
                 <button class="bitacora-filter-chip" data-filtro="molestia" onclick="window.diario?.setFiltro('molestia')">🚨 Alertas</button>
             </div>
         </div>

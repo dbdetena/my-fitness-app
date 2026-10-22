@@ -101,7 +101,7 @@ export function guardarEntradaBitacora({ texto, categoria = "general", rutinaRel
         fechaIso: ahora.toISOString(),
         fechaFormato: formatearFechaTimestamp(ahora),
         categoria,
-        categoriaLabel: categoriaLabels[categoria] || "📝 Bitácora",
+        categoriaLabel: categoriaLabels[categoria] || "📝 Diario",
         rutinaRelacionada,
         rpe: rpe ? parseInt(rpe, 10) : null,
         energia,
@@ -356,7 +356,7 @@ export function registrarNotaManual() {
     if (inputRpe) inputRpe.value = "";
 
     // Mensaje de confirmación
-    mostrarNotificacionToast("✅ Nota registrada en la bitácora con éxito");
+    mostrarNotificacionToast("✅ Nota registrada en el Diario de Notas");
 }
 
 function mostrarNotificacionToast(mensaje) {

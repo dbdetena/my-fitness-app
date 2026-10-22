@@ -7,6 +7,21 @@
             <h2>Módulo de Rutinas</h2>
             <p class="subtitle">Tres bibliotecas especializadas: Ejercicios, Estándar y Personalizadas</p>
         </div>
+
+        <!-- MINI BANNER DE SESIÓN EN CURSO (SI SE MINIMIZÓ PARA NAVEGAR CATÁLOGOS) -->
+        <div id="session-active-mini-banner" class="session-active-mini-banner card-carbon" style="display: none;" onclick="window.gimnasio?.restaurarSesionActivaEnPantalla()">
+            <div class="mini-banner-left">
+                <span class="live-pulse-dot"></span>
+                <div class="mini-banner-text">
+                    <span class="mini-banner-label">SESIÓN EN SEGUNDO PLANO</span>
+                    <strong id="mini-banner-title">Entrenamiento Activo</strong>
+                </div>
+            </div>
+            <div class="mini-banner-right">
+                <span id="mini-banner-timer" class="mini-banner-timer">00:00</span>
+                <span class="btn-neon-cyan btn-mini-resume">Reanudar ▶</span>
+            </div>
+        </div>
         
         <!-- PESTAÑAS DE NAVEGACIÓN ENTRE LAS 3 BIBLIOTECAS -->
         <div class="rutinas-nav-tabs">
@@ -140,9 +155,14 @@
                 <span class="live-pulse-dot"></span>
                 <span id="session-routine-badge" class="session-title-badge">ENTRENAMIENTO EN CURSO</span>
             </div>
-            <button class="btn-ghost-danger btn-exit-session" onclick="window.gimnasio?.salirSesionActiva()">
-                ✕ Abandonar Sesión
-            </button>
+            <div class="session-top-actions">
+                <button type="button" class="btn-ghost btn-minimize-session" onclick="window.gimnasio?.minimizarSesionActiva()">
+                    📂 Explorar Rutinas
+                </button>
+                <button type="button" class="btn-ghost-danger btn-exit-session" onclick="window.gimnasio?.salirSesionActiva()">
+                    ✕ Abandonar
+                </button>
+            </div>
         </div>
 
         <!-- RELOJ / CRONÓMETRO GIGANTE CON BOTÓN DE PAUSA GRANDE -->
@@ -214,7 +234,7 @@
             <!-- BOTÓN GIGANTE FINAL PARA COMPLETAR Y GUARDAR -->
             <div class="closure-submit-row">
                 <button type="button" class="btn-primary btn-neon-gold btn-huge-complete" onclick="window.gimnasio?.guardarSesionCompletaYSalir()">
-                    <span>🏁 Guardar Sesión con Métricas & Bitácora</span>
+                    <span>🏁 Guardar Sesión en Diario de Notas</span>
                 </button>
             </div>
         </div>

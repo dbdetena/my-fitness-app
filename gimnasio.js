@@ -9,6 +9,18 @@ import {
     generarRutinaCoach 
 } from "./rutinas-data.js";
 import { guardarEntradaBitacora, formatearFechaTimestamp } from "./diario.js";
+import { 
+    obtenerSesionActiva, 
+    iniciarNuevaSesion, 
+    registrarActividadSesion, 
+    actualizarDatosSesion, 
+    calcularTiempoTranscurridoSegundos, 
+    togglePausarSesion, 
+    finalizarSesion, 
+    cancelarSesion, 
+    formatearSegundos, 
+    actualizarFabUniversal 
+} from "./session-manager.js";
 
 // Estado interno del módulo de Rutinas
 const state = {
@@ -54,6 +66,10 @@ export function initGimnasio() {
         seleccionarFasePostura,
         prepararAnadirARutina,
         iniciarEntrenamientoRutina,
+        minimizarSesionActiva,
+        restaurarSesionActivaEnPantalla,
+        onInputSetData,
+        onInputNota,
         salirSesionActiva,
         clonarRutina,
         eliminarRutina,
@@ -80,10 +96,26 @@ export function initGimnasio() {
 
     // Event listener para cerrar modales con tecla Escape
     document.addEventListener("keydown", handleKeydown);
+
+    // Comprobar si hay una sesión activa en segundo plano para restaurarla de inmediato
+    const sesionActiva = obtenerSesionActiva();
+    if (sesionActiva) {
+        restaurarSesionActivaEnPantalla(sesionActiva);
+    } else {
+        const miniBanner = document.getElementById("session-active-mini-banner");
+        if (miniBanner) miniBanner.style.display = "none";
+        actualizarFabUniversal();
+    }
 }
 
 export function cleanupGimnasio() {
     document.removeEventListener("keydown", handleKeydown);
+    detenerCronometroSesion();
+    if (state.grabandoVozSesion && state.reconocimientoVozSesion) {
+        try { state.reconocimientoVozSesion.stop(); } catch(e) {}
+        state.grabandoVozSesion = false;
+    }
+    actualizarFabUniversal();
 }
 
 function handleKeydown(e) {
@@ -109,7 +141,10 @@ export function cambiarTab(tabId) {
 
     // Ocultar panel de sesión activa si estuviese abierto
     const sesionPanel = document.getElementById("panel-sesion-activa");
-    if (sesionPanel) sesionPanel.style.display = "none";
+    if (sesionPanel) {
+        sesionPanel.style.display = "none";
+        sesionPanel.classList.remove("active");
+    }
 
     // Mostrar el panel seleccionado
     document.querySelectorAll(".rutinas-tab-panel").forEach(panel => {
@@ -125,6 +160,9 @@ export function cambiarTab(tabId) {
     if (tabId === "personalizadas") {
         renderizarRutinasPersonalizadas();
     }
+
+    actualizarMiniBannerSesion();
+    actualizarFabUniversal();
 }
 
 // ==========================================
@@ -702,7 +740,7 @@ export function ejecutarGeneracionCoach() {
 }
 
 // ==========================================
-// MESA DE ENTRENAMIENTO EN VIVO (SESIÓN ACTIVA ULTRA-VISUAL)
+// MESA DE ENTRENAMIENTO EN VIVO (SESIÓN ACTIVA PERSISTENTE EN 2º PLANO)
 // ==========================================
 export function iniciarEntrenamientoRutina(arg1, arg2) {
     let tipo = "estandar";
@@ -724,156 +762,19 @@ export function iniciarEntrenamientoRutina(arg1, arg2) {
     }
 
     if (!rutina) return;
+
+    // Iniciar nueva sesión persistente en session-manager (guarda en localStorage con timestamps epoch)
+    const sesion = iniciarNuevaSesion({ rutina, tipo });
     state.rutinaEnSesion = rutina;
 
-    // Reset de métricas y cronómetro
-    detenerCronometroSesion();
-    state.cronometro = {
-        intervalId: null,
-        segundos: 0,
-        pausado: false,
-        tiempoInicio: new Date()
-    };
+    // Renderizar tarjeta de ejercicios y aplicar estado
+    renderizarContenidoSesion(rutina);
+    aplicarEstadoSesionEnPantalla(sesion);
 
-    let seriesTotales = 0;
-    (rutina.ejercicios || []).forEach(e => {
-        seriesTotales += (e.series || 3);
-    });
-
-    state.metricasSesion = {
-        calentamientoInicio: new Date(),
-        calentamientoFin: null,
-        calentamientoSegundos: null,
-        checksCalentamiento: {},
-        seriesTotales,
-        seriesCompletadas: 0,
-        splits: [],
-        rpe: 8,
-        porVoz: false
-    };
-
-    // Actualizar badges
-    const badgeEl = document.getElementById("session-routine-badge");
-    if (badgeEl) badgeEl.textContent = `SESIÓN ACTIVA: ${rutina.nombre.toUpperCase()}`;
-
-    const setsProgEl = document.getElementById("metric-sets-progress");
-    if (setsProgEl) setsProgEl.textContent = `0 / ${seriesTotales} (0%)`;
-
-    const warmStatusEl = document.getElementById("metric-warmup-status");
-    if (warmStatusEl) {
-        warmStatusEl.textContent = "Pendiente";
-        warmStatusEl.className = "text-amber";
-    }
-
-    const paceEl = document.getElementById("metric-session-pace");
-    if (paceEl) {
-        paceEl.textContent = "Activo";
-        paceEl.className = "text-cyan";
-    }
-
-    const pauseBtnIcon = document.getElementById("btn-timer-icon");
-    const pauseBtnText = document.getElementById("btn-timer-text");
-    const pauseBtn = document.getElementById("btn-timer-toggle-pause");
-    if (pauseBtnIcon) pauseBtnIcon.textContent = "⏸️";
-    if (pauseBtnText) pauseBtnText.textContent = "PAUSAR ENTRENAMIENTO";
-    if (pauseBtn) {
-        pauseBtn.className = "btn-timer-huge btn-neon-pause";
-    }
-
-    // Iniciar cronómetro visual grande
+    // Iniciar cronómetro ligado a epoch timestamps
     iniciarCronometroSesion();
 
-    // Inyectar Ejercicios: 1º Calentamiento con checks + Sucesivos
-    const contenedor = document.getElementById("contenedor-ejercicios-sesion");
-    if (contenedor) {
-        const calentamientoHtml = generarCardCalentamiento(rutina);
-
-        const ejerciciosHtml = (rutina.ejercicios || []).map((item, idx) => {
-            const ej = BASE_EJERCICIOS.find(e => e.id === item.ejercicioId);
-            const nombre = ej ? ej.nombre : item.ejercicioId;
-            const icono = ej ? ej.tipoIcono : "🏋️";
-            const numSeries = item.series || 3;
-
-            let filasSeriesHtml = "";
-            for (let s = 1; s <= numSeries; s++) {
-                const rowId = `row-session-${idx}-${s}`;
-                filasSeriesHtml += `
-                <tr class="set-row" id="${rowId}">
-                    <td class="col-set"><span class="set-badge">${s}</span></td>
-                    <td class="col-target">${item.reps || "8-10"}</td>
-                    <td class="col-input">
-                        <input type="number" step="0.5" class="input-set-data input-kg" placeholder="kg">
-                    </td>
-                    <td class="col-input">
-                        <input type="number" step="1" class="input-set-data input-reps" placeholder="reps">
-                    </td>
-                    <td class="col-check">
-                        <div class="check-with-split">
-                            <label class="custom-neon-check touch-large">
-                                <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('${rowId}', this, '${nombre.replace(/'/g, "\\'")}', ${s})">
-                                <span class="checkmark"></span>
-                            </label>
-                            <span id="split-${rowId}" class="set-split-tag"></span>
-                        </div>
-                    </td>
-                </tr>
-                `;
-            }
-
-            return `
-            <div class="exercise-card card-carbon session-exercise-card" id="session-card-${idx}">
-                <div class="exercise-header" onclick="window.gimnasio?.toggleCollapse('session-card-${idx}')">
-                    <div class="exercise-main-info">
-                        <span class="exercise-icon">${icono}</span>
-                        <div>
-                            <div class="exercise-title-wrap">
-                                <h3>${idx + 2}. ${nombre}</h3>
-                                <button class="btn-info-neon" title="Guía técnica 3D" onclick="event.stopPropagation(); window.gimnasio?.abrirModalDetalle('${item.ejercicioId}')">
-                                    ℹ️ Ficha 3D
-                                </button>
-                            </div>
-                            <p class="exercise-meta">${numSeries} series • Descanso: ${item.descanso || 90}s</p>
-                        </div>
-                    </div>
-                    <div class="collapse-indicator">
-                        <span class="chevron">▼</span>
-                    </div>
-                </div>
-
-                <div class="exercise-body">
-                    <div class="table-responsive">
-                        <table class="sets-table">
-                            <thead>
-                                <tr>
-                                    <th class="col-set">SERIE</th>
-                                    <th class="col-target">OBJETIVO</th>
-                                    <th class="col-input">PESO (kg)</th>
-                                    <th class="col-input">REPS</th>
-                                    <th class="col-check">CHECK & TIEMPO</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${filasSeriesHtml}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="exercise-footer-actions">
-                        <span class="rest-timer">⏱️ Descanso sugerido: ${item.descanso || 90} seg</span>
-                    </div>
-                </div>
-            </div>
-            `;
-        }).join("");
-
-        contenedor.innerHTML = calentamientoHtml + ejerciciosHtml;
-    }
-
-    // Resetear área de transcripción de voz al final
-    const voiceArea = document.getElementById("session-voice-textarea");
-    if (voiceArea) voiceArea.value = "";
-    seleccionarRpe(8);
-
-    // Ocultar bibliotecas y mostrar pantalla de sesión
+    // Ocultar bibliotecas y mostrar pantalla de sesión activa
     document.querySelectorAll(".rutinas-tab-panel").forEach(p => {
         p.classList.remove("active");
         p.style.display = "none";
@@ -885,7 +786,359 @@ export function iniciarEntrenamientoRutina(arg1, arg2) {
         sesionPanel.classList.add("active");
     }
 
+    actualizarMiniBannerSesion();
+    actualizarFabUniversal();
+
     window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/**
+ * Restaura la sesión activa en pantalla si el usuario vuelve a la sección de Rutinas
+ */
+export function restaurarSesionActivaEnPantalla(sesion) {
+    if (!sesion) {
+        sesion = obtenerSesionActiva();
+    }
+    if (!sesion) return;
+
+    let rutina = null;
+    if (sesion.tipo === "estandar") {
+        rutina = RUTINAS_ESTANDAR.find(r => r.id === sesion.rutinaId);
+    } else {
+        rutina = obtenerRutinasPersonalizadas().find(r => r.id === sesion.rutinaId);
+    }
+
+    if (!rutina) {
+        rutina = RUTINAS_ESTANDAR.find(r => r.nombre === sesion.nombre) ||
+                 obtenerRutinasPersonalizadas().find(r => r.nombre === sesion.nombre);
+    }
+
+    if (!rutina) {
+        rutina = {
+            id: sesion.rutinaId || "sesion-libre",
+            nombre: sesion.nombre || "Entrenamiento en Curso",
+            ejercicios: []
+        };
+    }
+
+    state.rutinaEnSesion = rutina;
+
+    // Renderizar ejercicios
+    renderizarContenidoSesion(rutina);
+
+    // Restaurar datos guardados (checks, pesos, reps, rpe, notas)
+    aplicarEstadoSesionEnPantalla(sesion);
+
+    // Iniciar ticker del cronómetro
+    iniciarCronometroSesion();
+
+    // Mostrar panel activo y ocultar bibliotecas
+    document.querySelectorAll(".rutinas-tab-panel").forEach(p => {
+        p.classList.remove("active");
+        p.style.display = "none";
+    });
+
+    const sesionPanel = document.getElementById("panel-sesion-activa");
+    if (sesionPanel) {
+        sesionPanel.style.display = "block";
+        sesionPanel.classList.add("active");
+    }
+
+    actualizarMiniBannerSesion();
+    actualizarFabUniversal();
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/**
+ * Minimiza la sesión activa para permitir explorar las bibliotecas sin cancelarla
+ */
+export function minimizarSesionActiva() {
+    const sesionPanel = document.getElementById("panel-sesion-activa");
+    if (sesionPanel) {
+        sesionPanel.style.display = "none";
+        sesionPanel.classList.remove("active");
+    }
+
+    cambiarTab(state.tabActual || "estandar");
+    actualizarMiniBannerSesion();
+    actualizarFabUniversal();
+}
+
+/**
+ * Actualiza el mini-banner superior dentro del módulo de rutinas
+ */
+export function actualizarMiniBannerSesion() {
+    const miniBanner = document.getElementById("session-active-mini-banner");
+    if (!miniBanner) return;
+
+    const sesion = obtenerSesionActiva();
+    const sesionPanel = document.getElementById("panel-sesion-activa");
+    const estaEnPantallaSesion = sesionPanel && sesionPanel.style.display !== "none" && sesionPanel.classList.contains("active");
+
+    if (!sesion || estaEnPantallaSesion) {
+        miniBanner.style.display = "none";
+        return;
+    }
+
+    miniBanner.style.display = "flex";
+    const titleEl = document.getElementById("mini-banner-title");
+    if (titleEl) titleEl.textContent = sesion.nombre || "Entrenamiento Activo";
+
+    const timerEl = document.getElementById("mini-banner-timer");
+    if (timerEl) {
+        const seg = calcularTiempoTranscurridoSegundos(sesion);
+        timerEl.textContent = formatearSegundos(seg);
+    }
+}
+
+/**
+ * Renderiza el DOM de los ejercicios de la sesión (calentamiento + ejercicios)
+ */
+function renderizarContenidoSesion(rutina) {
+    const contenedor = document.getElementById("contenedor-ejercicios-sesion");
+    if (!contenedor) return;
+
+    const calentamientoHtml = generarCardCalentamiento(rutina);
+
+    const ejerciciosHtml = (rutina.ejercicios || []).map((item, idx) => {
+        const ej = BASE_EJERCICIOS.find(e => e.id === item.ejercicioId);
+        const nombre = ej ? ej.nombre : item.ejercicioId;
+        const icono = ej ? ej.tipoIcono : "🏋️";
+        const numSeries = item.series || 3;
+
+        let filasSeriesHtml = "";
+        for (let s = 1; s <= numSeries; s++) {
+            const rowId = `row-session-${idx}-${s}`;
+            filasSeriesHtml += `
+            <tr class="set-row" id="${rowId}">
+                <td class="col-set"><span class="set-badge">${s}</span></td>
+                <td class="col-target">${item.reps || "8-10"}</td>
+                <td class="col-input">
+                    <input type="number" step="0.5" class="input-set-data input-kg" placeholder="kg" oninput="window.gimnasio?.onInputSetData('${rowId}')">
+                </td>
+                <td class="col-input">
+                    <input type="number" step="1" class="input-set-data input-reps" placeholder="reps" oninput="window.gimnasio?.onInputSetData('${rowId}')">
+                </td>
+                <td class="col-check">
+                    <div class="check-with-split">
+                        <label class="custom-neon-check touch-large">
+                            <input type="checkbox" onchange="window.gimnasio?.toggleSetComplete('${rowId}', this, '${nombre.replace(/'/g, "\\'")}', ${s})">
+                            <span class="checkmark"></span>
+                        </label>
+                        <span id="split-${rowId}" class="set-split-tag"></span>
+                    </div>
+                </td>
+            </tr>
+            `;
+        }
+
+        return `
+        <div class="exercise-card card-carbon session-exercise-card" id="session-card-${idx}">
+            <div class="exercise-header" onclick="window.gimnasio?.toggleCollapse('session-card-${idx}')">
+                <div class="exercise-main-info">
+                    <span class="exercise-icon">${icono}</span>
+                    <div>
+                        <div class="exercise-title-wrap">
+                            <h3>${idx + 2}. ${nombre}</h3>
+                            <button class="btn-info-neon" title="Guía técnica 3D" onclick="event.stopPropagation(); window.gimnasio?.abrirModalDetalle('${item.ejercicioId}')">
+                                ℹ️ Ficha 3D
+                            </button>
+                        </div>
+                        <p class="exercise-meta">${numSeries} series • Descanso: ${item.descanso || 90}s</p>
+                    </div>
+                </div>
+                <div class="collapse-indicator">
+                    <span class="chevron">▼</span>
+                </div>
+            </div>
+
+            <div class="exercise-body">
+                <div class="table-responsive">
+                    <table class="sets-table">
+                        <thead>
+                            <tr>
+                                <th class="col-set">SERIE</th>
+                                <th class="col-target">OBJETIVO</th>
+                                <th class="col-input">PESO (kg)</th>
+                                <th class="col-input">REPS</th>
+                                <th class="col-check">CHECK & TIEMPO</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasSeriesHtml}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="exercise-footer-actions">
+                    <span class="rest-timer">⏱️ Descanso sugerido: ${item.descanso || 90} seg</span>
+                </div>
+            </div>
+        </div>
+        `;
+    }).join("");
+
+    contenedor.innerHTML = calentamientoHtml + ejerciciosHtml;
+
+    // Enlazar input de notas para persistencia en vivo
+    const voiceArea = document.getElementById("session-voice-textarea");
+    if (voiceArea) {
+        voiceArea.oninput = () => window.gimnasio?.onInputNota();
+    }
+}
+
+/**
+ * Restaura los datos guardados en la sesión (checks, pesos, reps, RPE, nota)
+ */
+function aplicarEstadoSesionEnPantalla(sesion) {
+    if (!sesion) return;
+
+    // Actualizar badges
+    const badgeEl = document.getElementById("session-routine-badge");
+    if (badgeEl) badgeEl.textContent = `SESIÓN ACTIVA: ${(sesion.nombre || "Entrenamiento").toUpperCase()}`;
+
+    const seriesTotales = sesion.seriesTotales || 0;
+    const seriesCompletadas = sesion.seriesCompletadas || 0;
+    const setsProgEl = document.getElementById("metric-sets-progress");
+    if (setsProgEl) {
+        const pct = seriesTotales > 0 ? Math.round((seriesCompletadas / seriesTotales) * 100) : 0;
+        setsProgEl.textContent = `${seriesCompletadas} / ${seriesTotales} (${pct}%)`;
+    }
+
+    const warmStatusEl = document.getElementById("metric-warmup-status");
+    if (warmStatusEl) {
+        if (sesion.calentamientoFin) {
+            warmStatusEl.textContent = `Listo (${sesion.calentamientoFin})`;
+            warmStatusEl.className = "text-green";
+        } else {
+            warmStatusEl.textContent = "En curso...";
+            warmStatusEl.className = "text-amber";
+        }
+    }
+
+    actualizarUiPausa(sesion.pausado);
+
+    // Restaurar checks de calentamiento
+    const checks = sesion.checksCalentamiento || {};
+    [1, 2, 3].forEach(paso => {
+        const item = document.getElementById(`warmup-item-${paso}`);
+        const tag = document.getElementById(`warmup-tag-${paso}`);
+        const input = item ? item.querySelector("input[type='checkbox']") : null;
+        if (checks[paso]) {
+            if (item) item.classList.add("checked");
+            if (input) input.checked = true;
+            if (tag) {
+                tag.textContent = `✓ ${checks[paso]}`;
+                tag.classList.add("recorded");
+            }
+        } else {
+            if (item) item.classList.remove("checked");
+            if (input) input.checked = false;
+            if (tag) {
+                tag.textContent = "--:--";
+                tag.classList.remove("recorded");
+            }
+        }
+    });
+
+    const cardWarmup = document.getElementById("session-card-warmup");
+    const noticeWarmup = document.getElementById("warmup-completion-notice");
+    if (checks[1] && checks[2] && checks[3]) {
+        if (cardWarmup) cardWarmup.classList.add("warmup-all-ready");
+        if (noticeWarmup) noticeWarmup.style.display = "flex";
+    }
+
+    // Restaurar series
+    const inputsData = sesion.seriesInputs || {};
+    Object.keys(inputsData).forEach(rowId => {
+        const row = document.getElementById(rowId);
+        if (!row) return;
+
+        const data = inputsData[rowId];
+        const pesoInput = row.querySelector(".input-kg");
+        const repsInput = row.querySelector(".input-reps");
+        const checkInput = row.querySelector("input[type='checkbox']");
+        const splitTag = document.getElementById(`split-${rowId}`);
+
+        if (pesoInput && data.peso !== undefined && data.peso !== null) pesoInput.value = data.peso;
+        if (repsInput && data.reps !== undefined && data.reps !== null) repsInput.value = data.reps;
+
+        if (data.completado) {
+            row.classList.add("set-completed");
+            if (checkInput) checkInput.checked = true;
+            if (splitTag) {
+                splitTag.textContent = data.splitTiempo || "";
+                splitTag.classList.add("visible");
+            }
+        } else {
+            row.classList.remove("set-completed");
+            if (checkInput) checkInput.checked = false;
+            if (splitTag) {
+                splitTag.textContent = "";
+                splitTag.classList.remove("visible");
+            }
+        }
+    });
+
+    // Restaurar RPE
+    seleccionarRpe(sesion.rpe || 8);
+
+    // Restaurar nota de voz / texto
+    const voiceArea = document.getElementById("session-voice-textarea");
+    if (voiceArea && sesion.notaTexto) {
+        voiceArea.value = sesion.notaTexto;
+    }
+
+    // Sincronizar metricas locales
+    state.metricasSesion = {
+        calentamientoInicio: sesion.calentamientoInicio || new Date(),
+        calentamientoFin: sesion.calentamientoFin || null,
+        calentamientoSegundos: sesion.calentamientoSegundos || null,
+        checksCalentamiento: { ...checks },
+        seriesTotales,
+        seriesCompletadas,
+        splits: sesion.splits || [],
+        rpe: sesion.rpe || 8,
+        porVoz: !!sesion.porVoz
+    };
+}
+
+/**
+ * Guarda peso y reps en vivo al teclear y resetea el contador de inactividad
+ */
+export function onInputSetData(rowId) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+
+    const pesoInput = row.querySelector(".input-kg");
+    const repsInput = row.querySelector(".input-reps");
+    const checkInput = row.querySelector("input[type='checkbox']");
+    const splitTag = document.getElementById(`split-${rowId}`);
+
+    const sesion = obtenerSesionActiva();
+    if (!sesion) return;
+
+    if (!sesion.seriesInputs) sesion.seriesInputs = {};
+    sesion.seriesInputs[rowId] = {
+        peso: pesoInput ? pesoInput.value : "",
+        reps: repsInput ? repsInput.value : "",
+        completado: checkInput ? checkInput.checked : false,
+        splitTiempo: splitTag ? splitTag.textContent : ""
+    };
+
+    actualizarDatosSesion({ seriesInputs: sesion.seriesInputs });
+    registrarActividadSesion();
+}
+
+/**
+ * Guarda notas al teclear o transcribir y resetea el contador de inactividad
+ */
+export function onInputNota() {
+    const textarea = document.getElementById("session-voice-textarea");
+    if (!textarea) return;
+
+    actualizarDatosSesion({ notaTexto: textarea.value });
+    registrarActividadSesion();
 }
 
 /**
@@ -985,6 +1238,7 @@ export function toggleCheckCalentamiento(paso, checkbox) {
     const item = document.getElementById(`warmup-item-${paso}`);
     const tag = document.getElementById(`warmup-tag-${paso}`);
     const tiempoActual = obtenerTiempoActualStr();
+    const sesion = obtenerSesionActiva();
 
     if (checkbox.checked) {
         if (item) item.classList.add("checked");
@@ -1031,6 +1285,8 @@ export function toggleCheckCalentamiento(paso, checkbox) {
         mostrarToastLocal(`🔥 Calentamiento completado a los ${tiempoActual}. ¡A por las series efectivas!`);
         if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
     } else {
+        state.metricasSesion.calentamientoFin = null;
+        state.metricasSesion.calentamientoSegundos = null;
         if (card) card.classList.remove("warmup-all-ready");
         if (notice) notice.style.display = "none";
         if (statusPill) {
@@ -1038,34 +1294,48 @@ export function toggleCheckCalentamiento(paso, checkbox) {
             statusPill.className = "text-amber";
         }
     }
+
+    if (sesion) {
+        sesion.checksCalentamiento = { ...state.metricasSesion.checksCalentamiento };
+        sesion.calentamientoFin = state.metricasSesion.calentamientoFin;
+        sesion.calentamientoSegundos = state.metricasSesion.calentamientoSegundos;
+        sesion.splits = state.metricasSesion.splits;
+        actualizarDatosSesion({
+            checksCalentamiento: sesion.checksCalentamiento,
+            calentamientoFin: sesion.calentamientoFin,
+            calentamientoSegundos: sesion.calentamientoSegundos,
+            splits: sesion.splits
+        });
+        registrarActividadSesion();
+    }
 }
 
 /**
  * Control del cronómetro de la sesión
  */
 export function togglePausarCronometro() {
+    const sesion = togglePausarSesion();
+    if (!sesion) return;
+
+    state.cronometro.pausado = sesion.pausado;
+    actualizarUiPausa(sesion.pausado);
+    actualizarMiniBannerSesion();
+
+    if (sesion.pausado) {
+        mostrarToastLocal("⏸️ Entrenamiento en pausa");
+    } else {
+        mostrarToastLocal("▶️ Cronómetro reanudado");
+    }
+}
+
+function actualizarUiPausa(pausado) {
     const btnIcon = document.getElementById("btn-timer-icon");
     const btnText = document.getElementById("btn-timer-text");
     const btn = document.getElementById("btn-timer-toggle-pause");
     const paceStatus = document.getElementById("metric-session-pace");
     const display = document.getElementById("session-cronometro-display");
 
-    if (state.cronometro.pausado) {
-        state.cronometro.pausado = false;
-        if (btnIcon) btnIcon.textContent = "⏸️";
-        if (btnText) btnText.textContent = "PAUSAR ENTRENAMIENTO";
-        if (btn) {
-            btn.classList.remove("btn-neon-resume");
-            btn.classList.add("btn-neon-pause");
-        }
-        if (paceStatus) {
-            paceStatus.textContent = "Activo";
-            paceStatus.className = "text-cyan";
-        }
-        if (display) display.classList.remove("timer-paused");
-        mostrarToastLocal("▶️ Cronómetro reanudado");
-    } else {
-        state.cronometro.pausado = true;
+    if (pausado) {
         if (btnIcon) btnIcon.textContent = "▶️";
         if (btnText) btnText.textContent = "REANUDAR ENTRENAMIENTO";
         if (btn) {
@@ -1077,22 +1347,52 @@ export function togglePausarCronometro() {
             paceStatus.className = "text-amber";
         }
         if (display) display.classList.add("timer-paused");
-        mostrarToastLocal("⏸️ Entrenamiento en pausa");
+    } else {
+        if (btnIcon) btnIcon.textContent = "⏸️";
+        if (btnText) btnText.textContent = "PAUSAR ENTRENAMIENTO";
+        if (btn) {
+            btn.classList.remove("btn-neon-resume");
+            btn.classList.add("btn-neon-pause");
+        }
+        if (paceStatus) {
+            paceStatus.textContent = "Activo";
+            paceStatus.className = "text-cyan";
+        }
+        if (display) display.classList.remove("timer-paused");
     }
 }
 
 function iniciarCronometroSesion() {
     if (state.cronometro.intervalId) clearInterval(state.cronometro.intervalId);
-    state.cronometro.segundos = 0;
-    state.cronometro.pausado = false;
+
+    const sesion = obtenerSesionActiva();
+    if (!sesion) return;
+
+    state.cronometro.segundos = calcularTiempoTranscurridoSegundos(sesion);
+    state.cronometro.pausado = !!sesion.pausado;
 
     actualizarDisplayCronometro();
+    actualizarUiPausa(state.cronometro.pausado);
 
     state.cronometro.intervalId = setInterval(() => {
-        if (!state.cronometro.pausado) {
-            state.cronometro.segundos++;
-            actualizarDisplayCronometro();
+        const sesionActual = obtenerSesionActiva();
+        if (!sesionActual) {
+            detenerCronometroSesion();
+            const sesionPanel = document.getElementById("panel-sesion-activa");
+            if (sesionPanel && sesionPanel.style.display !== "none") {
+                sesionPanel.style.display = "none";
+                sesionPanel.classList.remove("active");
+                cambiarTab("estandar");
+            }
+            actualizarMiniBannerSesion();
+            actualizarFabUniversal();
+            return;
         }
+
+        state.cronometro.segundos = calcularTiempoTranscurridoSegundos(sesionActual);
+        state.cronometro.pausado = !!sesionActual.pausado;
+        actualizarDisplayCronometro();
+        actualizarMiniBannerSesion();
     }, 1000);
 }
 
@@ -1109,20 +1409,6 @@ function actualizarDisplayCronometro() {
     display.textContent = formatearSegundos(state.cronometro.segundos);
 }
 
-function formatearSegundos(totalSegundos) {
-    const h = Math.floor(totalSegundos / 3600);
-    const m = Math.floor((totalSegundos % 3600) / 60);
-    const s = totalSegundos % 60;
-
-    const ss = String(s).padStart(2, "0");
-    const mm = String(m).padStart(2, "0");
-
-    if (h > 0) {
-        return `${h}:${mm}:${ss}`;
-    }
-    return `${mm}:${ss}`;
-}
-
 function obtenerTiempoActualStr() {
     return formatearSegundos(state.cronometro.segundos);
 }
@@ -1136,14 +1422,15 @@ export function toggleSetComplete(rowId, checkbox, ejNombre, setNum) {
 
     const splitTag = document.getElementById(`split-${rowId}`);
     const tiempoActual = obtenerTiempoActualStr();
+    const sesion = obtenerSesionActiva();
+
+    const pesoInput = row.querySelector(".input-kg");
+    const repsInput = row.querySelector(".input-reps");
+    const peso = pesoInput && pesoInput.value ? parseFloat(pesoInput.value) : null;
+    const reps = repsInput && repsInput.value ? parseInt(repsInput.value, 10) : null;
 
     if (checkbox.checked) {
         row.classList.add("set-completed");
-        const pesoInput = row.querySelector(".input-kg");
-        const repsInput = row.querySelector(".input-reps");
-        const peso = pesoInput && pesoInput.value ? parseFloat(pesoInput.value) : null;
-        const reps = repsInput && repsInput.value ? parseInt(repsInput.value, 10) : null;
-
         if (splitTag) {
             splitTag.textContent = `⏱️ ${tiempoActual}`;
             splitTag.classList.add("visible");
@@ -1175,6 +1462,25 @@ export function toggleSetComplete(rowId, checkbox, ejNombre, setNum) {
     if (setsProgEl) {
         const pct = Math.round((state.metricasSesion.seriesCompletadas / (state.metricasSesion.seriesTotales || 1)) * 100);
         setsProgEl.textContent = `${state.metricasSesion.seriesCompletadas} / ${state.metricasSesion.seriesTotales} (${pct}%)`;
+    }
+
+    // Persistir en sesion activa
+    if (sesion) {
+        if (!sesion.seriesInputs) sesion.seriesInputs = {};
+        sesion.seriesInputs[rowId] = {
+            peso: pesoInput ? pesoInput.value : "",
+            reps: repsInput ? repsInput.value : "",
+            completado: checkbox.checked,
+            splitTiempo: checkbox.checked ? `⏱️ ${tiempoActual}` : ""
+        };
+        sesion.seriesCompletadas = state.metricasSesion.seriesCompletadas;
+        sesion.splits = state.metricasSesion.splits;
+        actualizarDatosSesion({
+            seriesInputs: sesion.seriesInputs,
+            seriesCompletadas: sesion.seriesCompletadas,
+            splits: sesion.splits
+        });
+        registrarActividadSesion();
     }
 }
 
@@ -1239,6 +1545,7 @@ export function alternarVozSesionDirecta() {
             if (textarea) {
                 const sep = textoBase && !textoBase.endsWith(" ") ? " " : "";
                 textarea.value = (textoBase + sep + finalStr + interimStr).trimStart();
+                onInputNota();
             }
         };
 
@@ -1275,10 +1582,12 @@ export function seleccionarRpe(val) {
         const rpeAttr = parseInt(b.getAttribute("data-rpe"), 10);
         b.classList.toggle("active", rpeAttr === val);
     });
+    actualizarDatosSesion({ rpe: val });
+    registrarActividadSesion();
 }
 
 /**
- * Guarda la sesión completa con todas sus métricas y la registra en la Bitácora
+ * Guarda la sesión completa con todas sus métricas y la registra en el Diario de Notas
  */
 export function guardarSesionCompletaYSalir() {
     if (state.grabandoVozSesion && state.reconocimientoVozSesion) {
@@ -1286,54 +1595,65 @@ export function guardarSesionCompletaYSalir() {
         state.grabandoVozSesion = false;
     }
 
+    const sesion = obtenerSesionActiva();
     const textarea = document.getElementById("session-voice-textarea");
     const textoUsuario = textarea && textarea.value.trim() 
         ? textarea.value.trim() 
-        : `Sesión completada (${state.rutinaEnSesion?.nombre || 'Entrenamiento'}). Buen trabajo y calentamiento registrado.`;
+        : `Sesión completada (${state.rutinaEnSesion?.nombre || sesion?.nombre || 'Entrenamiento'}). Buen trabajo y calentamiento registrado.`;
 
-    const duracionSegundos = state.cronometro.segundos;
+    const duracionSegundos = sesion ? calcularTiempoTranscurridoSegundos(sesion) : state.cronometro.segundos;
     const duracionFormato = formatearSegundos(duracionSegundos);
 
     const metricas = {
         duracionSegundos,
         duracionFormato,
-        calentamientoFormato: state.metricasSesion.calentamientoFin || null,
+        calentamientoFormato: state.metricasSesion.calentamientoFin || (sesion && sesion.calentamientoFin) || null,
         calentamientoSegundos: state.metricasSesion.calentamientoSegundos || null,
-        seriesTotales: state.metricasSesion.seriesTotales,
-        seriesCompletadas: state.metricasSesion.seriesCompletadas,
-        splits: state.metricasSesion.splits,
-        splitsCount: state.metricasSesion.splits.length,
-        rutinaId: state.rutinaEnSesion?.id || "sesion-libre"
+        seriesTotales: state.metricasSesion.seriesTotales || (sesion && sesion.seriesTotales) || 0,
+        seriesCompletadas: state.metricasSesion.seriesCompletadas || (sesion && sesion.seriesCompletadas) || 0,
+        splits: state.metricasSesion.splits || (sesion && sesion.splits) || [],
+        splitsCount: (state.metricasSesion.splits || []).length,
+        rutinaId: state.rutinaEnSesion?.id || sesion?.rutinaId || "sesion-libre"
     };
 
     guardarEntradaBitacora({
         texto: textoUsuario,
         categoria: "post-entreno",
-        rutinaRelacionada: state.rutinaEnSesion?.nombre || "Entrenamiento",
+        rutinaRelacionada: state.rutinaEnSesion?.nombre || sesion?.nombre || "Entrenamiento",
         rpe: state.metricasSesion.rpe || 8,
-        porVoz: state.metricasSesion.porVoz,
+        porVoz: state.metricasSesion.porVoz || false,
         metricas
     });
 
     detenerCronometroSesion();
+    finalizarSesion();
 
     const sesionPanel = document.getElementById("panel-sesion-activa");
-    if (sesionPanel) sesionPanel.style.display = "none";
+    if (sesionPanel) {
+        sesionPanel.style.display = "none";
+        sesionPanel.classList.remove("active");
+    }
     cambiarTab(state.tabActual || "estandar");
+    actualizarMiniBannerSesion();
 
-    mostrarToastLocal(`🎉 ¡Entrenamiento registrado en Bitácora! Tiempo: ${duracionFormato} • ${metricas.seriesCompletadas} series.`);
+    mostrarToastLocal(`🎉 ¡Entrenamiento registrado en el Diario de Notas! Tiempo: ${duracionFormato} • ${metricas.seriesCompletadas} series.`);
 }
 
 export function salirSesionActiva() {
-    if (confirm("¿Deseas salir del entrenamiento? El cronómetro se detendrá.")) {
+    if (confirm("¿Deseas salir del entrenamiento? Se cancelará la sesión en curso.")) {
         detenerCronometroSesion();
         if (state.grabandoVozSesion && state.reconocimientoVozSesion) {
             try { state.reconocimientoVozSesion.stop(); } catch(e) {}
             state.grabandoVozSesion = false;
         }
+        cancelarSesion();
         const sesionPanel = document.getElementById("panel-sesion-activa");
-        if (sesionPanel) sesionPanel.style.display = "none";
+        if (sesionPanel) {
+            sesionPanel.style.display = "none";
+            sesionPanel.classList.remove("active");
+        }
         cambiarTab(state.tabActual || "estandar");
+        actualizarMiniBannerSesion();
     }
 }
 
