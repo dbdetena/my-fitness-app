@@ -9,6 +9,7 @@ import {
     generarRutinaCoach 
 } from "./rutinas-data.js";
 import { guardarEntradaBitacora, formatearFechaTimestamp } from "./diario.js";
+import { generarHtmlModalHistorial } from "./progreso-manager.js";
 import { 
     obtenerSesionActiva, 
     iniciarNuevaSesion, 
@@ -86,7 +87,10 @@ export function initGimnasio() {
         toggleCheckCalentamiento,
         alternarVozSesionDirecta,
         seleccionarRpe,
-        guardarSesionCompletaYSalir
+        guardarSesionCompletaYSalir,
+        abrirModalHistorialRutina,
+        cerrarModalHistorialRutina,
+        toggleAccordionHistorial
     };
 
     // Renderizado inicial de las 3 bibliotecas
@@ -494,6 +498,9 @@ function renderizarRutinasEstandar() {
                 <button class="btn-primary btn-neon-cyan" onclick="window.gimnasio?.iniciarEntrenamientoRutina('estandar', '${rutina.id}')">
                     <span>🏋️‍♂️</span> Iniciar Sesión
                 </button>
+                <button class="btn-ghost" onclick="window.gimnasio?.abrirModalHistorialRutina('${rutina.id}', '${rutina.nombre.replace(/'/g, "\\'")}')" title="Ver Historial y Comparativa de Progreso">
+                    <span>📈</span> Historial & Progreso
+                </button>
                 <button class="btn-ghost" onclick="window.gimnasio?.clonarRutina('${rutina.id}')" title="Copiar a Mis Rutinas">
                     <span>📋</span> Clonar a Mis Rutinas
                 </button>
@@ -604,6 +611,9 @@ function renderizarRutinasPersonalizadas() {
             <div class="routine-card-actions">
                 <button class="btn-primary btn-neon-cyan" onclick="window.gimnasio?.iniciarEntrenamientoRutina('personalizada', '${rutina.id}')">
                     <span>🏋️‍♂️</span> Iniciar Sesión
+                </button>
+                <button class="btn-ghost" onclick="window.gimnasio?.abrirModalHistorialRutina('${rutina.id}', '${rutina.nombre.replace(/'/g, "\\'")}')" title="Ver Historial y Comparativa de Progreso">
+                    <span>📈</span> Historial & Progreso
                 </button>
             </div>
         </div>
@@ -1235,10 +1245,19 @@ function generarCardCalentamiento(rutina) {
  * Manejador de checks del Calentamiento
  */
 export function toggleCheckCalentamiento(paso, checkbox) {
+    const sesion = obtenerSesionActiva();
+
+    // CONDICIÓN ESTRICTA: El cronómetro DEBE estar en marcha para poder marcar checks
+    if (!sesion || sesion.pausado || state.cronometro.pausado) {
+        checkbox.checked = !checkbox.checked;
+        mostrarToastLocal("⚠️ Debes iniciar o reanudar el cronómetro para registrar el calentamiento.");
+        if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+        return;
+    }
+
     const item = document.getElementById(`warmup-item-${paso}`);
     const tag = document.getElementById(`warmup-tag-${paso}`);
     const tiempoActual = obtenerTiempoActualStr();
-    const sesion = obtenerSesionActiva();
 
     if (checkbox.checked) {
         if (item) item.classList.add("checked");
@@ -1334,6 +1353,8 @@ function actualizarUiPausa(pausado) {
     const btn = document.getElementById("btn-timer-toggle-pause");
     const paceStatus = document.getElementById("metric-session-pace");
     const display = document.getElementById("session-cronometro-display");
+    const pauseNotice = document.getElementById("session-pause-notice");
+    const panelSesion = document.getElementById("panel-sesion-activa");
 
     if (pausado) {
         if (btnIcon) btnIcon.textContent = "▶️";
@@ -1347,6 +1368,8 @@ function actualizarUiPausa(pausado) {
             paceStatus.className = "text-amber";
         }
         if (display) display.classList.add("timer-paused");
+        if (pauseNotice) pauseNotice.style.display = "flex";
+        if (panelSesion) panelSesion.classList.add("session-paused");
     } else {
         if (btnIcon) btnIcon.textContent = "⏸️";
         if (btnText) btnText.textContent = "PAUSAR ENTRENAMIENTO";
@@ -1359,6 +1382,8 @@ function actualizarUiPausa(pausado) {
             paceStatus.className = "text-cyan";
         }
         if (display) display.classList.remove("timer-paused");
+        if (pauseNotice) pauseNotice.style.display = "none";
+        if (panelSesion) panelSesion.classList.remove("session-paused");
     }
 }
 
@@ -1417,12 +1442,21 @@ function obtenerTiempoActualStr() {
  * Marca o desmarca una serie de ejercicio registrando el split de tiempo
  */
 export function toggleSetComplete(rowId, checkbox, ejNombre, setNum) {
+    const sesion = obtenerSesionActiva();
+
+    // CONDICIÓN ESTRICTA: El cronómetro DEBE estar en marcha para poder marcar series
+    if (!sesion || sesion.pausado || state.cronometro.pausado) {
+        checkbox.checked = !checkbox.checked;
+        mostrarToastLocal("⚠️ Debes iniciar o reanudar el cronómetro para registrar series.");
+        if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+        return;
+    }
+
     const row = document.getElementById(rowId);
     if (!row) return;
 
     const splitTag = document.getElementById(`split-${rowId}`);
     const tiempoActual = obtenerTiempoActualStr();
-    const sesion = obtenerSesionActiva();
 
     const pesoInput = row.querySelector(".input-kg");
     const repsInput = row.querySelector(".input-reps");
@@ -1673,3 +1707,41 @@ function mostrarToastLocal(mensaje) {
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
+
+/**
+ * Abre el modal con el desglose histórico de sesiones y análisis de sobrecarga progresiva
+ */
+export function abrirModalHistorialRutina(rutinaId, rutinaNombre) {
+    const modal = document.getElementById("modal-historial-rutina");
+    const titulo = document.getElementById("modal-historial-titulo");
+    const subtitulo = document.getElementById("modal-historial-subtitulo");
+    const contenido = document.getElementById("modal-historial-contenido");
+    if (!modal || !contenido) return;
+
+    if (titulo) {
+        titulo.textContent = `Historial: ${rutinaNombre}`;
+    }
+    if (subtitulo) {
+        subtitulo.textContent = `Evolución de tiempos, densidad y sobrecarga progresiva`;
+    }
+
+    contenido.innerHTML = generarHtmlModalHistorial(rutinaId, rutinaNombre);
+    modal.classList.add("active");
+    document.body.classList.add("modal-open");
+}
+
+export function cerrarModalHistorialRutina() {
+    const modal = document.getElementById("modal-historial-rutina");
+    if (modal) {
+        modal.classList.remove("active");
+        document.body.classList.remove("modal-open");
+    }
+}
+
+export function toggleAccordionHistorial(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isVisible = el.style.display !== "none";
+    el.style.display = isVisible ? "none" : "block";
+}
+

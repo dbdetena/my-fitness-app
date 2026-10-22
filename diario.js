@@ -1,8 +1,10 @@
 // ========================================================
-// MÓDULO: DIARIO DE ENTRENAMIENTO & CUADERNO DE BITÁCORA
+// MÓDULO: DIARIO DE ENTRENAMIENTO & DIARIO DE NOTAS
 // Soporte para transcripción por voz (Web Speech API),
-// marcas de tiempo automáticas y registro de notas
+// marcas de tiempo automáticas, registro de notas,
+// desglose de tiempos por actividad y comparativa de progreso.
 // ========================================================
+import { generarHtmlDesgloseEntrada } from "./progreso-manager.js";
 
 const STORAGE_KEY = "fitness_bitacora_entries";
 
@@ -24,11 +26,80 @@ const ENTRADAS_DEFAULT = [
         fechaFormato: formatearFechaTimestamp(new Date(Date.now() - 86400000 * 2)),
         categoria: "post-entreno",
         categoriaLabel: "🏋️ Post-Entreno",
-        rutinaRelacionada: "Tirón & Espalda (Pull)",
+        rutinaRelacionada: "Tirón / Pull (Espalda, Bíceps y Posterior)",
         rpe: 8,
         energia: "alta",
-        texto: "Sensaciones increíbles en dominadas pronas. Subí a 8 reps limpias con parada en la cima. Ligera tensión en el antebrazo derecho al terminar, la IA debería sugerir más estiramientos de flexores en el próximo calentamiento.",
-        porVoz: true
+        texto: "Sensaciones increíbles en dominadas pronas. Subí a 8 reps limpias en las 4 series con parada en la cima. Subida a 24kg en remo (+2kg) y 14kg en curl (+2kg).",
+        porVoz: true,
+        metricas: {
+            duracionSegundos: 2720, // 45:20
+            duracionFormato: "45:20",
+            calentamientoSegundos: 340, // 05:40
+            calentamientoFormato: "05:40",
+            seriesTotales: 11,
+            seriesCompletadas: 11,
+            rutinaId: "estandar-pull",
+            splits: [
+                { tipo: "calentamiento_paso", paso: 1, tiempo: "01:50", segundos: 110 },
+                { tipo: "calentamiento_paso", paso: 2, tiempo: "03:40", segundos: 220 },
+                { tipo: "calentamiento_paso", paso: 3, tiempo: "05:40", segundos: 340 },
+                { tipo: "calentamiento_completo", tiempo: "05:40", segundos: 340 },
+                // Dominadas (4 series x 8 reps)
+                { tipo: "serie", ejercicio: "Dominadas", set: 1, peso: 0, reps: 8, tiempo: "08:30", segundos: 510 },
+                { tipo: "serie", ejercicio: "Dominadas", set: 2, peso: 0, reps: 8, tiempo: "11:00", segundos: 660 },
+                { tipo: "serie", ejercicio: "Dominadas", set: 3, peso: 0, reps: 8, tiempo: "13:30", segundos: 810 },
+                { tipo: "serie", ejercicio: "Dominadas", set: 4, peso: 0, reps: 8, tiempo: "15:55", segundos: 955 },
+                // Remo con mancuerna (3 series @ 24kg - Subida de carga +2kg!)
+                { tipo: "serie", ejercicio: "Remo con mancuerna", set: 1, peso: 24, reps: 10, tiempo: "19:10", segundos: 1150 },
+                { tipo: "serie", ejercicio: "Remo con mancuerna", set: 2, peso: 24, reps: 10, tiempo: "21:40", segundos: 1300 },
+                { tipo: "serie", ejercicio: "Remo con mancuerna", set: 3, peso: 24, reps: 10, tiempo: "24:10", segundos: 1450 },
+                // Curl de bíceps (4 series @ 14kg - Subida de carga +2kg!)
+                { tipo: "serie", ejercicio: "Curl de bíceps con mancuernas", set: 1, peso: 14, reps: 10, tiempo: "27:10", segundos: 1630 },
+                { tipo: "serie", ejercicio: "Curl de bíceps con mancuernas", set: 2, peso: 14, reps: 10, tiempo: "29:30", segundos: 1770 },
+                { tipo: "serie", ejercicio: "Curl de bíceps con mancuernas", set: 3, peso: 14, reps: 10, tiempo: "31:50", segundos: 1910 },
+                { tipo: "serie", ejercicio: "Curl de bíceps con mancuernas", set: 4, peso: 14, reps: 9, tiempo: "34:10", segundos: 2050 }
+            ]
+        }
+    },
+    {
+        id: "entry-init-0",
+        fechaIso: new Date(Date.now() - 86400000 * 4).toISOString(),
+        fechaFormato: formatearFechaTimestamp(new Date(Date.now() - 86400000 * 4)),
+        categoria: "post-entreno",
+        categoriaLabel: "🏋️ Post-Entreno",
+        rutinaRelacionada: "Tirón / Pull (Espalda, Bíceps y Posterior)",
+        rpe: 8,
+        energia: "moderada",
+        texto: "Primera sesión de referencia del ciclo. Calentamiento completo con rampa cardiovascular. Buena congestión en dorsales, adaptando cargas de inicio.",
+        porVoz: false,
+        metricas: {
+            duracionSegundos: 2955, // 49:15
+            duracionFormato: "49:15",
+            calentamientoSegundos: 390, // 06:30
+            calentamientoFormato: "06:30",
+            seriesTotales: 10,
+            seriesCompletadas: 10,
+            rutinaId: "estandar-pull",
+            splits: [
+                { tipo: "calentamiento_paso", paso: 1, tiempo: "02:15", segundos: 135 },
+                { tipo: "calentamiento_paso", paso: 2, tiempo: "04:20", segundos: 260 },
+                { tipo: "calentamiento_paso", paso: 3, tiempo: "06:30", segundos: 390 },
+                { tipo: "calentamiento_completo", tiempo: "06:30", segundos: 390 },
+                // Dominadas (3 series)
+                { tipo: "serie", ejercicio: "Dominadas", set: 1, peso: 0, reps: 8, tiempo: "09:50", segundos: 590 },
+                { tipo: "serie", ejercicio: "Dominadas", set: 2, peso: 0, reps: 7, tiempo: "12:30", segundos: 750 },
+                { tipo: "serie", ejercicio: "Dominadas", set: 3, peso: 0, reps: 6, tiempo: "15:10", segundos: 910 },
+                // Remo con mancuerna (3 series @ 22kg)
+                { tipo: "serie", ejercicio: "Remo con mancuerna", set: 1, peso: 22, reps: 10, tiempo: "19:20", segundos: 1160 },
+                { tipo: "serie", ejercicio: "Remo con mancuerna", set: 2, peso: 22, reps: 10, tiempo: "22:15", segundos: 1335 },
+                { tipo: "serie", ejercicio: "Remo con mancuerna", set: 3, peso: 22, reps: 9, tiempo: "25:05", segundos: 1505 },
+                // Curl de bíceps (4 series @ 12kg)
+                { tipo: "serie", ejercicio: "Curl de bíceps con mancuernas", set: 1, peso: 12, reps: 10, tiempo: "28:30", segundos: 1710 },
+                { tipo: "serie", ejercicio: "Curl de bíceps con mancuernas", set: 2, peso: 12, reps: 10, tiempo: "31:10", segundos: 1870 },
+                { tipo: "serie", ejercicio: "Curl de bíceps con mancuernas", set: 3, peso: 12, reps: 9, tiempo: "33:45", segundos: 2025 },
+                { tipo: "serie", ejercicio: "Curl de bíceps con mancuernas", set: 4, peso: 12, reps: 8, tiempo: "36:20", segundos: 2180 }
+            ]
+        }
     },
     {
         id: "entry-init-2",
@@ -72,7 +143,13 @@ export function obtenerEntradasBitacora() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(ENTRADAS_DEFAULT));
             return [...ENTRADAS_DEFAULT];
         }
-        return JSON.parse(raw);
+        let parsed = JSON.parse(raw);
+        // Si las entradas por defecto no tenían métricas detalladas, enriquecerlas
+        if (parsed.length > 0 && parsed.some(p => p.id === "entry-init-1" && !p.metricas?.splits)) {
+            parsed = ENTRADAS_DEFAULT;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        }
+        return parsed;
     } catch (e) {
         console.error("Error al leer bitácora de localStorage:", e);
         return [...ENTRADAS_DEFAULT];
@@ -270,6 +347,16 @@ export function renderizarListaBitacora() {
         </div>
         ` : '';
 
+        const botonDesgloseHtml = (e.metricas) ? `
+        <div class="entry-actions-row">
+            <button type="button" class="btn-toggle-progreso" onclick="window.diario?.toggleDesgloseProgreso('${e.id}')">
+                <span class="btn-icon">📊</span>
+                <span id="label-toggle-${e.id}">Ver Desglose de Tiempos y Progreso ▼</span>
+            </button>
+        </div>
+        <div id="desglose-box-${e.id}" class="desglose-progreso-box" style="display: none;"></div>
+        ` : '';
+
         return `
         <div class="bitacora-entry-card card-carbon animate-fade-in" id="entry-${e.id}">
             <div class="entry-header">
@@ -288,6 +375,7 @@ export function renderizarListaBitacora() {
             <div class="entry-body">
                 ${metricasHtml}
                 <p class="entry-text">${e.texto}</p>
+                ${botonDesgloseHtml}
             </div>
 
             <div class="entry-footer-ai">
@@ -382,6 +470,24 @@ export function cleanupDiario() {
     }
 }
 
+/**
+ * Alterna el visor de desglose de actividades y comparativa de progreso
+ */
+export function toggleDesgloseProgreso(entradaId) {
+    const box = document.getElementById(`desglose-box-${entradaId}`);
+    const label = document.getElementById(`label-toggle-${entradaId}`);
+    if (!box) return;
+
+    if (box.style.display !== "none") {
+        box.style.display = "none";
+        if (label) label.textContent = "Ver Desglose de Tiempos y Progreso ▼";
+    } else {
+        box.innerHTML = generarHtmlDesgloseEntrada(entradaId);
+        box.style.display = "block";
+        if (label) label.textContent = "Ocultar Desglose ▲";
+    }
+}
+
 // Exportar funciones globalmente para eventos en HTML
 window.diario = {
     alternarGrabacionVoz,
@@ -389,5 +495,6 @@ window.diario = {
     eliminarNota: eliminarEntradaBitacora,
     setFiltro: setFiltroBitacora,
     guardarEntrada: guardarEntradaBitacora,
-    obtenerEntradas: obtenerEntradasBitacora
+    obtenerEntradas: obtenerEntradasBitacora,
+    toggleDesgloseProgreso
 };

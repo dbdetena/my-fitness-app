@@ -184,6 +184,20 @@
             </button>
         </div>
 
+        <!-- AVISO VISUAL CUANDO EL ENTRENAMIENTO ESTÁ EN PAUSA (BLOQUEO DE CHECKS) -->
+        <div id="session-pause-notice" class="session-pause-notice card-carbon" style="display: none;">
+            <div class="pause-notice-left">
+                <span class="pause-notice-icon">⏸️</span>
+                <div class="pause-notice-text">
+                    <strong>Entrenamiento en Pausa</strong>
+                    <p>El cronómetro está detenido. Reanuda arriba para poder registrar tus series o calentamiento.</p>
+                </div>
+            </div>
+            <button type="button" class="btn-neon-resume btn-mini-resume-banner" onclick="window.gimnasio?.togglePausarCronometro()">
+                ▶ Reanudar
+            </button>
+        </div>
+
         <!-- LISTA SECUENCIAL DE EJERCICIOS (1º Calentamiento con checks + Siguientes con registros) -->
         <div id="contenedor-ejercicios-sesion" class="session-exercises-list">
             <!-- Inyectado dinámicamente por gimnasio.js -->
@@ -454,7 +468,7 @@
     <div class="modal-card modal-industrial modal-debrief" onclick="event.stopPropagation()">
         <div class="modal-header">
             <div class="modal-title-group">
-                <span class="modal-tag">PASO OBLIGATORIO • BITÁCORA IA</span>
+                <span class="modal-tag">PASO OBLIGATORIO • DIARIO DE NOTAS IA</span>
                 <h3>Cierre de Sesión & Feedback</h3>
                 <p class="modal-subtitle">Explica qué tal ha ido todo para que la IA supervise futuros calentamientos y progresiones.</p>
             </div>
@@ -494,15 +508,37 @@
 
             <div class="ai-supervision-notice">
                 <span class="notice-icon">🤖</span>
-                <p>Esta nota se guardará con su marca de tiempo exacta en tu <strong>Cuaderno de Bitácora</strong> y la IA la tendrá en cuenta para sugerir calentamientos preventivos en tus próximas sesiones.</p>
+                <p>Esta nota se guardará con su marca de tiempo exacta en tu <strong>Diario de Notas</strong> y la IA la tendrá en cuenta para sugerir calentamientos preventivos en tus próximas sesiones.</p>
             </div>
         </div>
 
         <div class="modal-footer">
             <button class="btn-ghost" onclick="window.gimnasio?.cerrarModalDebrief()">Seguir Entrenando</button>
             <button class="btn-primary btn-neon-gold" onclick="window.gimnasio?.confirmarGuardarBitacoraYSalir()">
-                <span>💾 Guardar en Bitácora & Completar Sesión</span>
+                <span>💾 Guardar en Diario de Notas & Completar Sesión</span>
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================
+     MODAL FLOTANTE 6: HISTORIAL DE SESIONES & COMPARATIVA DE PROGRESO
+     ======================================================== -->
+<div id="modal-historial-rutina" class="modal-overlay" onclick="window.gimnasio?.cerrarModalHistorialRutina()">
+    <div class="modal-card modal-industrial modal-large" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <div class="modal-title-group">
+                <span class="modal-tag">ANALÍTICA DE RENDIMIENTO & SOBRECARGA</span>
+                <h3 id="modal-historial-titulo">Historial y Desglose de Tiempos</h3>
+                <p id="modal-historial-subtitulo" class="modal-subtitle">Evolución cronológica, densidad y sobrecarga progresiva</p>
+            </div>
+            <button class="modal-close-btn" onclick="window.gimnasio?.cerrarModalHistorialRutina()">✕</button>
+        </div>
+        <div class="modal-body" id="modal-historial-contenido">
+            <!-- Inyectado dinámicamente con generarHtmlModalHistorial -->
+        </div>
+        <div class="modal-footer">
+            <button class="btn-ghost" onclick="window.gimnasio?.cerrarModalHistorialRutina()">Cerrar</button>
         </div>
     </div>
 </div>
