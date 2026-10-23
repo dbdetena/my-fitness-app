@@ -59,14 +59,13 @@
                 <span>Memoria</span>
             </button>
 
-            <!-- Configurar API Key -->
-            <button type="button" id="btn-config-key" class="coach-tool-btn btn-key-config" title="Configurar API Key de Gemini" onclick="window.coach?.abrirModalKey()">
+            <!-- Configurar IA / Bóveda de API Key (Engranaje) -->
+            <button type="button" id="btn-config-key" class="coach-tool-btn btn-key-config" title="Configurar IA y Bóveda Local de Gemini" onclick="window.coach?.abrirModalKey()">
                 <svg class="tool-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="7.5" cy="15.5" r="5.5"></circle>
-                    <path d="M21 2l-9.6 9.6"></path>
-                    <path d="M15.5 7.5l3 3L22 7l-3-3"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
-                <span id="btn-key-label">API Key</span>
+                <span id="btn-key-label">Configurar IA</span>
             </button>
         </div>
     </div>
@@ -166,23 +165,29 @@
         </div>
     </div>
 
-    <!-- MODAL: CONFIGURACIÓN DE GEMINI API KEY -->
+    <!-- MODAL: CONFIGURACIÓN DE IA & BÓVEDA LOCAL CIFRADA -->
     <div id="modal-gemini-key" class="modal-overlay" onclick="window.coach?.cerrarModalKey()">
         <div class="modal-card modal-industrial" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <div class="modal-title-group">
-                    <span class="modal-tag">API DE INTELIGENCIA ARTIFICIAL</span>
-                    <h3>Google Gemini API Key</h3>
+                    <span class="modal-tag">BÓVEDA LOCAL CIFRADA</span>
+                    <h3>Configurar IA (Gemini)</h3>
                 </div>
                 <button type="button" class="modal-close-btn" onclick="window.coach?.cerrarModalKey()">✕</button>
             </div>
             <div class="modal-body">
-                <p class="config-desc" style="margin-bottom: 14px;">
-                    Introduce tu clave API de <strong>Google Gemini</strong> para activar el asistente de élite. La clave se almacena exclusivamente en tu dispositivo de forma segura y privada.
-                </p>
+                <div class="vault-security-banner">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span><strong>Seguridad Local-First:</strong> Tu API Key se guarda <strong>cifrada</strong> en el <code>localStorage</code> de este dispositivo. No se expone en GitHub ni se envía a servidores de terceros.</span>
+                </div>
+
+                <label for="input-gemini-key" class="vault-input-label">API Key de Google Gemini:</label>
                 <div class="key-input-container">
-                    <input type="password" id="input-gemini-key" class="key-password-input" placeholder="AIzaSy..." autocomplete="off">
-                    <button type="button" id="btn-toggle-key-eye" class="btn-key-eye" onclick="window.coach?.alternarVisibilidadKey()">👁️</button>
+                    <input type="password" id="input-gemini-key" class="key-password-input" placeholder="Introduce tu clave AIzaSy..." autocomplete="off">
+                    <button type="button" id="btn-toggle-key-eye" class="btn-key-eye" title="Mostrar/Ocultar clave" onclick="window.coach?.alternarVisibilidadKey()">👁️</button>
                 </div>
                 <div class="key-status-row">
                     <span id="gemini-key-status-text" class="status-warning">⚠️ Clave no configurada</span>
@@ -191,9 +196,10 @@
                     </a>
                 </div>
             </div>
-            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+            <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
                 <button type="button" class="btn-ghost" onclick="window.coach?.borrarKey()">Borrar Clave</button>
-                <button type="button" class="btn-primary btn-neon-cyan" onclick="window.coach?.guardarKey()">Guardar Clave</button>
+                <button type="button" class="btn-test-key" onclick="window.coach?.probarConexionKey()">Probar Conexión</button>
+                <button type="button" class="btn-primary btn-neon-cyan" onclick="window.coach?.guardarKey()">Guardar en Bóveda</button>
             </div>
         </div>
     </div>

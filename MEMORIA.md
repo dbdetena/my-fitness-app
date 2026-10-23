@@ -44,7 +44,7 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
    - **Memoria Persistente (`coach_memory`):** Documento maestro en Firebase Firestore (`configuracion/coach_memory`) con fallback local resiliente. Almacena objetivos, lesiones/molestias y notas a largo plazo; se consulta antes de cada respuesta y se actualiza automáticamente con nuevos hitos.
    - **Interacción por Voz:** Modo Push-to-Talk manteniendo pulsado el micrófono (`SpeechRecognition`) y lectura automática en voz alta (`speechSynthesis`) con selector de activación/silencio.
    - **Visualización de Gráficas Biomecánicas (Chart.js):** Contenedor interactivo para proyectar evolución de RPE, progresión de cargas y volumen semanal invocado a demanda del usuario o por la IA.
-   - **Seguridad:** Gestión segura de la API Key en cliente (`localStorage`) con soporte para alternar visibilidad y borrado.
+   - **Bóveda Local Cifrada para API Key:** La API Key de Gemini nunca se incluye en el código fuente ni se expone en GitHub. Se configura desde el modal "Configurar IA" (`#btn-config-key`) con input tipo contraseña (`<input type="password">`), botón de alternar visibilidad (`👁️`), botón de prueba de conexión directa y cifrado criptográfico con derivación PBKDF2 + AES-GCM (256-bit) en `localStorage` (`fitness_gemini_vault`), migrando de forma transparente cualquier versión anterior.
 
 ## 5. MODELO DE DATOS Y DECISIONES DE BASE DE DATOS (LOCAL-FIRST & FIRESTORE)
 - **Estrategia Local-First:** `localStorage` actúa como almacén de alta disponibilidad para la sesión viva (`fitness_active_session`) y bitácora local (`fitness_bitacora_entries`), sincronizado con Firebase Firestore (`FitnessPersonalDBdT`).

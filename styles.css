@@ -5908,6 +5908,80 @@ body.modal-open {
     border-color: #ef4444;
 }
 
+/* ========================================================
+   BÓVEDA LOCAL CIFRADA (API KEY GEMINI)
+   ======================================================== */
+.vault-security-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: rgba(14, 165, 233, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.76rem;
+    color: #cbd5e1;
+    line-height: 1.45;
+}
+
+.vault-security-banner svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.vault-security-banner strong {
+    color: #38bdf8;
+}
+
+.vault-security-banner code {
+    background: rgba(15, 23, 42, 0.8);
+    color: #7dd3fc;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.vault-input-label {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #94a3b8;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-test-key {
+    background: rgba(56, 189, 248, 0.12);
+    border: 1.5px solid rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-test-key:hover:not(:disabled) {
+    background: rgba(56, 189, 248, 0.22);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-test-key:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.status-danger {
+    color: #f87171;
+    font-weight: 700;
+}
+
+
 
 
 

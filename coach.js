@@ -19,10 +19,168 @@ import { obtenerEntradasBitacora } from "./diario.js";
 import { obtenerSesionActiva } from "./session-manager.js";
 
 // Claves de almacenamiento local (Local-First Fallback)
-const STORAGE_KEY_GEMINI = "fitness_gemini_api_key";
+const STORAGE_KEY_GEMINI_VAULT = "fitness_gemini_vault";
+const STORAGE_KEY_GEMINI_LEGACY = "fitness_gemini_api_key";
 const STORAGE_KEY_MEMORY = "fitness_coach_memory";
 const STORAGE_KEY_VOICE = "fitness_coach_voice_enabled";
 const STORAGE_KEY_CHAT = "fitness_coach_chat_history";
+
+// Parámetros de derivación criptográfica para la bóveda local
+const VAULT_SALT = new TextEncoder().encode("antigravity-fitness-vault-salt-v1");
+const VAULT_PASSPHRASE = "AGY_FITNESS_COACH_LOCAL_VAULT_2026";
+
+/**
+ * Deriva una clave AES-GCM usando PBKDF2 sobre Web Crypto API
+ */
+async function derivarClaveCrypto(passphrase) {
+    const enc = new TextEncoder();
+    const keyMaterial = await window.crypto.subtle.importKey(
+        "raw",
+        enc.encode(passphrase),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+    );
+    return window.crypto.subtle.deriveKey(
+        {
+            name: "PBKDF2",
+            salt: VAULT_SALT,
+            iterations: 100000,
+            hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+    );
+}
+
+/**
+ * Cifra la API Key antes de persistir en localStorage.
+ * Utiliza AES-GCM (256-bit) vía SubtleCrypto con vector de inicialización único por cifrado.
+ * En entornos sin soporte o HTTP no seguro, aplica cifrado polialfabético con rotación XOR y Base64.
+ */
+export async function cifrarApiKey(plainText) {
+    if (!plainText) return "";
+    if (window.crypto && window.crypto.subtle) {
+        try {
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            const key = await derivarClaveCrypto(VAULT_PASSPHRASE);
+            const enc = new TextEncoder();
+            const ciphertextBuffer = await window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv: iv },
+                key,
+                enc.encode(plainText)
+            );
+            const ivB64 = btoa(String.fromCharCode(...iv));
+            const cipherB64 = btoa(String.fromCharCode(...new Uint8Array(ciphertextBuffer)));
+            return `vault_gcm_v2:${ivB64}:${cipherB64}`;
+        } catch (e) {
+            console.warn("Fallo en SubtleCrypto, activando fallback polialfabético:", e);
+        }
+    }
+    return `vault_xor_v1:${cifrarXorFallback(plainText, VAULT_PASSPHRASE)}`;
+}
+
+/**
+ * Descifra la API Key almacenada en el localStorage.
+ */
+export async function descifrarApiKey(cipherText) {
+    if (!cipherText) return "";
+
+    // Si viene en texto plano legacy (sin prefijo vault_), devolver para posterior migración
+    if (!cipherText.startsWith("vault_")) {
+        return cipherText;
+    }
+
+    if (cipherText.startsWith("vault_gcm_v2:")) {
+        const parts = cipherText.split(":");
+        if (parts.length === 3 && window.crypto && window.crypto.subtle) {
+            try {
+                const iv = new Uint8Array(atob(parts[1]).split("").map(c => c.charCodeAt(0)));
+                const cipherBytes = new Uint8Array(atob(parts[2]).split("").map(c => c.charCodeAt(0)));
+                const key = await derivarClaveCrypto(VAULT_PASSPHRASE);
+                const decryptedBuffer = await window.crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv: iv },
+                    key,
+                    cipherBytes
+                );
+                return new TextDecoder().decode(decryptedBuffer);
+            } catch (e) {
+                console.error("Error al descifrar con AES-GCM:", e);
+                return "";
+            }
+        }
+    }
+
+    if (cipherText.startsWith("vault_xor_v1:")) {
+        const payload = cipherText.replace("vault_xor_v1:", "");
+        return descifrarXorFallback(payload, VAULT_PASSPHRASE);
+    }
+
+    return "";
+}
+
+function cifrarXorFallback(text, key) {
+    const enc = new TextEncoder().encode(text);
+    const keyBytes = new TextEncoder().encode(key);
+    const out = new Uint8Array(enc.length);
+    for (let i = 0; i < enc.length; i++) {
+        out[i] = enc[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return btoa(String.fromCharCode(...out));
+}
+
+function descifrarXorFallback(b64, key) {
+    try {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.split("").map(c => c.charCodeAt(0)));
+        const keyBytes = new TextEncoder().encode(key);
+        const out = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) {
+            out[i] = bytes[i] ^ keyBytes[i % keyBytes.length];
+        }
+        return new TextDecoder().decode(out);
+    } catch (e) {
+        return "";
+    }
+}
+
+/**
+ * Guarda la clave de forma cifrada en la bóveda de localStorage.
+ */
+export async function guardarApiKeyCifrada(apiKeyPlana) {
+    if (!apiKeyPlana) {
+        localStorage.removeItem(STORAGE_KEY_GEMINI_VAULT);
+        localStorage.removeItem(STORAGE_KEY_GEMINI_LEGACY);
+        state.apiKey = "";
+        return;
+    }
+    const cifrada = await cifrarApiKey(apiKeyPlana);
+    localStorage.setItem(STORAGE_KEY_GEMINI_VAULT, cifrada);
+    // Eliminar cualquier residuo de texto plano antiguo
+    localStorage.removeItem(STORAGE_KEY_GEMINI_LEGACY);
+    state.apiKey = apiKeyPlana;
+}
+
+/**
+ * Obtiene la API Key descifrada desde la bóveda local.
+ * Si detecta una clave antigua sin cifrar, la migra al instante a la bóveda cifrada.
+ */
+export async function obtenerApiKeyLocal() {
+    if (state.apiKey) return state.apiKey;
+    const cipher = localStorage.getItem(STORAGE_KEY_GEMINI_VAULT) || localStorage.getItem(STORAGE_KEY_GEMINI_LEGACY);
+    if (!cipher) return "";
+    const plain = await descifrarApiKey(cipher);
+    if (plain) {
+        state.apiKey = plain;
+        // Si no estaba cifrada con vault_gcm o existía clave legacy, migrar automáticamente
+        if (!cipher.startsWith("vault_") || localStorage.getItem(STORAGE_KEY_GEMINI_LEGACY)) {
+            await guardarApiKeyCifrada(plain);
+        }
+    }
+    return plain;
+}
 
 // Memoria base inicial por defecto si aún no existe en Firestore
 const MEMORIA_BASE_DEFAULT = {
@@ -42,7 +200,7 @@ const MEMORIA_BASE_DEFAULT = {
 
 // Estado del módulo Coach
 const state = {
-    apiKey: localStorage.getItem(STORAGE_KEY_GEMINI) || "",
+    apiKey: "", // Se carga en memoria volátil de forma asíncrona desde la bóveda cifrada
     vozActivada: localStorage.getItem(STORAGE_KEY_VOICE) !== "false",
     memoriaActual: null,
     historialConversacion: [],
@@ -250,10 +408,10 @@ ${contexto.resumenMolestias}
  * Envía la consulta a la API de Google Gemini (v1beta con gemini-1.5-flash / fallback 2.0)
  */
 async function consultarGemini(mensajeUsuario) {
-    const apiKey = state.apiKey || localStorage.getItem(STORAGE_KEY_GEMINI);
+    const apiKey = await obtenerApiKeyLocal();
     if (!apiKey) {
         abrirModalKey();
-        throw new Error("Por favor, introduce tu API Key de Gemini para activar el Coach.");
+        throw new Error("Por favor introduce tu API Key de Gemini en la bóveda de configuración para activar el Coach.");
     }
 
     const contexto = await consolidarContextoUsuario();
@@ -799,19 +957,21 @@ export function enviarPreguntaRapida(pregunta) {
 // 6. GESTIÓN DE MODALES (API KEY & MEMORIA)
 // ========================================================
 
-export function abrirModalKey() {
+export async function abrirModalKey() {
     const modal = document.getElementById("modal-gemini-key");
     const input = document.getElementById("input-gemini-key");
     const statusText = document.getElementById("gemini-key-status-text");
 
     if (modal) modal.classList.add("active");
+    
+    const key = await obtenerApiKeyLocal();
     if (input) {
-        input.value = state.apiKey || localStorage.getItem(STORAGE_KEY_GEMINI) || "";
+        input.value = key || "";
         setTimeout(() => input.focus(), 120);
     }
     if (statusText) {
-        const tieneKey = !!(state.apiKey || localStorage.getItem(STORAGE_KEY_GEMINI));
-        statusText.textContent = tieneKey ? "🟢 Clave configurada y activa" : "⚠️ Clave no configurada";
+        const tieneKey = !!key;
+        statusText.textContent = tieneKey ? "🟢 Clave configurada y cifrada en bóveda" : "⚠️ Clave no configurada";
         statusText.className = tieneKey ? "status-online" : "status-warning";
     }
 }
@@ -821,8 +981,9 @@ export function cerrarModalKey() {
     if (modal) modal.classList.remove("active");
 }
 
-export function guardarKey() {
+export async function guardarKey() {
     const input = document.getElementById("input-gemini-key");
+    const statusText = document.getElementById("gemini-key-status-text");
     if (!input) return;
 
     const val = input.value.trim();
@@ -831,21 +992,95 @@ export function guardarKey() {
         return;
     }
 
-    state.apiKey = val;
-    localStorage.setItem(STORAGE_KEY_GEMINI, val);
-    cerrarModalKey();
-    actualizarBotonKeyBadge(true);
-    mostrarToastCoach("✅ API Key de Gemini guardada correctamente");
+    try {
+        await guardarApiKeyCifrada(val);
+        actualizarBotonKeyBadge(true);
+        if (statusText) {
+            statusText.textContent = "🟢 Clave cifrada y guardada en bóveda local";
+            statusText.className = "status-online";
+        }
+        mostrarToastCoach("🔒 API Key cifrada y guardada en bóveda local");
+        setTimeout(() => cerrarModalKey(), 600);
+    } catch (err) {
+        console.error("Error al guardar en bóveda:", err);
+        alert("Error al cifrar y guardar la clave: " + err.message);
+    }
 }
 
 export function borrarKey() {
     state.apiKey = "";
-    localStorage.removeItem(STORAGE_KEY_GEMINI);
+    localStorage.removeItem(STORAGE_KEY_GEMINI_VAULT);
+    localStorage.removeItem(STORAGE_KEY_GEMINI_LEGACY);
     const input = document.getElementById("input-gemini-key");
     if (input) input.value = "";
-    cerrarModalKey();
+    const statusText = document.getElementById("gemini-key-status-text");
+    if (statusText) {
+        statusText.textContent = "⚠️ Clave no configurada";
+        statusText.className = "status-warning";
+    }
     actualizarBotonKeyBadge(false);
-    mostrarToastCoach("Clave eliminada de este dispositivo");
+    mostrarToastCoach("🗑️ Clave eliminada de este dispositivo");
+}
+
+export async function probarConexionKey() {
+    const input = document.getElementById("input-gemini-key");
+    const statusText = document.getElementById("gemini-key-status-text");
+    const btnTest = document.querySelector(".btn-test-key");
+
+    const keyAProbar = (input && input.value.trim()) || await obtenerApiKeyLocal();
+    if (!keyAProbar) {
+        if (statusText) {
+            statusText.textContent = "⚠️ Introduce primero una API Key para probar";
+            statusText.className = "status-warning";
+        }
+        return;
+    }
+
+    if (statusText) {
+        statusText.textContent = "🔄 Probando conexión con Google Gemini...";
+        statusText.className = "status-warning";
+    }
+    if (btnTest) {
+        btnTest.disabled = true;
+        btnTest.textContent = "Probando...";
+    }
+
+    try {
+        const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keyAProbar}`;
+        const res = await fetch(testEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: "ping" }] }],
+                generationConfig: { maxOutputTokens: 5 }
+            })
+        });
+
+        if (res.ok) {
+            if (statusText) {
+                statusText.textContent = "🟢 ¡Conexión válida con Gemini exitosa!";
+                statusText.className = "status-online";
+            }
+            mostrarToastCoach("✅ Conexión con Gemini verificada");
+        } else {
+            const err = await res.json().catch(() => ({}));
+            const errMsg = err.error?.message || `Error HTTP ${res.status}`;
+            if (statusText) {
+                statusText.textContent = `❌ Clave rechazada: ${errMsg}`;
+                statusText.className = "status-danger";
+            }
+        }
+    } catch (err) {
+        if (statusText) {
+            statusText.textContent = `❌ Error de conexión: ${err.message}`;
+            statusText.className = "status-danger";
+        }
+    } finally {
+        if (btnTest) {
+            btnTest.disabled = false;
+            btnTest.textContent = "Probar Conexión";
+        }
+    }
 }
 
 export function alternarVisibilidadKey() {
@@ -865,7 +1100,7 @@ export function alternarVisibilidadKey() {
 function actualizarBotonKeyBadge(tieneKey) {
     const label = document.getElementById("btn-key-label");
     const btn = document.getElementById("btn-config-key");
-    if (label) label.textContent = tieneKey ? "Key Activa" : "API Key";
+    if (label) label.textContent = tieneKey ? "IA Configurada" : "Configurar IA";
     if (btn) btn.classList.toggle("active", tieneKey);
 }
 
@@ -908,8 +1143,8 @@ export async function initCoach() {
     // 1. Configurar PTT
     configurarPushToTalk();
 
-    // 2. Verificar API Key
-    const tieneKey = !!(state.apiKey || localStorage.getItem(STORAGE_KEY_GEMINI));
+    // 2. Verificar API Key en bóveda cifrada
+    const tieneKey = !!(await obtenerApiKeyLocal());
     actualizarBotonKeyBadge(tieneKey);
 
     // 3. Sincronizar estado inicial de voz
@@ -1017,6 +1252,7 @@ window.coach = {
     cerrarModalKey,
     guardarKey,
     borrarKey,
+    probarConexionKey,
     alternarVisibilidadKey,
     abrirModalMemoria,
     cerrarModalMemoria,
