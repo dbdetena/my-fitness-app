@@ -5,54 +5,159 @@
     <div class="bitacora-header">
         <div class="bitacora-title-wrap">
             <div class="bitacora-emblem-badge">
-                <span>📖</span>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                 <span>Diario Oficial</span>
             </div>
             <h2>Diario de Notas</h2>
         </div>
+    </div>
 
-        <!-- Estadísticas Rápidas -->
-        <div class="bitacora-stats-grid">
-            <div class="stat-pill card-carbon">
-                <span class="stat-num" id="stat-total-entradas">0</span>
-                <span class="stat-desc">Notas Totales</span>
-            </div>
-            <div class="stat-pill card-carbon">
-                <span class="stat-num stat-gold" id="stat-post-entreno">0</span>
-                <span class="stat-desc">Post-Sesiones</span>
-            </div>
-            <div class="stat-pill card-carbon">
-                <span class="stat-num stat-cyan" id="stat-por-voz">0</span>
-                <span class="stat-desc">Por Voz 🎙️</span>
-            </div>
+    <!-- BOTONERA DE FILTROS / CONTADORES (Píldoras con Scroll Horizontal) -->
+    <div class="bitacora-filter-pills-container">
+        <div class="bitacora-filter-pills-bar" id="bitacora-filter-pills">
+            <button type="button" class="bitacora-pill-btn active" data-filtro="todos" onclick="window.diario?.setFiltro('todos')">
+                <span class="pill-icon">
+                    <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                </span>
+                <span class="pill-name">Todas</span>
+                <span class="pill-badge" id="filter-count-todos">0</span>
+            </button>
+            <button type="button" class="bitacora-pill-btn" data-filtro="general" onclick="window.diario?.setFiltro('general')">
+                <span class="pill-icon">
+                    <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                </span>
+                <span class="pill-name">Nota Libre</span>
+                <span class="pill-badge" id="filter-count-general">0</span>
+            </button>
+            <button type="button" class="bitacora-pill-btn" data-filtro="recuperacion" onclick="window.diario?.setFiltro('recuperacion')">
+                <span class="pill-icon">
+                    <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                </span>
+                <span class="pill-name">Energía/Sueño</span>
+                <span class="pill-badge" id="filter-count-recuperacion">0</span>
+            </button>
+            <button type="button" class="bitacora-pill-btn" data-filtro="post-entreno" onclick="window.diario?.setFiltro('post-entreno')">
+                <span class="pill-icon">
+                    <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12M4 7v10M20 7v10"></path></svg>
+                </span>
+                <span class="pill-name">Entrenos</span>
+                <span class="pill-badge" id="filter-count-post-entreno">0</span>
+            </button>
+            <button type="button" class="bitacora-pill-btn" data-filtro="molestia" onclick="window.diario?.setFiltro('molestia')">
+                <span class="pill-icon">
+                    <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                </span>
+                <span class="pill-name">Alertas</span>
+                <span class="pill-badge" id="filter-count-molestia">0</span>
+            </button>
+            <button type="button" class="bitacora-pill-btn" data-filtro="nutricion" onclick="window.diario?.setFiltro('nutricion')">
+                <span class="pill-icon">
+                    <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 4 13C4 7 11 3 11 3s7 4 7 10a7 7 0 0 1-7 7z"></path><path d="M11 3v17"></path></svg>
+                </span>
+                <span class="pill-name">Nutrición</span>
+                <span class="pill-badge" id="filter-count-nutricion">0</span>
+            </button>
         </div>
     </div>
 
-    <!-- COMPOSITOR DE NUEVA NOTA (A VOLUNTAD) -->
+    <!-- COMPOSITOR DE NUEVA NOTA -->
     <div class="card card-carbon bitacora-composer-card">
         <div class="composer-header">
             <div class="composer-title-row">
-                <span class="composer-icon">✍️</span>
+                <div class="composer-icon-badge">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                </div>
                 <div>
                     <h4>Añadir Nota al Diario</h4>
-                    <span class="live-clock-badge">🕒 Fecha y hora automáticas en cada registro</span>
+                    <span class="live-clock-badge">
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <span>Fecha y hora automáticas</span>
+                    </span>
                 </div>
             </div>
 
-            <!-- Selector de Categoría -->
-            <div class="composer-category-select">
-                <select id="select-bitacora-categoria" class="custom-select-input">
-                    <option value="general">📝 Nota Libre / Reflexión</option>
-                    <option value="recuperacion">⚡ Energía, Sueño & Descanso</option>
-                    <option value="post-entreno">🏋️ Resumen de Entrenamiento</option>
-                    <option value="molestia">🚨 Alerta / Incidencia / Molestia</option>
-                    <option value="nutricion">🥗 Nutrición & Hidratación</option>
-                </select>
+            <!-- Custom Dropdown para Categorías -->
+            <div class="custom-dropdown-container" id="dropdown-categoria-container">
+                <button type="button" class="custom-dropdown-trigger" id="dropdown-categoria-trigger" aria-haspopup="listbox" aria-expanded="false" onclick="window.diario?.alternarDropdownCategoria()">
+                    <span class="dropdown-trigger-icon" id="dropdown-trigger-icon">
+                        <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </span>
+                    <span class="dropdown-trigger-label" id="dropdown-trigger-label">Nota Libre / Reflexión</span>
+                    <svg class="dropdown-trigger-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                <ul class="custom-dropdown-menu" id="dropdown-categoria-menu" role="listbox" aria-label="Categoría de nota">
+                    <li class="custom-dropdown-item selected" data-value="general" role="option" aria-selected="true" onclick="window.diario?.seleccionarCategoriaDropdown('general')">
+                        <span class="item-icon-wrap cat-icon-general">
+                            <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        </span>
+                        <div class="item-text-wrap">
+                            <strong class="item-title">Nota Libre</strong>
+                            <span class="item-desc">Reflexión personal o sensaciones</span>
+                        </div>
+                    </li>
+                    <li class="custom-dropdown-item" data-value="recuperacion" role="option" aria-selected="false" onclick="window.diario?.seleccionarCategoriaDropdown('recuperacion')">
+                        <span class="item-icon-wrap cat-icon-recuperacion">
+                            <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                        </span>
+                        <div class="item-text-wrap">
+                            <strong class="item-title">Energía / Sueño</strong>
+                            <span class="item-desc">Calidad de sueño, fatiga y descanso</span>
+                        </div>
+                    </li>
+                    <li class="custom-dropdown-item" data-value="post-entreno" role="option" aria-selected="false" onclick="window.diario?.seleccionarCategoriaDropdown('post-entreno')">
+                        <span class="item-icon-wrap cat-icon-post-entreno">
+                            <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12M4 7v10M20 7v10"></path></svg>
+                        </span>
+                        <div class="item-text-wrap">
+                            <strong class="item-title">Resumen Entrenamiento</strong>
+                            <span class="item-desc">Cargas, sensaciones y técnica</span>
+                        </div>
+                    </li>
+                    <li class="custom-dropdown-item" data-value="molestia" role="option" aria-selected="false" onclick="window.diario?.seleccionarCategoriaDropdown('molestia')">
+                        <span class="item-icon-wrap cat-icon-molestia">
+                            <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                        </span>
+                        <div class="item-text-wrap">
+                            <strong class="item-title">Alerta / Incidencia</strong>
+                            <span class="item-desc">Molestia articular o fatiga extrema</span>
+                        </div>
+                    </li>
+                    <li class="custom-dropdown-item" data-value="nutricion" role="option" aria-selected="false" onclick="window.diario?.seleccionarCategoriaDropdown('nutricion')">
+                        <span class="item-icon-wrap cat-icon-nutricion">
+                            <svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 4 13C4 7 11 3 11 3s7 4 7 10a7 7 0 0 1-7 7z"></path><path d="M11 3v17"></path></svg>
+                        </span>
+                        <div class="item-text-wrap">
+                            <strong class="item-title">Nutrición</strong>
+                            <span class="item-desc">Comidas, hidratación y suplementos</span>
+                        </div>
+                    </li>
+                </ul>
+                <input type="hidden" id="select-bitacora-categoria" value="general">
             </div>
         </div>
 
-        <div class="composer-body">
+        <!-- ZONA DE CAPTURA INTEGRADA -->
+        <div class="composer-capture-box">
             <textarea id="input-bitacora-texto" class="bitacora-textarea" placeholder="Escribe o pulsa el botón de micrófono para dictar por voz tus sensaciones, energía, fatiga, incidencias o impresiones..."></textarea>
+            
+            <div class="composer-capture-toolbar">
+                <button type="button" id="btn-dictar-voz" class="btn-voice-dictate" onclick="window.diario?.alternarGrabacionVoz('input-bitacora-texto', 'btn-dictar-voz')">
+                    <svg class="mic-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                    <span id="btn-dictar-voz-label">Dictar por voz</span>
+                </button>
+
+                <div class="composer-status-hint">
+                    <span class="hint-dot"></span>
+                    <span id="composer-hint-text">Web Speech API</span>
+                </div>
+            </div>
         </div>
 
         <!-- SELECTOR RPE: CILINDRO HORIZONTAL 3D (0 al 10) -->
@@ -84,16 +189,15 @@
             <input type="hidden" id="input-bitacora-rpe" value="8">
         </div>
 
-        <div class="composer-footer">
-            <div class="composer-left-actions">
-                <!-- Botón de Transcripción por Voz -->
-                <button type="button" id="btn-dictar-voz" class="btn-voice-dictate" onclick="window.diario?.alternarGrabacionVoz('input-bitacora-texto', 'btn-dictar-voz')">
-                    <span>🎙️ Dictar por voz</span>
-                </button>
-            </div>
-
+        <!-- ACCIÓN DE GUARDADO -->
+        <div class="composer-action-footer">
             <button type="button" class="btn-neon-cyan btn-save-note" onclick="window.diario?.registrarNotaManual()">
-                <span>💾 Guardar en Diario</span>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                <span>Guardar en Diario</span>
             </button>
         </div>
     </div>
@@ -105,12 +209,7 @@
                 <h3>Historial de Entradas</h3>
                 <span class="timeline-hint">Supervisión acumulada para IA</span>
             </div>
-
-            <div class="bitacora-filters-row single-line-filters">
-                <button class="bitacora-filter-chip active" data-filtro="todos" onclick="window.diario?.setFiltro('todos')">Todas</button>
-                <button class="bitacora-filter-chip" data-filtro="post-entreno" onclick="window.diario?.setFiltro('post-entreno')">🏋️ Entrenos</button>
-                <button class="bitacora-filter-chip" data-filtro="molestia" onclick="window.diario?.setFiltro('molestia')">🚨 Alertas</button>
-            </div>
+            <span class="timeline-count-badge" id="timeline-summary-count">0 notas</span>
         </div>
 
         <!-- Contenedor dinámico de notas de la bitácora -->

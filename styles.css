@@ -2958,36 +2958,86 @@ body.modal-open {
     letter-spacing: 0.04em;
 }
 
-.bitacora-stats-grid {
+/* BOTONERA DE FILTROS / CONTADORES (Píldoras con Scroll Horizontal) */
+.bitacora-filter-pills-container {
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 6px;
+    margin-bottom: 20px;
+    -webkit-overflow-scrolling: touch;
 }
 
-.stat-pill {
-    padding: 8px 14px;
-    border-radius: 12px;
+.bitacora-filter-pills-container::-webkit-scrollbar {
+    display: none;
+}
+
+.bitacora-filter-pills-bar {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    min-width: 76px;
+    gap: 8px;
+    min-width: max-content;
 }
 
-.stat-num {
-    font-size: 1.25rem;
-    font-weight: 900;
-    color: #fff;
-    line-height: 1.1;
-}
-
-.stat-num.stat-gold { color: #fbbf24; }
-.stat-num.stat-cyan { color: var(--accent-color); }
-
-.stat-desc {
-    font-size: 0.65rem;
-    font-weight: 700;
+.bitacora-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(71, 85, 105, 0.45);
+    border-radius: 999px;
     color: #94a3b8;
-    text-transform: uppercase;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.bitacora-pill-btn:hover {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #f1f5f9;
+    transform: translateY(-1px);
+}
+
+.bitacora-pill-btn .pill-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+}
+
+.bitacora-pill-btn .pill-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.85);
+    color: #94a3b8;
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    min-width: 18px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.bitacora-pill-btn.active {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: #38bdf8;
+    color: #38bdf8;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+}
+
+.bitacora-pill-btn.active .pill-badge {
+    background: #38bdf8;
+    color: #0b1120;
+    font-weight: 900;
+    border-color: #38bdf8;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
 }
 
 /* Compositor de Entrada */
@@ -3000,12 +3050,13 @@ body.modal-open {
     gap: 14px;
     border: 1px solid rgba(56, 189, 248, 0.25);
     background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(10, 15, 29, 0.98) 100%);
+    box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.6);
 }
 
 .composer-header {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     justify-content: space-between;
 }
 
@@ -3022,8 +3073,17 @@ body.modal-open {
     gap: 10px;
 }
 
-.composer-icon {
-    font-size: 1.3rem;
+.composer-icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+    flex-shrink: 0;
 }
 
 .composer-title-row h4 {
@@ -3034,53 +3094,263 @@ body.modal-open {
 }
 
 .live-clock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 0.7rem;
     color: #94a3b8;
 }
 
-.composer-category-select select {
-    min-width: 200px;
-}
-
-.bitacora-textarea {
+/* Custom Dropdown: Acero y Neón */
+.custom-dropdown-container {
+    position: relative;
     width: 100%;
-    min-height: 100px;
-    padding: 14px;
-    background: rgba(10, 15, 29, 0.9);
-    border: 1.5px solid #334155;
-    border-radius: 12px;
-    color: #fff;
-    font-size: 0.86rem;
-    line-height: 1.5;
-    resize: vertical;
-    outline: none;
-    transition: all 0.2s ease;
+    max-width: 270px;
+    z-index: 30;
 }
 
-.bitacora-textarea:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
-}
-
-.composer-footer {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    justify-content: space-between;
-}
-
-@media (min-width: 600px) {
-    .composer-footer {
-        flex-direction: row;
-        align-items: center;
+@media (max-width: 600px) {
+    .custom-dropdown-container {
+        max-width: 100%;
     }
 }
 
-.composer-left-actions {
+.custom-dropdown-trigger {
+    width: 100%;
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 9px;
+    padding: 8px 12px;
+    background: #1e293b;
+    border: 1px solid rgba(71, 85, 105, 0.5);
+    border-radius: 10px;
+    color: #f1f5f9;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.custom-dropdown-trigger:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.18);
+}
+
+.custom-dropdown-container.open .custom-dropdown-trigger {
+    border-color: #38bdf8;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+}
+
+.dropdown-trigger-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #38bdf8;
+    flex-shrink: 0;
+}
+
+.dropdown-trigger-label {
+    flex: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dropdown-trigger-chevron {
+    color: #94a3b8;
+    transition: transform 0.2s ease, color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.custom-dropdown-container.open .dropdown-trigger-chevron {
+    transform: rotate(180deg);
+    color: #38bdf8;
+}
+
+.custom-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #1e293b;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 12px;
+    padding: 6px;
+    margin: 0;
+    list-style: none;
+    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.85), 0 0 18px rgba(56, 189, 248, 0.15);
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.custom-dropdown-container.open .custom-dropdown-menu {
+    display: flex;
+    animation: dropdownPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownPop {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.custom-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    background: transparent;
+}
+
+.custom-dropdown-item:hover {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(56, 189, 248, 0.25);
+}
+
+.custom-dropdown-item.selected {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: #38bdf8;
+}
+
+.custom-dropdown-item.selected .item-title {
+    color: #38bdf8;
+}
+
+.item-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    color: #94a3b8;
+    flex-shrink: 0;
+    transition: all 0.18s ease;
+}
+
+.custom-dropdown-item.selected .item-icon-wrap {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+}
+
+.cat-icon-general { color: #38bdf8; }
+.cat-icon-recuperacion { color: #4ade80; }
+.cat-icon-post-entreno { color: #fbbf24; }
+.cat-icon-molestia { color: #f87171; }
+.cat-icon-nutricion { color: #c084fc; }
+
+.item-text-wrap {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.item-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.25;
+}
+
+.item-desc {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    line-height: 1.2;
+    margin-top: 1px;
+}
+
+/* Zona de Captura Integrada (Textarea + Mic Toolbar) */
+.composer-capture-box {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border-radius: 12px;
+    background: rgba(10, 15, 29, 0.9);
+    border: 1.5px solid #334155;
+    overflow: hidden;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.composer-capture-box:focus-within {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.25), inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.composer-capture-box .bitacora-textarea {
+    width: 100%;
+    min-height: 105px;
+    padding: 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.45);
+    border-radius: 0;
+    color: #fff;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    resize: vertical;
+    outline: none;
+    box-shadow: none;
+}
+
+.composer-capture-box .bitacora-textarea:focus {
+    border-color: rgba(51, 65, 85, 0.45);
+    box-shadow: none;
+}
+
+.composer-capture-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(15, 23, 42, 0.95);
+}
+
+.composer-status-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.composer-status-hint .hint-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #38bdf8;
+    opacity: 0.8;
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+}
+
+.composer-action-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 4px;
 }
 
 /* Botón de Dictado por Voz y Efecto de Grabación */
@@ -3301,19 +3571,6 @@ body.modal-open {
         0 0 24px rgba(56, 189, 248, 0.6);
 }
 
-.bitacora-entry-card {
-    padding: 16px;
-    border-radius: 14px;
-    border: 1px solid var(--card-border);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    background: var(--card-bg);
-    box-shadow: 0 10px 26px -5px rgba(0, 0, 0, 0.52), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
-    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-
 .btn-save-note {
     padding: 10px 18px;
     border-radius: 10px;
@@ -3395,17 +3652,20 @@ body.modal-open {
 .bitacora-entry-card {
     padding: 16px;
     border-radius: 14px;
-    border: 1px solid rgba(51, 65, 85, 0.5);
+    border: 1px solid var(--card-border);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    background: rgba(15, 23, 42, 0.85);
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    gap: 12px;
+    background: var(--card-bg);
+    box-shadow: 0 10px 26px -5px rgba(0, 0, 0, 0.52), 0 4px 10px -2px rgba(0, 0, 0, 0.3);
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .bitacora-entry-card:hover {
-    border-color: rgba(56, 189, 248, 0.35);
-    transform: translateY(-1px);
+    border-color: rgba(56, 189, 248, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px -4px rgba(0, 0, 0, 0.65), 0 0 14px rgba(56, 189, 248, 0.12);
 }
 
 .entry-header {
@@ -3424,19 +3684,52 @@ body.modal-open {
 }
 
 .entry-category-badge {
-    font-size: 0.68rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
     font-weight: 700;
-    padding: 2px 8px;
+    padding: 3px 9px;
     border-radius: 6px;
     background: rgba(30, 41, 59, 0.8);
     border: 1px solid #334155;
     color: #cbd5e1;
+    line-height: 1.2;
 }
 
-.badge-post-entreno { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; }
-.badge-recuperacion { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); color: #86efac; }
-.badge-molestia { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }
-.badge-nutricion { background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe; }
+.entry-category-badge .cat-svg-icon {
+    flex-shrink: 0;
+}
+
+.badge-general { 
+    background: rgba(56, 189, 248, 0.12); 
+    border-color: rgba(56, 189, 248, 0.35); 
+    color: #38bdf8; 
+}
+
+.badge-post-entreno { 
+    background: rgba(245, 158, 11, 0.12); 
+    border-color: rgba(245, 158, 11, 0.35); 
+    color: #fbbf24; 
+}
+
+.badge-recuperacion { 
+    background: rgba(34, 197, 94, 0.12); 
+    border-color: rgba(34, 197, 94, 0.35); 
+    color: #86efac; 
+}
+
+.badge-molestia { 
+    background: rgba(239, 68, 68, 0.12); 
+    border-color: rgba(239, 68, 68, 0.35); 
+    color: #fca5a5; 
+}
+
+.badge-nutricion { 
+    background: rgba(168, 85, 247, 0.12); 
+    border-color: rgba(168, 85, 247, 0.35); 
+    color: #d8b4fe; 
+}
 
 .badge-routine-tag {
     font-size: 0.68rem;

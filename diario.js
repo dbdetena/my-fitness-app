@@ -17,6 +17,26 @@ const state = {
 };
 
 /**
+ * Iconografía SVG minimalista y limpia para las categorías y módulos del Diario (Estilo Acero & Neón)
+ */
+export const CATEGORIA_ICONS = {
+    "todos": `<svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`,
+    "general": `<svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`,
+    "recuperacion": `<svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
+    "post-entreno": `<svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12M4 7v10M20 7v10"></path></svg>`,
+    "molestia": `<svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
+    "nutricion": `<svg class="cat-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 4 13C4 7 11 3 11 3s7 4 7 10a7 7 0 0 1-7 7z"></path><path d="M11 3v17"></path></svg>`
+};
+
+export const CATEGORIA_CONFIG = {
+    "general": { label: "Nota Libre", labelLarga: "Nota Libre / Reflexión" },
+    "recuperacion": { label: "Energía / Sueño", labelLarga: "Energía, Sueño & Descanso" },
+    "post-entreno": { label: "Entrenamiento", labelLarga: "Resumen de Entrenamiento" },
+    "molestia": { label: "Alerta / Incidencia", labelLarga: "Alerta / Incidencia / Molestia" },
+    "nutricion": { label: "Nutrición", labelLarga: "Nutrición & Hidratación" }
+};
+
+/**
  * Entradas iniciales de ejemplo si el usuario no tiene ninguna guardada
  */
 const ENTRADAS_DEFAULT = [
@@ -25,7 +45,7 @@ const ENTRADAS_DEFAULT = [
         fechaIso: new Date(Date.now() - 86400000 * 2).toISOString(),
         fechaFormato: formatearFechaTimestamp(new Date(Date.now() - 86400000 * 2)),
         categoria: "post-entreno",
-        categoriaLabel: "🏋️ Post-Entreno",
+        categoriaLabel: "Entrenamiento",
         rutinaRelacionada: "Tirón / Pull (Espalda, Bíceps y Posterior)",
         rpe: 8,
         energia: "alta",
@@ -66,7 +86,7 @@ const ENTRADAS_DEFAULT = [
         fechaIso: new Date(Date.now() - 86400000 * 4).toISOString(),
         fechaFormato: formatearFechaTimestamp(new Date(Date.now() - 86400000 * 4)),
         categoria: "post-entreno",
-        categoriaLabel: "🏋️ Post-Entreno",
+        categoriaLabel: "Entrenamiento",
         rutinaRelacionada: "Tirón / Pull (Espalda, Bíceps y Posterior)",
         rpe: 8,
         energia: "moderada",
@@ -106,7 +126,7 @@ const ENTRADAS_DEFAULT = [
         fechaIso: new Date(Date.now() - 86400000).toISOString(),
         fechaFormato: formatearFechaTimestamp(new Date(Date.now() - 86400000)),
         categoria: "recuperacion",
-        categoriaLabel: "⚡ Recuperación & Sueño",
+        categoriaLabel: "Energía / Sueño",
         rutinaRelacionada: null,
         rpe: null,
         energia: "moderada",
@@ -165,20 +185,14 @@ export function guardarEntradaBitacora({ texto, categoria = "general", rutinaRel
     const entradas = obtenerEntradasBitacora();
     const ahora = new Date();
 
-    const categoriaLabels = {
-        "post-entreno": "🏋️ Post-Entreno",
-        "general": "📝 Nota Libre",
-        "recuperacion": "⚡ Recuperación & Energía",
-        "molestia": "🚨 Alerta / Molestia",
-        "nutricion": "🥗 Nutrición & Digestión"
-    };
+    const config = CATEGORIA_CONFIG[categoria] || CATEGORIA_CONFIG.general;
 
     const nuevaEntrada = {
         id: `entry-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         fechaIso: ahora.toISOString(),
         fechaFormato: formatearFechaTimestamp(ahora),
         categoria,
-        categoriaLabel: categoriaLabels[categoria] || "📝 Diario",
+        categoriaLabel: config.label,
         rutinaRelacionada,
         rpe: rpe ? parseInt(rpe, 10) : null,
         energia,
@@ -257,7 +271,10 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
 
         if (btnEl) {
             btnEl.classList.add("recording");
-            btnEl.innerHTML = `<span class="mic-pulse-ring"></span><span>🔴 Escuchando... Pulsa para parar</span>`;
+            btnEl.innerHTML = `
+                <span class="mic-pulse-ring"></span>
+                <span id="btn-dictar-voz-label">Escuchando... Pulsa para parar</span>
+            `;
         }
 
         const textoPrevio = inputEl ? inputEl.value : "";
@@ -310,7 +327,15 @@ function detenerGrabacionVoz(btnEl) {
 
     if (btnEl) {
         btnEl.classList.remove("recording");
-        btnEl.innerHTML = `<span>🎙️ Dictar por voz</span>`;
+        btnEl.innerHTML = `
+            <svg class="mic-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+            <span id="btn-dictar-voz-label">Dictar por voz</span>
+        `;
     }
 }
 
@@ -326,17 +351,21 @@ export function renderizarListaBitacora() {
 
     const filtradas = entradas.filter(entry => {
         if (filtro === "todos") return true;
-        if (filtro === "post-entreno") return entry.categoria === "post-entreno";
-        if (filtro === "voz") return entry.porVoz === true;
-        if (filtro === "molestia") return entry.categoria === "molestia";
-        return true;
+        return entry.categoria === filtro;
     });
+
+    const summaryEl = document.getElementById("timeline-summary-count");
+    if (summaryEl) {
+        summaryEl.textContent = `${filtradas.length} ${filtradas.length === 1 ? 'nota' : 'notas'}`;
+    }
 
     if (filtradas.length === 0) {
         contenedor.innerHTML = `
             <div class="empty-bitacora-card card-carbon animate-fade-in">
-                <span class="empty-icon">📖</span>
-                <h4>Sin notas registradas en esta vista</h4>
+                <span class="empty-icon">
+                    <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                </span>
+                <h4>Sin notas registradas en este filtro</h4>
                 <p>Escribe tu primera reflexión o dicta por voz lo que sientes hoy para que la IA supervise tu progreso.</p>
             </div>
         `;
@@ -344,23 +373,58 @@ export function renderizarListaBitacora() {
     }
 
     contenedor.innerHTML = filtradas.map(e => {
-        const badgeVoz = e.porVoz ? `<span class="badge-voice">🎙️ Dictado por voz</span>` : "";
-        const badgeRutina = e.rutinaRelacionada ? `<span class="badge-routine-tag">🏋️ ${e.rutinaRelacionada}</span>` : "";
+        const catIcon = CATEGORIA_ICONS[e.categoria] || CATEGORIA_ICONS.general;
+        const catConfig = CATEGORIA_CONFIG[e.categoria] || CATEGORIA_CONFIG.general;
+        const badgeCategoria = `
+            <span class="entry-category-badge badge-${e.categoria}">
+                ${catIcon}
+                <span>${catConfig.label}</span>
+            </span>
+        `;
+
+        const badgeVoz = e.porVoz ? `
+            <span class="badge-voice">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+                <span>Por voz</span>
+            </span>
+        ` : "";
+
+        const badgeRutina = e.rutinaRelacionada ? `
+            <span class="badge-routine-tag">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12M4 7v10M20 7v10"></path></svg>
+                <span>${e.rutinaRelacionada}</span>
+            </span>
+        ` : "";
+
         const badgeRpe = e.rpe ? `<span class="badge-rpe">RPE ${e.rpe}/10</span>` : "";
 
         const metricasHtml = e.metricas ? `
         <div class="entry-metrics-pills">
-            <span class="metric-pill pill-duration">⏱️ ${e.metricas.duracionFormato || '00:00'}</span>
-            ${e.metricas.calentamientoFormato ? `<span class="metric-pill pill-warmup">🔥 Calentamiento: ${e.metricas.calentamientoFormato}</span>` : ''}
-            <span class="metric-pill pill-sets">📊 Series: ${e.metricas.seriesCompletadas || 0}/${e.metricas.seriesTotales || 0}</span>
-            ${e.metricas.splits && e.metricas.splits.length ? `<span class="metric-pill pill-splits">⚡ ${e.metricas.splits.length} marcas</span>` : ''}
+            <span class="metric-pill pill-duration">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <span>${e.metricas.duracionFormato || '00:00'}</span>
+            </span>
+            ${e.metricas.calentamientoFormato ? `
+            <span class="metric-pill pill-warmup">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+                <span>Calentamiento: ${e.metricas.calentamientoFormato}</span>
+            </span>` : ''}
+            <span class="metric-pill pill-sets">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                <span>Series: ${e.metricas.seriesCompletadas || 0}/${e.metricas.seriesTotales || 0}</span>
+            </span>
+            ${e.metricas.splits && e.metricas.splits.length ? `
+            <span class="metric-pill pill-splits">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <span>${e.metricas.splits.length} marcas</span>
+            </span>` : ''}
         </div>
         ` : '';
 
         const botonDesgloseHtml = (e.metricas) ? `
         <div class="entry-actions-row">
             <button type="button" class="btn-toggle-progreso" onclick="window.diario?.toggleDesgloseProgreso('${e.id}')">
-                <span class="btn-icon">📊</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                 <span id="label-toggle-${e.id}">Ver Desglose de Tiempos y Progreso ▼</span>
             </button>
         </div>
@@ -371,14 +435,19 @@ export function renderizarListaBitacora() {
         <div class="bitacora-entry-card card-carbon animate-fade-in" id="entry-${e.id}">
             <div class="entry-header">
                 <div class="entry-meta-left">
-                    <span class="entry-category-badge badge-${e.categoria}">${e.categoriaLabel}</span>
+                    ${badgeCategoria}
                     ${badgeRutina}
                     ${badgeRpe}
                     ${badgeVoz}
                 </div>
                 <div class="entry-meta-right">
-                    <span class="entry-timestamp">🕒 ${e.fechaFormato}</span>
-                    <button class="btn-delete-entry" title="Eliminar nota" onclick="window.diario?.eliminarNota('${e.id}')">✕</button>
+                    <span class="entry-timestamp">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        <span>${e.fechaFormato}</span>
+                    </span>
+                    <button class="btn-delete-entry" title="Eliminar nota" onclick="window.diario?.eliminarNota('${e.id}')">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
                 </div>
             </div>
 
@@ -389,7 +458,7 @@ export function renderizarListaBitacora() {
             </div>
 
             <div class="entry-footer-ai">
-                <span class="ai-sparkle">🤖</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                 <span class="ai-learning-hint">Métricas y notas supervisadas para optimizar tus futuros calentamientos y progresiones.</span>
             </div>
         </div>
@@ -398,18 +467,32 @@ export function renderizarListaBitacora() {
 }
 
 /**
- * Actualiza las estadísticas resumidas de la bitácora
+ * Actualiza las estadísticas resumidas y contadores de la botonera de filtros
  */
 function actualizarEstadisticasBitacora() {
-    const totalEl = document.getElementById("stat-total-entradas");
-    const postEntrenoEl = document.getElementById("stat-post-entreno");
-    const vozEl = document.getElementById("stat-por-voz");
-
     const entradas = obtenerEntradasBitacora();
 
-    if (totalEl) totalEl.textContent = entradas.length;
-    if (postEntrenoEl) postEntrenoEl.textContent = entradas.filter(e => e.categoria === "post-entreno").length;
-    if (vozEl) vozEl.textContent = entradas.filter(e => e.porVoz).length;
+    const counts = {
+        todos: entradas.length,
+        general: entradas.filter(e => e.categoria === "general").length,
+        recuperacion: entradas.filter(e => e.categoria === "recuperacion").length,
+        "post-entreno": entradas.filter(e => e.categoria === "post-entreno").length,
+        molestia: entradas.filter(e => e.categoria === "molestia").length,
+        nutricion: entradas.filter(e => e.categoria === "nutricion").length
+    };
+
+    Object.entries(counts).forEach(([cat, count]) => {
+        const el = document.getElementById(`filter-count-${cat}`);
+        if (el) el.textContent = count;
+    });
+
+    const summaryEl = document.getElementById("timeline-summary-count");
+    if (summaryEl) {
+        const cant = state.filtroActual === "todos" 
+            ? entradas.length 
+            : entradas.filter(e => e.categoria === state.filtroActual).length;
+        summaryEl.textContent = `${cant} ${cant === 1 ? 'nota' : 'notas'}`;
+    }
 }
 
 /**
@@ -417,10 +500,49 @@ function actualizarEstadisticasBitacora() {
  */
 export function setFiltroBitacora(filtro) {
     state.filtroActual = filtro;
-    document.querySelectorAll(".bitacora-filter-chip").forEach(chip => {
-        chip.classList.toggle("active", chip.dataset.filtro === filtro);
+    document.querySelectorAll(".bitacora-pill-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.filtro === filtro);
     });
     renderizarListaBitacora();
+    actualizarEstadisticasBitacora();
+}
+
+/**
+ * Control del Dropdown Custom de Categorías
+ */
+export function alternarDropdownCategoria(forceOpen = null) {
+    const container = document.getElementById("dropdown-categoria-container");
+    const trigger = document.getElementById("dropdown-categoria-trigger");
+    if (!container) return;
+
+    const isOpen = forceOpen !== null ? forceOpen : !container.classList.contains("open");
+    container.classList.toggle("open", isOpen);
+    if (trigger) trigger.setAttribute("aria-expanded", String(isOpen));
+}
+
+export function seleccionarCategoriaDropdown(cat) {
+    const hiddenInput = document.getElementById("select-bitacora-categoria");
+    const triggerIcon = document.getElementById("dropdown-trigger-icon");
+    const triggerLabel = document.getElementById("dropdown-trigger-label");
+    const menu = document.getElementById("dropdown-categoria-menu");
+
+    if (hiddenInput) hiddenInput.value = cat;
+
+    const config = CATEGORIA_CONFIG[cat] || CATEGORIA_CONFIG.general;
+    const iconSvg = CATEGORIA_ICONS[cat] || CATEGORIA_ICONS.general;
+
+    if (triggerIcon) triggerIcon.innerHTML = iconSvg;
+    if (triggerLabel) triggerLabel.textContent = config.labelLarga || config.label;
+
+    if (menu) {
+        menu.querySelectorAll(".custom-dropdown-item").forEach(item => {
+            const isSel = item.dataset.value === cat;
+            item.classList.toggle("selected", isSel);
+            item.setAttribute("aria-selected", String(isSel));
+        });
+    }
+
+    alternarDropdownCategoria(false);
 }
 
 /**
@@ -448,10 +570,11 @@ export function registrarNotaManual() {
         porVoz
     });
 
-    // Limpiar formulario y resetear selector cilíndrico a 8
+    // Limpiar formulario y resetear selector cilíndrico a 8 y dropdown a General
     inputTexto.value = "";
     inputTexto.dataset.porVoz = "false";
     setRpeCylinderValue(8);
+    seleccionarCategoriaDropdown("general");
 
     // Mensaje de confirmación
     mostrarNotificacionToast("✅ Nota registrada en el Diario de Notas");
@@ -473,6 +596,22 @@ export function initDiario() {
     renderizarListaBitacora();
     actualizarEstadisticasBitacora();
     initRpeCylinder(8);
+
+    // Registrar listeners para cerrar dropdown al pulsar fuera o Escape
+    if (!window._diarioDropdownListenerRegistered) {
+        document.addEventListener("click", (e) => {
+            const container = document.getElementById("dropdown-categoria-container");
+            if (container && container.classList.contains("open") && !container.contains(e.target)) {
+                alternarDropdownCategoria(false);
+            }
+        });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                alternarDropdownCategoria(false);
+            }
+        });
+        window._diarioDropdownListenerRegistered = true;
+    }
 }
 
 export function cleanupDiario() {
@@ -607,5 +746,7 @@ window.diario = {
     obtenerEntradas: obtenerEntradasBitacora,
     toggleDesgloseProgreso,
     initRpeCylinder,
-    setRpeCylinderValue
+    setRpeCylinderValue,
+    alternarDropdownCategoria,
+    seleccionarCategoriaDropdown
 };

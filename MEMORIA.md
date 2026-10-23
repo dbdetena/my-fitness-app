@@ -15,6 +15,10 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
 - **Estados Activos:** Uso intensivo de sombras (box-shadow) en color cian para simular retroiluminación cuando un botón se pulsa o un checkbox se marca.
 - **Botones:** Redondeados (`border-radius: 8px`), sin bordes nativos, grandes y táctiles (mínimo 44x44px).
 - **Selector RPE Cilíndrico 3D:** Rueda horizontal táctil de esfuerzo (RPE 0 a 10 con subtítulo `(0=Nulo, 10=Fallo)`), sombras interiores oscuras a los lados simulando cilindro metálico hundido, `scroll-snap-type: x mandatory` y resaltado neón cian `#38bdf8` dinámico en el centro.
+- **Diario de Notas (Estética Acero y Neón Unificada):**
+  - Dropdown Custom (`<div>`, `<ul>`, `<li>` en `#1e293b` con bordes sutiles y neón cian `#38bdf8`) para las 5 categorías oficiales, sustituyendo selects nativos y emojis por iconos SVG minimalistas en color sólido.
+  - Botonera superior de filtros tipo píldora (`Todas` + las 5 categorías) en contenedor horizontal deslizable sin scrollbar visible, con badges numéricos en tiempo real y filtrado instantáneo del timeline.
+  - Zona de captura integrada (bloque monolítico industrial oscuro agrupando textarea y barra inferior con botón de micrófono y estado de Web Speech API).
 - **Cabecera de Sesión Activa:**
   - Título destacado: tamaño `1.15rem` - `1.2rem`, `font-weight: bold`, color neón cian (`#38bdf8`) con resplandor (`text-shadow`), ocupando el ancho completo centrado.
   - Cero distracciones: se prohíben botones de navegación o exploración durante el entrenamiento en curso.
@@ -35,7 +39,7 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
 1. **Hoy (`dashboard.html` / `salud.js`):** Resumen ejecutivo. Balance calórico dinámico, recuperación, peso (con entrada rápida y origen del dato), y acceso rápido al entreno del día.
 2. **Gimnasio (`gimnasio.html` / `gimnasio.js`):** Tres bibliotecas especializadas (Ejercicios con posturas 3D, Rutinas Estándar y Mis Rutinas / Coach). Mesa de entrenamiento en vivo con calentamiento preventivo, registro táctil de series y cronómetro sincronizado con segundo plano.
 3. **Nutrición (`nutricion.html` / `nutricion.js`):** Base de datos de platos frecuentes, registro rápido y suplementación.
-4. **Diario de Notas (`diario.html` / `diario.js`):** Diario oficial de registros, dictado por voz directo (Web Speech API con reconstrucción limpia sin palabras repetidas), selector de RPE mediante cilindro horizontal táctil 3D (0 a 10), registro de alertas/incidencias, y desglose de calentamiento estructurado en tabla de 3 columnas (Fase, Tiempo Tardado, Tiempo Acumulado) idéntica a las series de ejercicios.
+4. **Diario de Notas (`diario.html` / `diario.js`):** Diario oficial de registros. Dropdown custom de acero mate y neón cian, botonera de filtros con contadores dinámicos, bloque integrado de captura con dictado por voz (Web Speech API sin duplicidades), selector de RPE mediante cilindro horizontal táctil 3D (0 a 10), registro de alertas/incidencias, iconografía SVG unificada y desglose de tiempos/calentamiento estructurado en tabla de 3 columnas.
 5. **Coach (`coach.html` / `coach.js`):** Integración con Gemini IA para cruzar todos los datos y dar sugerencias contextuales.
 
 ## 5. MODELO DE DATOS Y DECISIONES DE BASE DE DATOS (LOCAL-FIRST & FIRESTORE)
