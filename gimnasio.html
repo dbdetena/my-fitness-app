@@ -52,32 +52,46 @@
                 <button class="btn-clear-search" onclick="window.gimnasio?.limpiarBusqueda()" title="Limpiar búsqueda">✕</button>
             </div>
 
-            <!-- Filtros por Tipo de Movimiento -->
+            <!-- Filtros por Grupo Muscular -->
             <div class="filter-group">
-                <span class="filter-group-label">Patrón de Movimiento:</span>
-                <div class="filter-chips-row" id="chips-tipo">
-                    <button class="filter-chip active" data-tipo="todos" onclick="window.gimnasio?.setFiltroTipo('todos')">Todos</button>
-                    <button class="filter-chip" data-tipo="piernas" onclick="window.gimnasio?.setFiltroTipo('piernas')">🦵 Piernas</button>
-                    <button class="filter-chip" data-tipo="empuje" onclick="window.gimnasio?.setFiltroTipo('empuje')">🛡️ Empuje (Push)</button>
-                    <button class="filter-chip" data-tipo="pull" onclick="window.gimnasio?.setFiltroTipo('pull')">🏹 Tirón (Pull)</button>
-                    <button class="filter-chip" data-tipo="core" onclick="window.gimnasio?.setFiltroTipo('core')">🧱 Core</button>
-                    <button class="filter-chip" data-tipo="combate" onclick="window.gimnasio?.setFiltroTipo('combate')">🥊 Combate / Cardio</button>
+                <span class="filter-group-label">Grupo Muscular:</span>
+                <div class="filter-chips-row filter-chips-scroll" id="chips-tipo">
+                    <button class="filter-chip active" data-musculo="todos" onclick="window.gimnasio?.setFiltroMusculo('todos')">Todos</button>
+                    <button class="filter-chip" data-musculo="Bíceps" onclick="window.gimnasio?.setFiltroMusculo('Bíceps')">💪 Bíceps</button>
+                    <button class="filter-chip" data-musculo="Tríceps" onclick="window.gimnasio?.setFiltroMusculo('Tríceps')">⚡ Tríceps</button>
+                    <button class="filter-chip" data-musculo="Antebrazos" onclick="window.gimnasio?.setFiltroMusculo('Antebrazos')">✊ Antebrazos</button>
+                    <button class="filter-chip" data-musculo="Pecho" onclick="window.gimnasio?.setFiltroMusculo('Pecho')">🛡️ Pecho</button>
+                    <button class="filter-chip" data-musculo="Hombros" onclick="window.gimnasio?.setFiltroMusculo('Hombros')">🎯 Hombros</button>
+                    <button class="filter-chip" data-musculo="Abdominales" onclick="window.gimnasio?.setFiltroMusculo('Abdominales')">🧱 Abdominales</button>
+                    <button class="filter-chip" data-musculo="Oblicuos" onclick="window.gimnasio?.setFiltroMusculo('Oblicuos')">🌀 Oblicuos</button>
+                    <button class="filter-chip" data-musculo="Gran dorsal" onclick="window.gimnasio?.setFiltroMusculo('Gran dorsal')">🏹 Gran dorsal</button>
+                    <button class="filter-chip" data-musculo="Trapecio Alto y Cuello" onclick="window.gimnasio?.setFiltroMusculo('Trapecio Alto y Cuello')">🦅 Trapecio Alto y Cuello</button>
+                    <button class="filter-chip" data-musculo="Espalda baja" onclick="window.gimnasio?.setFiltroMusculo('Espalda baja')">📐 Espalda baja</button>
+                    <button class="filter-chip" data-musculo="Cuádriceps" onclick="window.gimnasio?.setFiltroMusculo('Cuádriceps')">🦵 Cuádriceps</button>
+                    <button class="filter-chip" data-musculo="Glúteos y Flexores" onclick="window.gimnasio?.setFiltroMusculo('Glúteos y Flexores')">🍑 Glúteos y Flexores</button>
+                    <button class="filter-chip" data-musculo="Bíceps femorales" onclick="window.gimnasio?.setFiltroMusculo('Bíceps femorales')">🦿 Bíceps femorales</button>
+                    <button class="filter-chip" data-musculo="Pantorrillas" onclick="window.gimnasio?.setFiltroMusculo('Pantorrillas')">🦶 Pantorrillas</button>
+                    <button class="filter-chip" data-musculo="Cardio" onclick="window.gimnasio?.setFiltroMusculo('Cardio')">❤️‍🔥 Cardio</button>
                 </div>
             </div>
 
             <!-- Filtros por Equipamiento Necesario -->
             <div class="filter-group">
-                <span class="filter-group-label">Equipamiento Necesario:</span>
-                <div class="filter-chips-row" id="chips-equipo">
+                <span class="filter-group-label">Equipamiento:</span>
+                <div class="filter-chips-row filter-chips-scroll" id="chips-equipo">
                     <button class="filter-chip active" data-equipo="todos" onclick="window.gimnasio?.setFiltroEquipo('todos')">Todo Equipo</button>
-                    <button class="filter-chip" data-equipo="mancuerna" onclick="window.gimnasio?.setFiltroEquipo('mancuerna')">⚖️ Mancuerna</button>
-                    <button class="filter-chip" data-equipo="barra" onclick="window.gimnasio?.setFiltroEquipo('barra')">🏋️‍♂️ Barra</button>
-                    <button class="filter-chip" data-equipo="banco" onclick="window.gimnasio?.setFiltroEquipo('banco')">🛋️ Banco</button>
-                    <button class="filter-chip" data-equipo="alfombra" onclick="window.gimnasio?.setFiltroEquipo('alfombra')">🧘 Alfombra / Esterilla</button>
-                    <button class="filter-chip" data-equipo="saco" onclick="window.gimnasio?.setFiltroEquipo('saco')">🥊 Saco de Boxeo</button>
-                    <button class="filter-chip" data-equipo="corporal" onclick="window.gimnasio?.setFiltroEquipo('corporal')">🧱 Peso Corporal</button>
-                    <button class="filter-chip" data-equipo="rueda" onclick="window.gimnasio?.setFiltroEquipo('rueda')">⚙️ Rueda</button>
-                    <button class="filter-chip" data-equipo="comba" onclick="window.gimnasio?.setFiltroEquipo('comba')">🪢 Comba</button>
+                    <button class="filter-chip" data-equipo="barra" onclick="window.gimnasio?.setFiltroEquipo('barra')">🏋️ Barra</button>
+                    <button class="filter-chip" data-equipo="cables" onclick="window.gimnasio?.setFiltroEquipo('cables')">🔄 Cables</button>
+                    <button class="filter-chip" data-equipo="mancuernas" onclick="window.gimnasio?.setFiltroEquipo('mancuernas')">⚖️ Mancuernas</button>
+                    <button class="filter-chip" data-equipo="maquinas" onclick="window.gimnasio?.setFiltroEquipo('maquinas')">⚙️ Máquinas</button>
+                    <button class="filter-chip" data-equipo="kettlebell" onclick="window.gimnasio?.setFiltroEquipo('kettlebell')">🔔 Kettlebell</button>
+                    <button class="filter-chip" data-equipo="pelota_medica" onclick="window.gimnasio?.setFiltroEquipo('pelota_medica')">🏐 Pelota médica</button>
+                    <button class="filter-chip" data-equipo="sin_herramientas" onclick="window.gimnasio?.setFiltroEquipo('sin_herramientas')">🧱 Sin herramientas</button>
+                    <button class="filter-chip" data-equipo="cintas_suspension" onclick="window.gimnasio?.setFiltroEquipo('cintas_suspension')">🎗️ Cintas de suspensión</button>
+                    <button class="filter-chip" data-equipo="pelota" onclick="window.gimnasio?.setFiltroEquipo('pelota')">⚽ Pelota</button>
+                    <button class="filter-chip" data-equipo="pelota_bosu" onclick="window.gimnasio?.setFiltroEquipo('pelota_bosu')">🔵 Pelota Bosu</button>
+                    <button class="filter-chip" data-equipo="elasticos" onclick="window.gimnasio?.setFiltroEquipo('elasticos')">〰️ Elásticos</button>
+                    <button class="filter-chip" data-equipo="foam_roller" onclick="window.gimnasio?.setFiltroEquipo('foam_roller')">🪵 Foam roller</button>
                 </div>
             </div>
 

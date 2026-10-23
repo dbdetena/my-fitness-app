@@ -37,7 +37,13 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
 
 ## 4. ESTRUCTURA MODULAR (5 PESTAÑAS)
 1. **Hoy (`dashboard.html` / `salud.js`):** Resumen ejecutivo. Balance calórico dinámico, recuperación, peso (con entrada rápida y origen del dato), y acceso rápido al entreno del día.
-2. **Gimnasio (`gimnasio.html` / `gimnasio.js`):** Tres bibliotecas especializadas (Ejercicios con posturas 3D, Rutinas Estándar y Mis Rutinas / Coach). Mesa de entrenamiento en vivo con calentamiento preventivo, registro táctil de series y cronómetro sincronizado con segundo plano.
+2. **Gimnasio (`gimnasio.html` / `gimnasio.js`):** Tres bibliotecas especializadas:
+   - **Catálogo Biomecánico de Ejercicios (29 ejercicios):** Modelo de datos estandarizado con clonación estricta de schema (posturas biomecánicas en 3 fases, cues de ejecución, riesgos, fallback SVG vectorizado de alta fidelidad `exercise-default.svg` y nomenclatura bilingüe `Nombre en Español (Nombre Habitual/Inglés)`).
+   - **Filtros Avanzados en Píldora con Scroll Horizontal:** Taxonomía estandarizada en contenedor horizontal fluido (`.filter-chips-scroll`):
+     - **15 Grupos Musculares:** Bíceps, Tríceps, Antebrazos, Pecho, Hombros, Abdominales, Oblicuos, Gran dorsal, Trapecio Alto y Cuello, Espalda baja, Cuádriceps, Glúteos y Flexores, Bíceps femorales, Pantorrillas, Cardio.
+     - **12 Tipos de Equipamiento:** Barra, Cables, Mancuernas, Máquinas, Kettlebell, Pelota médica, Sin herramientas, Cintas de suspensión, Pelota, Pelota Bosu, Elásticos, Foam roller (con mapeo semántico retrocompatible y badges con acentos de color personalizados).
+   - **Rutinas Estándar y Mis Rutinas / Coach:** Plantillas prediseñadas y personalizadas enlazadas al catálogo.
+   - **Mesa de Entrenamiento en Vivo:** Calentamiento preventivo con checks, registro táctil de series y cronómetro sincronizado con segundo plano.
 3. **Nutrición (`nutricion.html` / `nutricion.js`):** Base de datos de platos frecuentes, registro rápido y suplementación.
 4. **Diario de Notas (`diario.html` / `diario.js`):** Diario oficial de registros. Dropdown custom de acero mate y neón cian, botonera de filtros con contadores dinámicos, bloque integrado de captura con dictado por voz en modo Toggle (clic iniciar / clic detener, resplandor neón cian, `interimResults = false`, extracción controlada de `event.results[length-1]` sin auto-concatenación descontrolada ni bucles sobre resultados pasados, limpieza estricta de variables en cada sesión y restablecimiento automático por `onend`), selector de RPE mediante cilindro horizontal táctil 3D (0 a 10), registro de alertas/incidencias, iconografía SVG unificada y desglose de tiempos/calentamiento estructurado en tabla de 3 columnas.
 5. **Coach (`coach.html` / `coach.js`):** Asistente virtual experto en biomecánica y programación del entrenamiento impulsado por la API de Google Gemini (v1beta / gemini-3.8-flash).

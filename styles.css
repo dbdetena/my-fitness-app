@@ -1456,6 +1456,35 @@ body.modal-open {
     gap: 6px;
 }
 
+.filter-chips-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(56, 189, 248, 0.35) rgba(15, 23, 42, 0.6);
+}
+
+.filter-chips-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.filter-chips-scroll::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 4px;
+}
+
+.filter-chips-scroll::-webkit-scrollbar-thumb {
+    background: rgba(56, 189, 248, 0.35);
+    border-radius: 4px;
+}
+
+.filter-chips-scroll .filter-chip {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .filter-chip {
     background: rgba(30, 41, 59, 0.7);
     border: 1px solid #334155;
@@ -1654,11 +1683,20 @@ body.modal-open {
     color: #cbd5e1;
 }
 
-.badge-equipment-dumbbell { border-color: rgba(56, 189, 248, 0.3); }
-.badge-equipment-barbell { border-color: rgba(245, 158, 11, 0.3); }
-.badge-equipment-mat { border-color: rgba(16, 185, 129, 0.3); }
-.badge-equipment-bag { border-color: rgba(239, 68, 68, 0.3); }
-.badge-equipment-body { border-color: rgba(148, 163, 184, 0.3); }
+.badge-equipment-barbell { border-color: rgba(245, 158, 11, 0.4); color: #fcd34d; }
+.badge-equipment-cable { border-color: rgba(56, 189, 248, 0.4); color: #7dd3fc; }
+.badge-equipment-dumbbell { border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; }
+.badge-equipment-machine { border-color: rgba(148, 163, 184, 0.4); color: #cbd5e1; }
+.badge-equipment-kettlebell { border-color: rgba(234, 88, 12, 0.4); color: #fb923c; }
+.badge-equipment-ball { border-color: rgba(244, 63, 94, 0.4); color: #fda4af; }
+.badge-equipment-body { border-color: rgba(148, 163, 184, 0.4); color: #94a3b8; }
+.badge-equipment-straps { border-color: rgba(217, 70, 239, 0.4); color: #f0abfc; }
+.badge-equipment-swissball { border-color: rgba(16, 185, 129, 0.4); color: #6ee7b7; }
+.badge-equipment-bosu { border-color: rgba(6, 182, 212, 0.4); color: #67e8f9; }
+.badge-equipment-band { border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe; }
+.badge-equipment-roller { border-color: rgba(234, 179, 8, 0.4); color: #fef08a; }
+.badge-equipment-mat { border-color: rgba(16, 185, 129, 0.3); color: #86efac; }
+.badge-equipment-bag { border-color: rgba(239, 68, 68, 0.3); color: #fca5a5; }
 
 .exercise-muscles-row {
     font-size: 0.72rem;

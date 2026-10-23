@@ -26,6 +26,7 @@ import {
 // Estado interno del módulo de Rutinas
 const state = {
     tabActual: "ejercicios", // 'ejercicios' | 'estandar' | 'personalizadas'
+    filtroMusculo: "todos",
     filtroTipo: "todos",
     filtroEquipo: "todos",
     filtroTexto: "",
@@ -58,6 +59,7 @@ export function initGimnasio() {
     // Exponer controlador en el ámbito global para interactividad inline
     window.gimnasio = {
         cambiarTab,
+        setFiltroMusculo,
         setFiltroTipo,
         setFiltroEquipo,
         filtrarEjercicios,
@@ -172,13 +174,56 @@ export function cambiarTab(tabId) {
 // ==========================================
 // BIBLIOTECA 1: CATÁLOGO DE EJERCICIOS
 // ==========================================
-export function setFiltroTipo(tipo) {
-    state.filtroTipo = tipo;
+const MAPA_ALIAS_EQUIPO = {
+    mancuerna: "mancuernas",
+    mancuernas: "mancuernas",
+    barra: "barra",
+    polea: "cables",
+    cables: "cables",
+    maquinas: "maquinas",
+    maquina: "maquinas",
+    kettlebell: "kettlebell",
+    pelota_medica: "pelota_medica",
+    corporal: "sin_herramientas",
+    sin_herramientas: "sin_herramientas",
+    cintas_suspension: "cintas_suspension",
+    pelota: "pelota",
+    pelota_bosu: "pelota_bosu",
+    elasticos: "elasticos",
+    foam_roller: "foam_roller",
+    rueda: "foam_roller",
+    alfombra: "sin_herramientas",
+    saco: "sin_herramientas",
+    comba: "sin_herramientas",
+    banco: "maquinas"
+};
+
+const MAPA_FALLBACK_MUSCULO = {
+    "press-banca": "Pecho",
+    "sentadilla": "Cuádriceps",
+    "dominadas": "Gran dorsal",
+    "saco-boxeo": "Cardio",
+    "plancha-alfombra": "Abdominales",
+    "press-militar": "Hombros",
+    "peso-muerto-rumano": "Bíceps femorales",
+    "zancadas-mancuerna": "Glúteos y Flexores",
+    "remo-barra": "Gran dorsal",
+    "curl-biceps": "Bíceps",
+    "fondos-paralelas": "Tríceps",
+    "rueda-abdominal": "Abdominales",
+    "salto-comba": "Cardio"
+};
+
+export function setFiltroMusculo(musculo) {
+    state.filtroMusculo = musculo;
     document.querySelectorAll("#chips-tipo .filter-chip").forEach(chip => {
-        chip.classList.toggle("active", chip.dataset.tipo === tipo);
+        chip.classList.toggle("active", chip.dataset.musculo === musculo);
     });
     renderizarCatalogoEjercicios();
 }
+
+// Alias de retrocompatibilidad
+export const setFiltroTipo = setFiltroMusculo;
 
 export function setFiltroEquipo(equipo) {
     state.filtroEquipo = equipo;
@@ -206,17 +251,37 @@ function renderizarCatalogoEjercicios() {
     const labelConteo = document.getElementById("label-conteo-ejercicios");
     if (!contenedor) return;
 
-    // Filtrado acumulativo: tipo + equipo + texto
+    // Filtrado acumulativo: Grupo Muscular + Equipamiento + Texto
     const filtrados = BASE_EJERCICIOS.filter(ej => {
-        const coincideTipo = state.filtroTipo === "todos" || ej.tipo === state.filtroTipo;
-        const coincideEquipo = state.filtroEquipo === "todos" || ej.equipamiento.includes(state.filtroEquipo);
+        let coincideMusculo = true;
+        if (state.filtroMusculo && state.filtroMusculo !== "todos") {
+            const mBuscado = state.filtroMusculo.toLowerCase();
+            const gMuscular = (ej.grupoMuscular || MAPA_FALLBACK_MUSCULO[ej.id] || "").toLowerCase();
+            const mPrincipales = (ej.musculosPrincipales || []).map(m => m.toLowerCase()).join(" ");
+            const mSecundarios = (ej.musculosSecundarios || []).map(m => m.toLowerCase()).join(" ");
+            coincideMusculo = gMuscular === mBuscado || 
+                              gMuscular.includes(mBuscado) ||
+                              mPrincipales.includes(mBuscado) || 
+                              mSecundarios.includes(mBuscado);
+        }
+
+        let coincideEquipo = true;
+        if (state.filtroEquipo && state.filtroEquipo !== "todos") {
+            const eqBuscado = state.filtroEquipo.toLowerCase();
+            const equiposNormalizados = (ej.equipamiento || []).map(eq => {
+                const norm = MAPA_ALIAS_EQUIPO[eq] || eq;
+                return norm.toLowerCase();
+            });
+            coincideEquipo = equiposNormalizados.includes(eqBuscado) || 
+                             (ej.equipamiento || []).includes(state.filtroEquipo);
+        }
         
         let coincideTexto = true;
         if (state.filtroTexto) {
-            const haystack = `${ej.nombre} ${ej.tipoNombre} ${ej.musculosPrincipales.join(" ")} ${ej.equipamiento.join(" ")}`.toLowerCase();
+            const haystack = `${ej.nombre} ${ej.grupoMuscular || ""} ${ej.tipoNombre || ""} ${ej.musculosPrincipales.join(" ")} ${ej.equipamiento.join(" ")}`.toLowerCase();
             coincideTexto = haystack.includes(state.filtroTexto);
         }
-        return coincideTipo && coincideEquipo && coincideTexto;
+        return coincideMusculo && coincideEquipo && coincideTexto;
     });
 
     if (labelConteo) {
@@ -246,7 +311,7 @@ function renderizarCatalogoEjercicios() {
         return `
         <div class="exercise-item-card card-carbon animate-fade-in" id="catalog-card-${ej.id}">
             <div class="exercise-card-thumb" onclick="window.gimnasio?.abrirModalDetalle('${ej.id}')">
-                <img src="${ej.imagen}" alt="${ej.nombre}" loading="lazy" class="exercise-thumb-img">
+                <img src="${ej.imagen}" alt="${ej.nombre}" loading="lazy" class="exercise-thumb-img" onerror="this.src='./assets/exercises/exercise-default.svg'">
                 <div class="exercise-card-top-overlay">
                     <div class="exercise-type-pill badge-type-${ej.tipo}">
                         <span>${ej.tipoIcono}</span>
@@ -285,14 +350,18 @@ function renderizarCatalogoEjercicios() {
 
 window.gimnasio = window.gimnasio || {};
 window.gimnasio.limpiarFiltrosCompletos = function() {
+    state.filtroMusculo = "todos";
     state.filtroTipo = "todos";
     state.filtroEquipo = "todos";
     state.filtroTexto = "";
     const input = document.getElementById("input-buscar-ejercicio");
     if (input) input.value = "";
     document.querySelectorAll(".filter-chip").forEach(ch => {
-        if (ch.dataset.tipo === "todos" || ch.dataset.equipo === "todos") ch.classList.add("active");
-        else ch.classList.remove("active");
+        if (ch.dataset.musculo === "todos" || ch.dataset.tipo === "todos" || ch.dataset.equipo === "todos") {
+            ch.classList.add("active");
+        } else {
+            ch.classList.remove("active");
+        }
     });
     renderizarCatalogoEjercicios();
 };
