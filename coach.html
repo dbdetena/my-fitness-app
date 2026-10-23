@@ -133,11 +133,11 @@
         </div>
     </div>
 
-    <!-- BARRA INFERIOR DE ENTRADA CON PUSH-TO-TALK -->
+    <!-- BARRA INFERIOR DE ENTRADA CON MICRÓFONO TOGGLE -->
     <div class="coach-input-toolbar-card card card-carbon">
         <div class="coach-input-bar">
-            <!-- Botón de Micrófono (Push-to-Talk) -->
-            <button type="button" id="btn-coach-ptt" class="btn-coach-mic" title="Mantén pulsado para hablar al Coach" aria-label="Hablar al Coach">
+            <!-- Botón de Micrófono (Toggle: Clic Iniciar / Clic Detener) -->
+            <button type="button" id="btn-coach-ptt" class="btn-coach-mic" title="Clic para hablar al Coach (Iniciar / Detener)" aria-label="Hablar al Coach (Alternar escucha)">
                 <div class="mic-inner-wrap">
                     <svg class="mic-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -150,7 +150,7 @@
             </button>
 
             <!-- Campo de Texto Manual -->
-            <textarea id="coach-input-text" class="coach-textarea" placeholder="Escribe tu consulta o mantén pulsado el micro para hablar..." rows="1"></textarea>
+            <textarea id="coach-input-text" class="coach-textarea" placeholder="Escribe tu consulta o pulsa el micro para hablar..." rows="1"></textarea>
 
             <!-- Botón Enviar -->
             <button type="button" id="btn-coach-send" class="btn-coach-send btn-neon-cyan" title="Enviar mensaje" onclick="window.coach?.enviarMensajeUsuario()">
@@ -161,7 +161,7 @@
             </button>
         </div>
         <div class="coach-input-status-hint">
-            <span id="coach-ptt-hint">Mantén pulsado el micro para hablar • Entrenador con memoria Firestore</span>
+            <span id="coach-ptt-hint">Pulsa el micro para hablar • Clic para iniciar / detener</span>
         </div>
     </div>
 

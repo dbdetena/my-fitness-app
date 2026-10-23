@@ -11,6 +11,7 @@ const STORAGE_KEY = "fitness_bitacora_entries";
 // Estado interno del diario
 const state = {
     filtroActual: "todos",
+    isRecording: false,
     grabandoVoz: false,
     reconocimientoVoz: null,
     targetInputVoz: null
@@ -246,8 +247,8 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
         return;
     }
 
-    if (state.grabandoVoz) {
-        // Detener grabación
+    // Gestión de Estado: Si isRecording es true, detener la escucha
+    if (state.isRecording || state.grabandoVoz) {
         detenerGrabacionVoz(btnEl);
         return;
     }
@@ -258,7 +259,7 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
         state.reconocimientoVoz = null;
     }
 
-    // Iniciar grabación limpia
+    // Iniciar grabación limpia al hacer clic
     try {
         const recognition = new SpeechRecognition();
         recognition.lang = "es-ES";
@@ -267,13 +268,16 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
 
         state.reconocimientoVoz = recognition;
         state.targetInputVoz = inputEl;
+        state.isRecording = true;
         state.grabandoVoz = true;
 
+        // Feedback Visual: clase CSS activa (resplandor neón cian) y texto 'Escuchando...'
         if (btnEl) {
             btnEl.classList.add("recording");
+            btnEl.title = "Escuchando... Clic para detener";
             btnEl.innerHTML = `
                 <span class="mic-pulse-ring"></span>
-                <span id="btn-dictar-voz-label">Escuchando... Pulsa para parar</span>
+                <span id="btn-dictar-voz-label">Escuchando...</span>
             `;
         }
 
@@ -306,6 +310,8 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
             detenerGrabacionVoz(btnEl);
         };
 
+        // Restablecimiento Automático (onend): si el navegador corta la escucha por silencio prolongado,
+        // el botón regresa automáticamente a su estado y estilo inactivo inicial.
         recognition.onend = () => {
             detenerGrabacionVoz(btnEl);
         };
@@ -322,11 +328,13 @@ function detenerGrabacionVoz(btnEl) {
     if (state.reconocimientoVoz) {
         try { state.reconocimientoVoz.stop(); } catch(e) {}
     }
+    state.isRecording = false;
     state.grabandoVoz = false;
     state.reconocimientoVoz = null;
 
     if (btnEl) {
         btnEl.classList.remove("recording");
+        btnEl.title = "Clic para iniciar dictado por voz";
         btnEl.innerHTML = `
             <svg class="mic-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>

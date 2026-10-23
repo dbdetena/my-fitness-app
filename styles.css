@@ -3377,29 +3377,29 @@ body.modal-open {
 }
 
 .btn-voice-dictate.recording {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: #ef4444;
-    color: #fca5a5;
-    box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
-    animation: micBorderPulse 1.5s infinite;
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    color: #38bdf8;
+    box-shadow: 0 0 12px #38bdf8;
+    animation: micBorderPulseCyan 1.5s infinite;
 }
 
-@keyframes micBorderPulse {
-    0%, 100% { border-color: #ef4444; box-shadow: 0 0 14px rgba(239, 68, 68, 0.4); }
-    50% { border-color: #f87171; box-shadow: 0 0 22px rgba(239, 68, 68, 0.7); }
+@keyframes micBorderPulseCyan {
+    0%, 100% { border-color: #38bdf8; box-shadow: 0 0 12px #38bdf8; }
+    50% { border-color: #7dd3fc; box-shadow: 0 0 20px rgba(56, 189, 248, 0.85); }
 }
 
 .mic-pulse-ring {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #ef4444;
-    box-shadow: 0 0 8px #ef4444;
-    animation: micBlink 0.8s infinite alternate;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+    animation: micBlinkCyan 0.8s infinite alternate;
 }
 
-@keyframes micBlink {
-    from { opacity: 0.3; transform: scale(0.8); }
+@keyframes micBlinkCyan {
+    from { opacity: 0.4; transform: scale(0.85); }
     to { opacity: 1; transform: scale(1.2); }
 }
 
@@ -5754,16 +5754,16 @@ body.modal-open {
 }
 
 .btn-coach-mic.recording {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: #ef4444;
-    color: #fca5a5;
-    box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
-    animation: pttPulse 1.2s infinite alternate;
+    background: rgba(56, 189, 248, 0.15);
+    border-color: #38bdf8;
+    color: #38bdf8;
+    box-shadow: 0 0 12px #38bdf8;
+    animation: coachMicPulseCyan 1.2s infinite alternate;
 }
 
-@keyframes pttPulse {
-    from { transform: scale(1); }
-    to { transform: scale(1.08); }
+@keyframes coachMicPulseCyan {
+    from { transform: scale(1); box-shadow: 0 0 12px #38bdf8; }
+    to { transform: scale(1.06); box-shadow: 0 0 20px rgba(56, 189, 248, 0.85); }
 }
 
 .coach-textarea {

@@ -207,9 +207,10 @@ const state = {
     vozActivada: localStorage.getItem(STORAGE_KEY_VOICE) !== "false",
     memoriaActual: null,
     historialConversacion: [],
-    grabandoPtt: false,
+    isRecording: false, // Variable de control para alternancia (Toggle) del micrófono
+    grabandoPtt: false, // Alias de retrocompatibilidad
     reconocimientoVoz: null,
-    transcriptPttAcumulado: "",
+    transcriptAcumulado: "",
     chartInstance: null,
     chartTipoActual: "rpe",
     enGeneracion: false
@@ -477,131 +478,148 @@ async function consultarGemini(mensajeUsuario) {
 // 3. INTERACCIÓN POR VOZ (SPEECH RECOGNITION & SYNTHESIS)
 // ========================================================
 
+// ========================================================
+// 3. INTERACCIÓN POR VOZ (SPEECH RECOGNITION TOGGLE & TTS)
+// ========================================================
+
 /**
- * Inicializa SpeechRecognition en modo Push-to-Talk (Mantener pulsado para hablar)
+ * Inicializa el listener del micrófono en modo Alternancia (Toggle) con un único evento click
  */
-function configurarPushToTalk() {
-    const btnPtt = document.getElementById("btn-coach-ptt");
-    const hintEl = document.getElementById("coach-ptt-hint");
-    if (!btnPtt) return;
+export function configurarMicrofonoCoach() {
+    const btnMic = document.getElementById("btn-coach-ptt") || document.getElementById("btn-coach-mic");
+    if (!btnMic) return;
 
     // Evitar apilar múltiples event listeners al botón en navegaciones SPA sucesivas
-    if (btnPtt.dataset.pttConfigured === "true") return;
-    btnPtt.dataset.pttConfigured = "true";
+    if (btnMic.dataset.toggleConfigured === "true") return;
+    btnMic.dataset.toggleConfigured = "true";
+
+    // Sustitución de mousedown/mouseup/touchstart/touchend por un ÚNICO evento click
+    btnMic.addEventListener("click", (e) => {
+        e.preventDefault();
+        alternarGrabacionCoach();
+    });
+}
+
+// Alias de compatibilidad
+export const configurarPushToTalk = configurarMicrofonoCoach;
+
+/**
+ * Alterna la grabación del micrófono (clic para iniciar / clic para detener)
+ */
+export function alternarGrabacionCoach() {
+    const btnMic = document.getElementById("btn-coach-ptt") || document.getElementById("btn-coach-mic");
+    const hintEl = document.getElementById("coach-ptt-hint");
+    const textarea = document.getElementById("coach-input-text");
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
         if (hintEl) hintEl.textContent = "Reconocimiento de voz no disponible en este navegador • Escribe tu consulta abajo";
-        btnPtt.style.opacity = "0.5";
-        btnPtt.title = "Reconocimiento de voz no soportado";
+        if (btnMic) {
+            btnMic.style.opacity = "0.5";
+            btnMic.title = "Reconocimiento de voz no soportado";
+        }
         return;
     }
 
-    const empezarPtt = (e) => {
-        e.preventDefault();
-        if (state.grabandoPtt) return;
+    // Gestión de Estado: Si isRecording es true, detener la escucha
+    if (state.isRecording) {
+        detenerGrabacionCoach(btnMic, hintEl);
+        return;
+    }
 
-        // Limpiar cualquier instancia huérfana previa
-        if (state.reconocimientoVoz) {
-            try { state.reconocimientoVoz.abort(); } catch(e) {}
-            state.reconocimientoVoz = null;
-        }
+    // Si isRecording es false, iniciar la escucha
+    iniciarGrabacionCoach(btnMic, hintEl, textarea, SpeechRecognition);
+}
 
-        try {
-            const recognition = new SpeechRecognition();
-            recognition.lang = "es-ES";
-            recognition.continuous = true;
-            recognition.interimResults = true;
+function iniciarGrabacionCoach(btnMic, hintEl, textarea, SpeechRecognition) {
+    // Si hubiera alguna instancia previa huérfana, abortarla limpiamente
+    if (state.reconocimientoVoz) {
+        try { state.reconocimientoVoz.abort(); } catch(e) {}
+        state.reconocimientoVoz = null;
+    }
 
-            state.reconocimientoVoz = recognition;
-            state.grabandoPtt = true;
-            state.transcriptPttAcumulado = "";
+    try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = "es-ES";
+        recognition.continuous = true;
+        recognition.interimResults = true;
 
-            btnPtt.classList.add("recording");
-            if (hintEl) hintEl.textContent = "🔴 Escuchando... Suelta el botón para enviar tu pregunta";
+        state.reconocimientoVoz = recognition;
+        state.isRecording = true;
+        state.grabandoPtt = true;
+        state.transcriptAcumulado = "";
 
-            const textarea = document.getElementById("coach-input-text");
-            const textoPrevio = textarea ? textarea.value : "";
+        // Feedback Visual: clase CSS activa (resplandor neón cian box-shadow: 0 0 12px #38bdf8) y texto 'Escuchando...'
+        actualizarFeedbackVisualCoach(btnMic, hintEl, true);
 
-            // Reconstrucción local de resultados en cada evento para evitar palabras duplicadas/triplicadas:
-            // Solo añadir al acumulador si el resultado es definitivo (isFinal) y limpiar el texto temporal correctamente.
-            recognition.onresult = (event) => {
-                let finalTranscript = "";
-                let interimTranscript = "";
+        const textoPrevio = textarea ? textarea.value : "";
 
-                for (let i = 0; i < event.results.length; i++) {
-                    const res = event.results[i];
-                    if (res.isFinal) {
-                        finalTranscript += res[0].transcript + " ";
-                    } else {
-                        interimTranscript += res[0].transcript;
-                    }
+        // Reconstrucción limpia en cada evento: solo añadir texto definitivo si isFinal es true
+        recognition.onresult = (event) => {
+            let finalTranscript = "";
+            let interimTranscript = "";
+
+            for (let i = 0; i < event.results.length; i++) {
+                const res = event.results[i];
+                if (res.isFinal) {
+                    finalTranscript += res[0].transcript + " ";
+                } else {
+                    interimTranscript += res[0].transcript;
                 }
+            }
 
-                state.transcriptPttAcumulado = finalTranscript.trim();
+            state.transcriptAcumulado = finalTranscript.trim();
 
-                if (textarea) {
-                    const sep = textoPrevio && !textoPrevio.endsWith(" ") ? " " : "";
-                    const combinado = (textoPrevio + sep + finalTranscript + interimTranscript).trimStart();
-                    textarea.value = combinado;
-                }
-            };
+            if (textarea) {
+                const sep = textoPrevio && !textoPrevio.endsWith(" ") ? " " : "";
+                const combinado = (textoPrevio + sep + finalTranscript + interimTranscript).trimStart();
+                textarea.value = combinado;
+            }
+        };
 
-            recognition.onerror = (event) => {
-                console.warn("Aviso PTT reconocimiento de voz:", event.error);
-                finalizarPtt(false);
-            };
+        recognition.onerror = (event) => {
+            console.warn("Aviso en reconocimiento de voz del Coach:", event.error);
+            detenerGrabacionCoach(btnMic, hintEl);
+        };
 
-            recognition.onend = () => {
-                if (state.grabandoPtt) {
-                    finalizarPtt(true);
-                }
-            };
+        // Restablecimiento Automático (onend): si el navegador corta la escucha por silencio prolongado,
+        // el botón regresa automáticamente a su estado y estilo inactivo inicial.
+        recognition.onend = () => {
+            detenerGrabacionCoach(btnMic, hintEl);
+        };
 
-            recognition.start();
-        } catch (err) {
-            console.error("Error al iniciar PTT:", err);
-            finalizarPtt(false);
-        }
-    };
+        recognition.start();
 
-    const finalizarPtt = (enviar = true) => {
-        if (!state.grabandoPtt) return;
-        state.grabandoPtt = false;
+    } catch (err) {
+        console.error("Error al iniciar el micrófono del Coach:", err);
+        detenerGrabacionCoach(btnMic, hintEl);
+    }
+}
 
-        btnPtt.classList.remove("recording");
-        if (hintEl) hintEl.textContent = "Mantén pulsado el micro para hablar • Entrenador con memoria Firestore";
+function detenerGrabacionCoach(btnMic, hintEl) {
+    if (state.reconocimientoVoz) {
+        try { state.reconocimientoVoz.stop(); } catch(e) {}
+    }
+    state.isRecording = false;
+    state.grabandoPtt = false;
+    state.reconocimientoVoz = null;
 
-        if (state.reconocimientoVoz) {
-            try { state.reconocimientoVoz.stop(); } catch(e) {}
-            state.reconocimientoVoz = null;
-        }
+    actualizarFeedbackVisualCoach(btnMic, hintEl, false);
+}
 
-        const textarea = document.getElementById("coach-input-text");
-        const textoAEnviar = state.transcriptPttAcumulado || (textarea ? textarea.value.trim() : "");
-        state.transcriptPttAcumulado = "";
+function actualizarFeedbackVisualCoach(btnMic, hintEl, activo) {
+    if (btnMic) {
+        btnMic.classList.toggle("recording", activo);
+        btnMic.title = activo ? "Escuchando... (Clic para detener)" : "Clic para hablar al Coach";
+        btnMic.setAttribute("aria-label", activo ? "Escuchando... Clic para detener" : "Hablar al Coach");
+    }
 
-        if (enviar && textoAEnviar) {
-            if (textarea) textarea.value = "";
-            enviarMensajeUsuario(textoAEnviar);
-        }
-    };
-
-    // Eventos Mouse (Escritorio)
-    btnPtt.addEventListener("mousedown", empezarPtt);
-    btnPtt.addEventListener("mouseup", () => finalizarPtt(true));
-    btnPtt.addEventListener("mouseleave", () => {
-        if (state.grabandoPtt) finalizarPtt(true);
-    });
-
-    // Eventos Touch (Móvil Android / PWA)
-    btnPtt.addEventListener("touchstart", empezarPtt, { passive: false });
-    btnPtt.addEventListener("touchend", (e) => {
-        e.preventDefault();
-        finalizarPtt(true);
-    });
-    btnPtt.addEventListener("touchcancel", () => finalizarPtt(false));
+    if (hintEl) {
+        hintEl.innerHTML = activo 
+            ? "🎙️ <strong style='color: #38bdf8;'>Escuchando...</strong> Clic en el micro para detener o pulsa enviar" 
+            : "Pulsa el micro para hablar • Clic para iniciar / detener";
+    }
 }
 
 /**
@@ -1153,8 +1171,8 @@ export async function reiniciarMemoria() {
 // ========================================================
 
 export async function initCoach() {
-    // 1. Configurar PTT
-    configurarPushToTalk();
+    // 1. Configurar micrófono Toggle
+    configurarMicrofonoCoach();
 
     // 2. Verificar API Key en bóveda cifrada
     const tieneKey = !!(await obtenerApiKeyLocal());
@@ -1185,7 +1203,7 @@ export async function initCoach() {
         if (ultimoEntreno) {
             saludo += `• **Último Registro:** ${ultimoEntreno.rutinaRelacionada || 'Sesión'} (RPE ${ultimoEntreno.rpe || 8})\n`;
         }
-        saludo += `\nPuedes preguntarme por técnica, sugerencias de descarga, sobrecarga progresiva o mantener pulsado el micrófono para hablarme.`;
+        saludo += `\nPuedes preguntarme por técnica, sugerencias de descarga, sobrecarga progresiva o pulsar el micrófono para hablarme.`;
 
         agregarMensajeAlChat("coach", saludo);
     }
@@ -1207,8 +1225,14 @@ export function cleanupCoach() {
         try { state.reconocimientoVoz.abort(); } catch(e) {}
         state.reconocimientoVoz = null;
     }
+    state.isRecording = false;
     state.grabandoPtt = false;
-    state.transcriptPttAcumulado = "";
+    state.transcriptAcumulado = "";
+
+    const btnMic = document.getElementById("btn-coach-ptt") || document.getElementById("btn-coach-mic");
+    const hintEl = document.getElementById("coach-ptt-hint");
+    actualizarFeedbackVisualCoach(btnMic, hintEl, false);
+
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
     }
@@ -1261,6 +1285,8 @@ window.coach = {
     reproducirTexto: reproducirVozCoach,
     alternarVisorGrafica,
     cambiarTipoGrafica,
+    alternarGrabacionCoach,
+    alternarGrabacionVoz: alternarGrabacionCoach,
     enviarMensajeUsuario,
     enviarPreguntaRapida,
     abrirModalKey,
