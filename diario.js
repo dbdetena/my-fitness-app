@@ -238,7 +238,13 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
         return;
     }
 
-    // Iniciar grabación
+    // Si había alguna instancia huérfana, abortarla limpiamente
+    if (state.reconocimientoVoz) {
+        try { state.reconocimientoVoz.abort(); } catch(e) {}
+        state.reconocimientoVoz = null;
+    }
+
+    // Iniciar grabación limpia
     try {
         const recognition = new SpeechRecognition();
         recognition.lang = "es-ES";
@@ -255,21 +261,25 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
         }
 
         const textoPrevio = inputEl ? inputEl.value : "";
-        let transcripcionFinal = "";
 
+        // Reconstrucción local de resultados en cada evento para evitar palabras duplicadas/triplicadas
         recognition.onresult = (event) => {
+            let finalTranscript = "";
             let interimTranscript = "";
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    transcripcionFinal += event.results[i][0].transcript + " ";
+
+            for (let i = 0; i < event.results.length; i++) {
+                const res = event.results[i];
+                if (res.isFinal) {
+                    finalTranscript += res[0].transcript + " ";
                 } else {
-                    interimTranscript += event.results[i][0].transcript;
+                    interimTranscript += res[0].transcript;
                 }
             }
 
             if (inputEl) {
-                const esp = textoPrevio && !textoPrevio.endsWith(" ") ? " " : "";
-                inputEl.value = (textoPrevio + esp + transcripcionFinal + interimTranscript).trimStart();
+                const sep = textoPrevio && !textoPrevio.endsWith(" ") ? " " : "";
+                const combinado = (textoPrevio + sep + finalTranscript + interimTranscript).trimStart();
+                inputEl.value = combinado;
                 inputEl.dataset.porVoz = "true";
             }
         };
@@ -428,7 +438,7 @@ export function registrarNotaManual() {
 
     const texto = inputTexto.value;
     const categoria = selectCategoria ? selectCategoria.value : "general";
-    const rpe = inputRpe && inputRpe.value ? inputRpe.value : null;
+    const rpe = inputRpe && inputRpe.value ? parseInt(inputRpe.value, 10) : 8;
     const porVoz = inputTexto.dataset.porVoz === "true";
 
     guardarEntradaBitacora({
@@ -438,10 +448,10 @@ export function registrarNotaManual() {
         porVoz
     });
 
-    // Limpiar formulario
+    // Limpiar formulario y resetear selector cilíndrico a 8
     inputTexto.value = "";
     inputTexto.dataset.porVoz = "false";
-    if (inputRpe) inputRpe.value = "";
+    setRpeCylinderValue(8);
 
     // Mensaje de confirmación
     mostrarNotificacionToast("✅ Nota registrada en el Diario de Notas");
@@ -462,11 +472,110 @@ function mostrarNotificacionToast(mensaje) {
 export function initDiario() {
     renderizarListaBitacora();
     actualizarEstadisticasBitacora();
+    initRpeCylinder(8);
 }
 
 export function cleanupDiario() {
     if (state.grabandoVoz) {
         detenerGrabacionVoz(document.getElementById("btn-dictar-voz"));
+    }
+}
+
+/**
+ * Inicializa el selector cilíndrico táctil horizontal de RPE (0 al 10)
+ */
+export function initRpeCylinder(valorInicial = 8) {
+    const container = document.getElementById("rpe-cylinder-scroll");
+    const badge = document.getElementById("rpe-cylinder-badge");
+    const hiddenInput = document.getElementById("input-bitacora-rpe");
+    if (!container) return;
+
+    let isScrolling = false;
+
+    const actualizarSeleccionCentro = () => {
+        const containerRect = container.getBoundingClientRect();
+        const centerLine = containerRect.left + containerRect.width / 2;
+
+        let closestItem = null;
+        let minDiff = Infinity;
+
+        const items = container.querySelectorAll(".rpe-cylinder-item");
+        items.forEach(item => {
+            const itemRect = item.getBoundingClientRect();
+            const itemCenter = itemRect.left + itemRect.width / 2;
+            const diff = Math.abs(centerLine - itemCenter);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestItem = item;
+            }
+        });
+
+        if (closestItem) {
+            const val = closestItem.getAttribute("data-val");
+            items.forEach(it => it.classList.toggle("active", it === closestItem));
+            if (hiddenInput) hiddenInput.value = val;
+            if (badge) badge.textContent = `RPE ${val}`;
+            container.setAttribute("aria-valuenow", val);
+        }
+    };
+
+    container.addEventListener("scroll", () => {
+        if (!isScrolling) {
+            window.requestAnimationFrame(() => {
+                actualizarSeleccionCentro();
+                isScrolling = false;
+            });
+            isScrolling = true;
+        }
+    }, { passive: true });
+
+    // Clicks en números para centrado táctil suave
+    const items = container.querySelectorAll(".rpe-cylinder-item");
+    items.forEach(item => {
+        item.addEventListener("click", () => {
+            item.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+            const val = item.getAttribute("data-val");
+            items.forEach(it => it.classList.toggle("active", it === item));
+            if (hiddenInput) hiddenInput.value = val;
+            if (badge) badge.textContent = `RPE ${val}`;
+            container.setAttribute("aria-valuenow", val);
+        });
+    });
+
+    // Soporte para teclado (Flechas Izquierda / Derecha)
+    container.addEventListener("keydown", (e) => {
+        const currentVal = parseInt(hiddenInput ? hiddenInput.value : "8", 10);
+        if (e.key === "ArrowLeft" && currentVal > 0) {
+            e.preventDefault();
+            setRpeCylinderValue(currentVal - 1);
+        } else if (e.key === "ArrowRight" && currentVal < 10) {
+            e.preventDefault();
+            setRpeCylinderValue(currentVal + 1);
+        }
+    });
+
+    // Centrar en el valor inicial tras render
+    setTimeout(() => {
+        setRpeCylinderValue(valorInicial);
+    }, 60);
+}
+
+/**
+ * Centra y activa un valor concreto en la rueda cilíndrica de RPE
+ */
+export function setRpeCylinderValue(val) {
+    const container = document.getElementById("rpe-cylinder-scroll");
+    const badge = document.getElementById("rpe-cylinder-badge");
+    const hiddenInput = document.getElementById("input-bitacora-rpe");
+    if (!container) return;
+
+    const targetItem = container.querySelector(`.rpe-cylinder-item[data-val="${val}"]`);
+    if (targetItem) {
+        targetItem.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+        container.querySelectorAll(".rpe-cylinder-item").forEach(it => it.classList.toggle("active", it === targetItem));
+        if (hiddenInput) hiddenInput.value = String(val);
+        if (badge) badge.textContent = `RPE ${val}`;
+        container.setAttribute("aria-valuenow", String(val));
     }
 }
 
@@ -496,5 +605,7 @@ window.diario = {
     setFiltro: setFiltroBitacora,
     guardarEntrada: guardarEntradaBitacora,
     obtenerEntradas: obtenerEntradasBitacora,
-    toggleDesgloseProgreso
+    toggleDesgloseProgreso,
+    initRpeCylinder,
+    setRpeCylinderValue
 };

@@ -248,16 +248,28 @@ export function generarHtmlDesgloseEntrada(entradaId) {
         `;
     }
 
-    // Renderizar bloque de Calentamiento
+    // Renderizar bloque de Calentamiento con estructura de tabla idéntica a los ejercicios
     const cal = analisisActual.calentamiento;
-    const pasosHtml = (cal.pasos || []).map(p => `
-        <div class="activity-step-row">
-            <span class="step-label">✓ ${p.titulo}</span>
-            <div class="step-times">
-                <span class="time-tag-split">⏱️ Tardó: <strong>${p.duracionFormato}</strong></span>
-                <span class="time-tag-mark">(Marca: ${p.tiempoMarca})</span>
-            </div>
-        </div>
+    const pasosLista = (cal.pasos && cal.pasos.length > 0)
+        ? cal.pasos
+        : [
+            {
+                paso: 1,
+                titulo: "Calentamiento Preventivo General",
+                duracionFormato: cal.tiempoTotalFormato || "00:00",
+                tiempoMarca: cal.tiempoTotalFormato || "00:00"
+            }
+        ];
+
+    const warmupRowsHtml = pasosLista.map(p => `
+        <tr>
+            <td class="col-fase">
+                <span class="set-badge-mini badge-warmup-fase">F${p.paso}</span>
+                <strong class="fase-title">${p.titulo}</strong>
+            </td>
+            <td class="col-interval"><span class="interval-pill">⏱️ ${p.duracionFormato}</span></td>
+            <td class="col-split">${p.tiempoMarca}</td>
+        </tr>
     `).join("");
 
     const calentamientoBloqueHtml = `
@@ -272,8 +284,20 @@ export function generarHtmlDesgloseEntrada(entradaId) {
                 <strong class="time-value">${cal.tiempoTotalFormato}</strong>
             </div>
         </div>
-        <div class="activity-steps-container">
-            ${pasosHtml || '<p class="text-muted">Calentamiento completado en bloque.</p>'}
+
+        <div class="table-responsive">
+            <table class="activity-sets-table warmup-sets-table">
+                <thead>
+                    <tr>
+                        <th>FASE</th>
+                        <th>TIEMPO TARDADO</th>
+                        <th>TIEMPO ACUMULADO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${warmupRowsHtml}
+                </tbody>
+            </table>
         </div>
     </div>
     `;

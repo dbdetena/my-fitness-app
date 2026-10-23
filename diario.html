@@ -55,16 +55,41 @@
             <textarea id="input-bitacora-texto" class="bitacora-textarea" placeholder="Escribe o pulsa el botón de micrófono para dictar por voz tus sensaciones, energía, fatiga, incidencias o impresiones..."></textarea>
         </div>
 
+        <!-- SELECTOR RPE: CILINDRO HORIZONTAL 3D (0 al 10) -->
+        <div class="rpe-cylinder-section">
+            <div class="rpe-cylinder-header-row">
+                <div class="rpe-cylinder-title-wrap">
+                    <span class="rpe-cylinder-title">Esfuerzo (RPE)</span>
+                    <span class="rpe-cylinder-subtitle">(0=Nulo, 10=Fallo)</span>
+                </div>
+                <span class="rpe-cylinder-current-badge" id="rpe-cylinder-badge">RPE 8</span>
+            </div>
+            
+            <div class="rpe-cylinder-stage">
+                <div class="rpe-cylinder-container" id="rpe-cylinder-scroll" tabindex="0" role="slider" aria-label="Selector de RPE" aria-valuemin="0" aria-valuemax="10" aria-valuenow="8">
+                    <div class="rpe-cylinder-item" data-val="0">0</div>
+                    <div class="rpe-cylinder-item" data-val="1">1</div>
+                    <div class="rpe-cylinder-item" data-val="2">2</div>
+                    <div class="rpe-cylinder-item" data-val="3">3</div>
+                    <div class="rpe-cylinder-item" data-val="4">4</div>
+                    <div class="rpe-cylinder-item" data-val="5">5</div>
+                    <div class="rpe-cylinder-item" data-val="6">6</div>
+                    <div class="rpe-cylinder-item" data-val="7">7</div>
+                    <div class="rpe-cylinder-item active" data-val="8">8</div>
+                    <div class="rpe-cylinder-item" data-val="9">9</div>
+                    <div class="rpe-cylinder-item" data-val="10">10</div>
+                </div>
+                <div class="rpe-cylinder-center-marker"></div>
+            </div>
+            <input type="hidden" id="input-bitacora-rpe" value="8">
+        </div>
+
         <div class="composer-footer">
             <div class="composer-left-actions">
                 <!-- Botón de Transcripción por Voz -->
                 <button type="button" id="btn-dictar-voz" class="btn-voice-dictate" onclick="window.diario?.alternarGrabacionVoz('input-bitacora-texto', 'btn-dictar-voz')">
                     <span>🎙️ Dictar por voz</span>
                 </button>
-                <div class="rpe-input-group">
-                    <label for="input-bitacora-rpe">RPE (1-10):</label>
-                    <input type="number" id="input-bitacora-rpe" min="1" max="10" placeholder="-" class="rpe-mini-input">
-                </div>
             </div>
 
             <button type="button" class="btn-neon-cyan btn-save-note" onclick="window.diario?.registrarNotaManual()">
