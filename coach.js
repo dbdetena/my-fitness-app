@@ -25,6 +25,9 @@ const STORAGE_KEY_MEMORY = "fitness_coach_memory";
 const STORAGE_KEY_VOICE = "fitness_coach_voice_enabled";
 const STORAGE_KEY_CHAT = "fitness_coach_chat_history";
 
+// Modelo oficial actual de Gemini
+const GEMINI_MODEL = "gemini-3.8-flash";
+
 // Parámetros de derivación criptográfica para la bóveda local
 const VAULT_SALT = new TextEncoder().encode("antigravity-fitness-vault-salt-v1");
 const VAULT_PASSPHRASE = "AGY_FITNESS_COACH_LOCAL_VAULT_2026";
@@ -405,7 +408,7 @@ ${contexto.resumenMolestias}
 }
 
 /**
- * Envía la consulta a la API de Google Gemini (v1beta con gemini-1.5-flash / fallback 2.0)
+ * Envía la consulta a la API de Google Gemini (v1beta con gemini-3.8-flash)
  */
 async function consultarGemini(mensajeUsuario) {
     const apiKey = await obtenerApiKeyLocal();
@@ -435,7 +438,7 @@ async function consultarGemini(mensajeUsuario) {
         parts: [{ text: mensajeUsuario }]
     });
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
     const payload = {
         system_instruction: {
@@ -454,20 +457,10 @@ async function consultarGemini(mensajeUsuario) {
         body: JSON.stringify(payload)
     });
 
-    // Fallback a modelo gemini-2.0-flash si el 1.5-flash diera 404 o estuviese obsoleto
-    if (!response.ok && response.status === 404) {
-        const fallbackEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        response = await fetch(fallbackEndpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-    }
-
     if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
         const mensajeError = errJson.error?.message || `Error HTTP ${response.status}`;
-        throw new Error(`Error en API Gemini: ${mensajeError}`);
+        throw new Error(`Error en API Gemini (${GEMINI_MODEL}): ${mensajeError}`);
     }
 
     const data = await response.json();
@@ -492,6 +485,10 @@ function configurarPushToTalk() {
     const hintEl = document.getElementById("coach-ptt-hint");
     if (!btnPtt) return;
 
+    // Evitar apilar múltiples event listeners al botón en navegaciones SPA sucesivas
+    if (btnPtt.dataset.pttConfigured === "true") return;
+    btnPtt.dataset.pttConfigured = "true";
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
@@ -504,6 +501,12 @@ function configurarPushToTalk() {
     const empezarPtt = (e) => {
         e.preventDefault();
         if (state.grabandoPtt) return;
+
+        // Limpiar cualquier instancia huérfana previa
+        if (state.reconocimientoVoz) {
+            try { state.reconocimientoVoz.abort(); } catch(e) {}
+            state.reconocimientoVoz = null;
+        }
 
         try {
             const recognition = new SpeechRecognition();
@@ -518,22 +521,31 @@ function configurarPushToTalk() {
             btnPtt.classList.add("recording");
             if (hintEl) hintEl.textContent = "🔴 Escuchando... Suelta el botón para enviar tu pregunta";
 
+            const textarea = document.getElementById("coach-input-text");
+            const textoPrevio = textarea ? textarea.value : "";
+
+            // Reconstrucción local de resultados en cada evento para evitar palabras duplicadas/triplicadas:
+            // Solo añadir al acumulador si el resultado es definitivo (isFinal) y limpiar el texto temporal correctamente.
             recognition.onresult = (event) => {
-                let finalTxt = "";
-                let interimTxt = "";
+                let finalTranscript = "";
+                let interimTranscript = "";
 
                 for (let i = 0; i < event.results.length; i++) {
                     const res = event.results[i];
                     if (res.isFinal) {
-                        finalTxt += res[0].transcript + " ";
+                        finalTranscript += res[0].transcript + " ";
                     } else {
-                        interimTxt += res[0].transcript;
+                        interimTranscript += res[0].transcript;
                     }
                 }
 
-                state.transcriptPttAcumulado = (finalTxt + interimTxt).trim();
-                const textarea = document.getElementById("coach-input-text");
-                if (textarea) textarea.value = state.transcriptPttAcumulado;
+                state.transcriptPttAcumulado = finalTranscript.trim();
+
+                if (textarea) {
+                    const sep = textoPrevio && !textoPrevio.endsWith(" ") ? " " : "";
+                    const combinado = (textoPrevio + sep + finalTranscript + interimTranscript).trimStart();
+                    textarea.value = combinado;
+                }
             };
 
             recognition.onerror = (event) => {
@@ -566,12 +578,13 @@ function configurarPushToTalk() {
             state.reconocimientoVoz = null;
         }
 
-        const texto = state.transcriptPttAcumulado.trim();
-        if (enviar && texto) {
-            const textarea = document.getElementById("coach-input-text");
-            if (textarea) textarea.value = texto;
-            enviarMensajeUsuario(texto);
-            state.transcriptPttAcumulado = "";
+        const textarea = document.getElementById("coach-input-text");
+        const textoAEnviar = state.transcriptPttAcumulado || (textarea ? textarea.value.trim() : "");
+        state.transcriptPttAcumulado = "";
+
+        if (enviar && textoAEnviar) {
+            if (textarea) textarea.value = "";
+            enviarMensajeUsuario(textoAEnviar);
         }
     };
 
@@ -1046,7 +1059,7 @@ export async function probarConexionKey() {
     }
 
     try {
-        const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keyAProbar}`;
+        const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${keyAProbar}`;
         const res = await fetch(testEndpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1190,10 +1203,12 @@ export async function initCoach() {
 }
 
 export function cleanupCoach() {
-    if (state.grabandoPtt && state.reconocimientoVoz) {
-        try { state.reconocimientoVoz.stop(); } catch(e) {}
-        state.grabandoPtt = false;
+    if (state.reconocimientoVoz) {
+        try { state.reconocimientoVoz.abort(); } catch(e) {}
+        state.reconocimientoVoz = null;
     }
+    state.grabandoPtt = false;
+    state.transcriptPttAcumulado = "";
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
     }
