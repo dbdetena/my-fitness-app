@@ -1,6 +1,7 @@
 import { initSalud, cleanupSalud } from "./salud.js";
 import { initGimnasio, cleanupGimnasio } from "./gimnasio.js";
 import { initDiario, cleanupDiario } from "./diario.js";
+import { initCoach, cleanupCoach } from "./coach.js";
 import { initFraseDelDia } from "./quotes.js";
 import { initConfig } from "./config.js";
 import { actualizarFabUniversal, obtenerSesionActiva } from "./session-manager.js";
@@ -21,6 +22,10 @@ const LIFECYCLE_HOOKS = {
     diario: {
         init: initDiario,
         cleanup: cleanupDiario
+    },
+    coach: {
+        init: initCoach,
+        cleanup: cleanupCoach
     }
 };
 

@@ -40,7 +40,11 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
 2. **Gimnasio (`gimnasio.html` / `gimnasio.js`):** Tres bibliotecas especializadas (Ejercicios con posturas 3D, Rutinas Estándar y Mis Rutinas / Coach). Mesa de entrenamiento en vivo con calentamiento preventivo, registro táctil de series y cronómetro sincronizado con segundo plano.
 3. **Nutrición (`nutricion.html` / `nutricion.js`):** Base de datos de platos frecuentes, registro rápido y suplementación.
 4. **Diario de Notas (`diario.html` / `diario.js`):** Diario oficial de registros. Dropdown custom de acero mate y neón cian, botonera de filtros con contadores dinámicos, bloque integrado de captura con dictado por voz (Web Speech API sin duplicidades), selector de RPE mediante cilindro horizontal táctil 3D (0 a 10), registro de alertas/incidencias, iconografía SVG unificada y desglose de tiempos/calentamiento estructurado en tabla de 3 columnas.
-5. **Coach (`coach.html` / `coach.js`):** Integración con Gemini IA para cruzar todos los datos y dar sugerencias contextuales.
+5. **Coach (`coach.html` / `coach.js`):** Asistente virtual experto en biomecánica y programación del entrenamiento impulsado por la API de Google Gemini (v1beta / flash).
+   - **Memoria Persistente (`coach_memory`):** Documento maestro en Firebase Firestore (`configuracion/coach_memory`) con fallback local resiliente. Almacena objetivos, lesiones/molestias y notas a largo plazo; se consulta antes de cada respuesta y se actualiza automáticamente con nuevos hitos.
+   - **Interacción por Voz:** Modo Push-to-Talk manteniendo pulsado el micrófono (`SpeechRecognition`) y lectura automática en voz alta (`speechSynthesis`) con selector de activación/silencio.
+   - **Visualización de Gráficas Biomecánicas (Chart.js):** Contenedor interactivo para proyectar evolución de RPE, progresión de cargas y volumen semanal invocado a demanda del usuario o por la IA.
+   - **Seguridad:** Gestión segura de la API Key en cliente (`localStorage`) con soporte para alternar visibilidad y borrado.
 
 ## 5. MODELO DE DATOS Y DECISIONES DE BASE DE DATOS (LOCAL-FIRST & FIRESTORE)
 - **Estrategia Local-First:** `localStorage` actúa como almacén de alta disponibilidad para la sesión viva (`fitness_active_session`) y bitácora local (`fitness_bitacora_entries`), sincronizado con Firebase Firestore (`FitnessPersonalDBdT`).
