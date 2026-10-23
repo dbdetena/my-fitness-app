@@ -14,7 +14,9 @@ const state = {
     isRecording: false,
     grabandoVoz: false,
     reconocimientoVoz: null,
-    targetInputVoz: null
+    targetInputVoz: null,
+    transcriptAcumulado: "",
+    ultimoIndiceProcesado: -1
 };
 
 /**
@@ -264,12 +266,18 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
         const recognition = new SpeechRecognition();
         recognition.lang = "es-ES";
         recognition.continuous = true;
-        recognition.interimResults = true;
+        // SOLUCIÓN RADICAL: Desactivar resultados provisionales (interimResults = false)
+        // El navegador solo devuelve la frase final limpia evitando el bucle de actualización en vivo
+        recognition.interimResults = false;
 
         state.reconocimientoVoz = recognition;
         state.targetInputVoz = inputEl;
         state.isRecording = true;
         state.grabandoVoz = true;
+
+        // Limpieza de sesión garantizada al iniciar
+        state.transcriptAcumulado = "";
+        state.ultimoIndiceProcesado = -1;
 
         // Feedback Visual: clase CSS activa (resplandor neón cian) y texto 'Escuchando...'
         if (btnEl) {
@@ -281,26 +289,30 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
             `;
         }
 
-        const textoPrevio = inputEl ? inputEl.value : "";
+        const textoPrevio = inputEl ? inputEl.value.trim() : "";
 
-        // Reconstrucción local de resultados en cada evento para evitar palabras duplicadas/triplicadas
+        // Extracción directa sin bucles repetitivos sobre resultados pasados ni += descontrolado
         recognition.onresult = (event) => {
-            let finalTranscript = "";
-            let interimTranscript = "";
+            const ultimoIndice = event.results.length - 1;
+            if (ultimoIndice < 0 || ultimoIndice <= state.ultimoIndiceProcesado) return;
+            state.ultimoIndiceProcesado = ultimoIndice;
 
-            for (let i = 0; i < event.results.length; i++) {
-                const res = event.results[i];
-                if (res.isFinal) {
-                    finalTranscript += res[0].transcript + " ";
-                } else {
-                    interimTranscript += res[0].transcript;
-                }
+            const ultimoResultado = event.results[ultimoIndice];
+            if (!ultimoResultado || !ultimoResultado[0]) return;
+
+            const nuevaFrase = ultimoResultado[0].transcript.trim();
+            if (!nuevaFrase) return;
+
+            // Acumular de forma controlada en la variable de sesión limpia
+            if (state.transcriptAcumulado) {
+                state.transcriptAcumulado += " " + nuevaFrase;
+            } else {
+                state.transcriptAcumulado = nuevaFrase;
             }
 
             if (inputEl) {
-                const sep = textoPrevio && !textoPrevio.endsWith(" ") ? " " : "";
-                const combinado = (textoPrevio + sep + finalTranscript + interimTranscript).trimStart();
-                inputEl.value = combinado;
+                const prefijo = textoPrevio ? textoPrevio + " " : "";
+                inputEl.value = (prefijo + state.transcriptAcumulado).trimStart();
                 inputEl.dataset.porVoz = "true";
             }
         };
@@ -316,6 +328,9 @@ export function alternarGrabacionVoz(targetInputId = "input-bitacora-texto", btn
             detenerGrabacionVoz(btnEl);
         };
 
+        // Vaciado estricto de variables temporales de sesión antes de arrancar
+        state.transcriptAcumulado = "";
+        state.ultimoIndiceProcesado = -1;
         recognition.start();
 
     } catch (err) {
@@ -331,6 +346,8 @@ function detenerGrabacionVoz(btnEl) {
     state.isRecording = false;
     state.grabandoVoz = false;
     state.reconocimientoVoz = null;
+    state.transcriptAcumulado = "";
+    state.ultimoIndiceProcesado = -1;
 
     if (btnEl) {
         btnEl.classList.remove("recording");

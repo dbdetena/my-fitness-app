@@ -1549,36 +1549,38 @@ export function alternarVozSesionDirecta() {
     try {
         const recognition = new SpeechRecognition();
         recognition.lang = "es-ES";
-        recognition.interimResults = true;
+        recognition.interimResults = false;
         recognition.continuous = true;
 
         state.grabandoVozSesion = true;
         state.reconocimientoVozSesion = recognition;
         state.metricasSesion.porVoz = true;
+        let transcriptSesion = "";
+        let ultimoIndiceSesion = -1;
 
         if (btn) btn.classList.add("recording");
         if (titleEl) titleEl.textContent = "🔴 GRABANDO... DICTA TUS SENSACIONES";
         if (subtitleEl) subtitleEl.textContent = "Habla con naturalidad • Pulsa para detener";
         mostrarToastLocal("🎙️ Escuchando... habla sobre tus sensaciones, molestias o marcas.");
 
-        let textoBase = textarea ? textarea.value : "";
+        const textoBase = textarea ? textarea.value.trim() : "";
 
         recognition.onresult = (event) => {
-            let finalStr = "";
-            let interimStr = "";
+            const ultimoIndice = event.results.length - 1;
+            if (ultimoIndice < 0 || ultimoIndice <= ultimoIndiceSesion) return;
+            ultimoIndiceSesion = ultimoIndice;
 
-            for (let i = 0; i < event.results.length; i++) {
-                const res = event.results[i];
-                if (res.isFinal) {
-                    finalStr += res[0].transcript + " ";
-                } else {
-                    interimStr += res[0].transcript;
-                }
-            }
+            const res = event.results[ultimoIndice];
+            if (!res || !res[0]) return;
+
+            const nuevaFrase = res[0].transcript.trim();
+            if (!nuevaFrase) return;
+
+            transcriptSesion = transcriptSesion ? (transcriptSesion + " " + nuevaFrase) : nuevaFrase;
 
             if (textarea) {
-                const sep = textoBase && !textoBase.endsWith(" ") ? " " : "";
-                textarea.value = (textoBase + sep + finalStr + interimStr).trimStart();
+                const sep = textoBase ? " " : "";
+                textarea.value = (textoBase + sep + transcriptSesion).trimStart();
                 onInputNota();
             }
         };

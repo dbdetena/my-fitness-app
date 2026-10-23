@@ -211,6 +211,7 @@ const state = {
     grabandoPtt: false, // Alias de retrocompatibilidad
     reconocimientoVoz: null,
     transcriptAcumulado: "",
+    ultimoIndiceAudioProcesado: -1,
     chartInstance: null,
     chartTipoActual: "rpe",
     enGeneracion: false
@@ -543,38 +544,45 @@ function iniciarGrabacionCoach(btnMic, hintEl, textarea, SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.lang = "es-ES";
         recognition.continuous = true;
-        recognition.interimResults = true;
+        // SOLUCIÓN RADICAL: Desactivar resultados provisionales (interimResults = false)
+        // Obliga al navegador a devolver únicamente la frase final limpia sin bucles en vivo
+        recognition.interimResults = false;
 
         state.reconocimientoVoz = recognition;
         state.isRecording = true;
         state.grabandoPtt = true;
+
+        // Limpieza de sesión garantizada al iniciar
         state.transcriptAcumulado = "";
+        state.ultimoIndiceAudioProcesado = -1;
 
         // Feedback Visual: clase CSS activa (resplandor neón cian box-shadow: 0 0 12px #38bdf8) y texto 'Escuchando...'
         actualizarFeedbackVisualCoach(btnMic, hintEl, true);
 
-        const textoPrevio = textarea ? textarea.value : "";
+        const textoPrevio = textarea ? textarea.value.trim() : "";
 
-        // Reconstrucción limpia en cada evento: solo añadir texto definitivo si isFinal es true
+        // Extracción directa del último resultado final sin bucle sobre resultados pasados ni auto-concatenación descontrolada
         recognition.onresult = (event) => {
-            let finalTranscript = "";
-            let interimTranscript = "";
+            const ultimoIndice = event.results.length - 1;
+            if (ultimoIndice < 0 || ultimoIndice <= state.ultimoIndiceAudioProcesado) return;
+            state.ultimoIndiceAudioProcesado = ultimoIndice;
 
-            for (let i = 0; i < event.results.length; i++) {
-                const res = event.results[i];
-                if (res.isFinal) {
-                    finalTranscript += res[0].transcript + " ";
-                } else {
-                    interimTranscript += res[0].transcript;
-                }
+            const ultimoResultado = event.results[ultimoIndice];
+            if (!ultimoResultado || !ultimoResultado[0]) return;
+
+            const nuevaFrase = ultimoResultado[0].transcript.trim();
+            if (!nuevaFrase) return;
+
+            // Acumular de forma controlada en la variable de sesión limpia
+            if (state.transcriptAcumulado) {
+                state.transcriptAcumulado += " " + nuevaFrase;
+            } else {
+                state.transcriptAcumulado = nuevaFrase;
             }
 
-            state.transcriptAcumulado = finalTranscript.trim();
-
             if (textarea) {
-                const sep = textoPrevio && !textoPrevio.endsWith(" ") ? " " : "";
-                const combinado = (textoPrevio + sep + finalTranscript + interimTranscript).trimStart();
-                textarea.value = combinado;
+                const prefijo = textoPrevio ? textoPrevio + " " : "";
+                textarea.value = (prefijo + state.transcriptAcumulado).trimStart();
             }
         };
 
@@ -589,6 +597,9 @@ function iniciarGrabacionCoach(btnMic, hintEl, textarea, SpeechRecognition) {
             detenerGrabacionCoach(btnMic, hintEl);
         };
 
+        // Vaciado estricto de variables temporales de sesión antes de arrancar
+        state.transcriptAcumulado = "";
+        state.ultimoIndiceAudioProcesado = -1;
         recognition.start();
 
     } catch (err) {
@@ -604,6 +615,8 @@ function detenerGrabacionCoach(btnMic, hintEl) {
     state.isRecording = false;
     state.grabandoPtt = false;
     state.reconocimientoVoz = null;
+    state.transcriptAcumulado = "";
+    state.ultimoIndiceAudioProcesado = -1;
 
     actualizarFeedbackVisualCoach(btnMic, hintEl, false);
 }
