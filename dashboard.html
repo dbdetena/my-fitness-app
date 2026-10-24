@@ -231,6 +231,22 @@
                 </svg>
                 <span id="txtBtnGoogleFit">Conectar con Google Fit</span>
             </button>
+
+            <!-- Píldora de Sincronización Automática Silenciosa -->
+            <div id="syncStatusIndicator" class="biometric-sync-pill" style="display: none;">
+                <div class="sync-pill-left">
+                    <span id="syncPulseDot" class="sync-pulse-dot"></span>
+                    <span id="syncStatusText" class="sync-status-text">Sincronizando...</span>
+                </div>
+                <div class="sync-pill-actions">
+                    <button type="button" class="sync-mini-btn" onclick="window.salud?.refrescarFitData()" title="Refrescar datos">
+                        🔄 Sincronizar
+                    </button>
+                    <button type="button" class="sync-mini-btn sync-mini-btn-ghost" onclick="window.salud?.desconectarGoogleFit()" title="Desconectar cuenta">
+                        ✕
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div id="googleFitFeedback" class="biometric-feedback" style="display: none;"></div>

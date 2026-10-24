@@ -705,6 +705,327 @@ body.modal-open {
     line-height: 1.3;
 }
 
+/* ==========================================
+   ESTILO ZEPP / GOOGLE FIT: ANILLOS Y TENDENCIA
+   ========================================== */
+
+/* Indicador de Sincronización Silenciosa */
+.biometric-sync-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+    transition: all 0.25s ease;
+}
+
+.sync-pill-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+@keyframes syncPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+        box-shadow: 0 0 6px #38bdf8;
+    }
+    50% {
+        transform: scale(1.35);
+        opacity: 0.6;
+        box-shadow: 0 0 14px #38bdf8;
+    }
+}
+
+.sync-pulse-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #38bdf8;
+    display: inline-block;
+    flex-shrink: 0;
+    animation: syncPulse 1.6s infinite ease-in-out;
+}
+
+.sync-pulse-dot.synced {
+    background: #4ade80;
+    animation: none;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.7);
+}
+
+.sync-status-text {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.sync-pill-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sync-mini-btn {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.sync-mini-btn:hover {
+    background: rgba(56, 189, 248, 0.3);
+    border-color: #38bdf8;
+    transform: translateY(-1px);
+}
+
+.sync-mini-btn:active {
+    transform: scale(0.96);
+}
+
+.sync-mini-btn-ghost {
+    background: transparent;
+    border-color: #475569;
+    color: #94a3b8;
+    padding: 5px 8px;
+}
+
+.sync-mini-btn-ghost:hover {
+    background: rgba(248, 113, 113, 0.15);
+    border-color: #f87171;
+    color: #f87171;
+}
+
+/* Rejilla de Anillos de Actividad (2 columnas) */
+.activity-rings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 360px) {
+    .activity-rings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.activity-ring-card {
+    background: #1c1c1e;
+    border: 1px solid #334155;
+    border-top: 1.5px solid rgba(56, 189, 248, 0.4);
+    border-radius: 20px;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.08),
+        0 10px 24px -6px rgba(0, 0, 0, 0.65);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.activity-ring-card:hover {
+    border-color: rgba(56, 189, 248, 0.6);
+    transform: translateY(-1px);
+}
+
+.activity-ring-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.activity-ring-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.activity-ring-tag {
+    font-size: 0.58rem;
+    font-weight: 800;
+    color: var(--accent-color);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.activity-ring-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin: 0;
+}
+
+/* Contenedor del Lienzo y Centro del Anillo */
+.ring-chart-wrap {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 4px 0;
+}
+
+.ring-canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.ring-center-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.ring-big-num {
+    font-size: 1.35rem;
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.ring-goal-sub {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #94a3b8;
+    margin-top: 1px;
+}
+
+.ring-pct-badge {
+    font-size: 0.64rem;
+    font-weight: 800;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 1px 6px;
+    border-radius: 8px;
+    margin-top: 3px;
+    letter-spacing: 0.04em;
+}
+
+.activity-ring-footer {
+    width: 100%;
+    text-align: center;
+    border-top: 1px solid rgba(51, 65, 85, 0.5);
+    padding-top: 8px;
+}
+
+.activity-ring-subtext {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    display: block;
+}
+
+/* Tarjeta de Tendencia de Peso (Gráfico de Líneas) */
+.weight-trend-card {
+    background: #1c1c1e;
+    border: 1px solid #334155;
+    border-top: 1.5px solid rgba(56, 189, 248, 0.4);
+    border-radius: 20px;
+    padding: 18px 16px;
+    margin-bottom: 20px;
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.08),
+        0 10px 24px -6px rgba(0, 0, 0, 0.65);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: relative;
+    overflow: hidden;
+}
+
+.weight-trend-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.weight-trend-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.weight-trend-badge {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    padding: 4px 12px;
+    border-radius: 12px;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+}
+
+.weight-chart-container {
+    position: relative;
+    width: 100%;
+    height: 190px;
+    margin: 4px 0;
+}
+
+.weight-chart-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.weight-stats-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(51, 65, 85, 0.5);
+    text-align: center;
+}
+
+.weight-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.weight-stat-lbl {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.weight-stat-val {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #e2e8f0;
+}
+
+
 
 /* ==========================================
    VISTA DASHBOARD: PESO Y SALUD
