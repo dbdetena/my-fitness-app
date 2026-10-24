@@ -413,7 +413,21 @@ function acumularBuckets(mapa, data) {
                 } else if (tipoDato.includes("weight")) {
                     // value[0] = media del bucket (avg, max, min)
                     const media = valores[0]?.fpVal;
-                    if (typeof media === "number" && media > 0) dia.pesos.push(media);
+                    if (typeof media === "number" && media > 0) {
+                        dia.pesos.push(media);
+                        let puntoMs = inicioMs;
+                        if (punto.endTimeNanos) {
+                            try { puntoMs = Number(BigInt(punto.endTimeNanos) / 1000000n); } catch (_) { puntoMs = Number(punto.endTimeNanos) / 1e6; }
+                        } else if (punto.startTimeNanos) {
+                            try { puntoMs = Number(BigInt(punto.startTimeNanos) / 1000000n); } catch (_) { puntoMs = Number(punto.startTimeNanos) / 1e6; }
+                        }
+                        dia.lecturas = dia.lecturas || [];
+                        dia.lecturas.push({
+                            peso: media,
+                            ms: puntoMs,
+                            fuente: "Google Fit"
+                        });
+                    }
                 } else if (tipoDato.includes("sleep")) {
                     const tipo = Number(valores[0]?.intVal);
                     if (TIPOS_SUENO_VALIDOS.includes(tipo)) dia.suenoMs += duracionPuntoMs(punto);
@@ -485,6 +499,7 @@ function construirDias(mapa, diasRango) {
             sueno: acc && acc.suenoMs > 0 ? parseFloat(Math.min(16, acc.suenoMs / 3600000).toFixed(1)) : null,
             cardio: acc ? acc.cardio : {},
             _pesosRaw: acc ? acc.pesos : [],
+            _lecturasPeso: acc ? (acc.lecturas || []) : [],
             peso: null,
             bpm: bpmDia
         });
@@ -978,8 +993,10 @@ async function renderizarGraficaPrincipal() {
         ticks: { color: "#94a3b8", font: { size: 11 } }
     };
     if (estado.metrica === "peso" && reales.length) {
-        ejeY.suggestedMin = Math.floor(Math.min(...reales) - 1);
-        ejeY.suggestedMax = Math.ceil(Math.max(...reales) + 1);
+        const minVal = Math.min(...reales);
+        const maxVal = Math.max(...reales);
+        ejeY.min = Math.floor(minVal - 1);
+        ejeY.max = Math.ceil(maxVal + 1);
         ejeY.beginAtZero = false;
     } else if (esBpm && reales.length) {
         ejeY.suggestedMin = Math.max(30, Math.floor(Math.min(...reales) - 5));
@@ -1047,6 +1064,166 @@ async function renderizarGraficaPrincipal() {
             }
         }
     });
+
+    // Actualizar bloque de cambios recientes y registros históricos de peso
+    actualizarCambiosRecientesPeso(estado.dias);
+    renderizarDatosHistoricos(estado.dias);
+}
+
+/**
+ * Extrae y unifica todas las lecturas de peso históricas disponibles ordenadas de más reciente a más antiguo
+ */
+function extraerLecturasHistoricasPeso(dias) {
+    const lecturas = [];
+    const vistas = new Set();
+
+    if (estado.hoy && typeof estado.hoy.peso === "number" && estado.hoy.peso >= 40 && estado.hoy.peso <= 250) {
+        const idClave = `hoy-${estado.hoy.peso.toFixed(1)}`;
+        vistas.add(idClave);
+        lecturas.push({
+            peso: estado.hoy.peso,
+            ms: Date.now(),
+            fuente: "Google Fit"
+        });
+    }
+
+    (dias || []).forEach(dia => {
+        if (Array.isArray(dia._lecturasPeso) && dia._lecturasPeso.length > 0) {
+            dia._lecturasPeso.forEach(lec => {
+                if (typeof lec.peso === "number" && lec.peso >= 40 && lec.peso <= 250) {
+                    const idClave = `${lec.ms}-${lec.peso.toFixed(1)}`;
+                    if (!vistas.has(idClave)) {
+                        vistas.add(idClave);
+                        lecturas.push({
+                            peso: parseFloat(lec.peso.toFixed(1)),
+                            ms: lec.ms || dia.ms,
+                            fuente: lec.fuente || "Google Fit"
+                        });
+                    }
+                }
+            });
+        } else if (typeof dia.peso === "number" && dia.peso >= 40 && dia.peso <= 250) {
+            const idClave = `${dia.ms}-${dia.peso.toFixed(1)}`;
+            if (!vistas.has(idClave)) {
+                vistas.add(idClave);
+                lecturas.push({
+                    peso: dia.peso,
+                    ms: dia.ms,
+                    fuente: "Google Fit"
+                });
+            }
+        }
+    });
+
+    lecturas.sort((a, b) => b.ms - a.ms);
+    return lecturas;
+}
+
+/**
+ * Actualiza el bloque "Cambios recientes" con la diferencia respecto a la lectura anterior (rojo/verde y fecha)
+ */
+function actualizarCambiosRecientesPeso(dias) {
+    const valorEl = document.getElementById("cambioPesoValor");
+    const detalleEl = document.getElementById("cambioPesoDetalle");
+    if (!valorEl || !detalleEl) return;
+
+    const lecturas = extraerLecturasHistoricasPeso(dias);
+
+    if (lecturas.length >= 2) {
+        const actual = lecturas[0];
+        const anterior = lecturas[1];
+        const diff = actual.peso - anterior.peso;
+
+        const fechaAnterior = new Date(anterior.ms).toLocaleDateString("es-ES", {
+            day: "numeric",
+            month: "short"
+        });
+
+        if (diff > 0.05) {
+            valorEl.textContent = `+${diff.toFixed(1)} kg`;
+            valorEl.className = "recent-changes-val val-increase";
+            valorEl.style.color = "#f87171";
+        } else if (diff < -0.05) {
+            valorEl.textContent = `${diff.toFixed(1)} kg`;
+            valorEl.className = "recent-changes-val val-decrease";
+            valorEl.style.color = "#4ade80";
+        } else {
+            valorEl.textContent = "0.0 kg";
+            valorEl.className = "recent-changes-val";
+            valorEl.style.color = "#94a3b8";
+        }
+
+        detalleEl.textContent = `Respecto a lectura anterior (${anterior.peso.toFixed(1)} kg el ${fechaAnterior})`;
+    } else if (lecturas.length === 1) {
+        valorEl.textContent = `${lecturas[0].peso.toFixed(1)} kg`;
+        valorEl.className = "recent-changes-val";
+        valorEl.style.color = "#38bdf8";
+        detalleEl.textContent = "Primer registro disponible. Sin lecturas previas para comparar.";
+    } else {
+        valorEl.textContent = "--";
+        valorEl.className = "recent-changes-val";
+        valorEl.style.color = "#94a3b8";
+        detalleEl.textContent = "Sin lecturas recientes sincronizadas";
+    }
+}
+
+/**
+ * Renderiza la lista vertical de registros de peso de la API en la sección histórica
+ */
+function renderizarDatosHistoricos(dias) {
+    const lista = document.getElementById("listaHistoricoPesos");
+    const badge = document.getElementById("historicoCountBadge");
+    if (!lista) return;
+
+    const lecturas = extraerLecturasHistoricasPeso(dias);
+
+    if (badge) {
+        badge.textContent = `${lecturas.length} lectura${lecturas.length === 1 ? "" : "s"}`;
+    }
+
+    if (lecturas.length === 0) {
+        lista.innerHTML = '<div class="historical-empty">Sin datos registrados o sin sincronización activa.</div>';
+        return;
+    }
+
+    lista.innerHTML = lecturas.map(lec => {
+        const d = new Date(lec.ms);
+        const fechaStr = d.toLocaleDateString("es-ES", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric"
+        });
+        const horaStr = d.toLocaleTimeString("es-ES", {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        return `
+            <div class="historical-row">
+                <div class="historical-row-main">
+                    <strong class="historical-weight">${lec.peso.toFixed(1)} kg</strong>
+                    <span class="historical-source-badge">${lec.fuente || "Google Fit"}</span>
+                </div>
+                <div class="historical-row-date">
+                    <span class="historical-date">${fechaStr} · ${horaStr}</span>
+                </div>
+            </div>`;
+    }).join("");
+}
+
+/**
+ * Alterna el cuerpo desplegable de datos históricos
+ */
+export function alternarHistoricoDatos() {
+    const card = document.getElementById("card-datos-historicos");
+    const btn = document.getElementById("btnToggleHistorico");
+    const body = document.getElementById("bodyHistoricoDatos");
+    if (!card || !body) return;
+
+    const visible = body.style.display !== "none";
+    body.style.display = visible ? "none" : "block";
+    card.classList.toggle("open", !visible);
+    if (btn) btn.setAttribute("aria-expanded", String(!visible));
 }
 
 async function renderizarEstadoDesconectadoUI() {
@@ -1055,6 +1232,9 @@ async function renderizarEstadoDesconectadoUI() {
     setTexto("chartPesoActualBadge", "--");
     setTexto("heartRateActualBadge", "-- BPM");
     ["weightStatMin", "weightStatAvg", "weightStatMax", "heartRateStatMin", "heartRateStatAvg", "heartRateStatMax", "resumenSueno", "resumenCardio", "resumenFatiga"].forEach(id => setTexto(id, "--"));
+
+    actualizarCambiosRecientesPeso([]);
+    renderizarDatosHistoricos([]);
 
     if (document.getElementById("chartCorazonHoy")) {
         await renderizarCorazonHoy([]);
@@ -1297,7 +1477,8 @@ window.salud = {
     abrirModalPeso,
     cerrarModalPeso,
     crearGoogleFitProvider,
-    mostrarAvisoFuturo
+    mostrarAvisoFuturo,
+    alternarHistoricoDatos
 };
 window.conectarGoogleFit = conectarGoogleFit;
 window.refrescarFitData = refrescarFitData;

@@ -172,7 +172,6 @@
             <button type="button" class="range-btn active" data-range="30">1M</button>
             <button type="button" class="range-btn" data-range="90">3M</button>
             <button type="button" class="range-btn" data-range="365">1A</button>
-            <button type="button" class="range-btn range-reset" id="btnResetZoom" title="Restablecer zoom">⤢</button>
         </div>
 
         <!-- Segmented control de métrica -->
@@ -200,6 +199,36 @@
             <div class="weight-stat-item">
                 <span class="weight-stat-lbl">Máximo</span>
                 <span id="weightStatMax" class="weight-stat-val">--</span>
+            </div>
+        </div>
+
+        <!-- Bloque Cambios Recientes (Estilo Zepp) -->
+        <div class="weight-recent-changes-box" id="boxCambiosRecientes">
+            <div class="recent-changes-header">
+                <span class="recent-changes-label">Cambios recientes</span>
+                <span id="cambioPesoValor" class="recent-changes-val">--</span>
+            </div>
+            <span id="cambioPesoDetalle" class="recent-changes-sub">Sin lecturas previas para comparar</span>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         DATOS HISTÓRICOS (Desplegable Vertical · Estilo Zepp)
+         ======================================================== -->
+    <div class="historical-data-card card-carbon" id="card-datos-historicos">
+        <button type="button" class="historical-toggle-btn" id="btnToggleHistorico" onclick="window.salud?.alternarHistoricoDatos()" aria-expanded="false">
+            <div class="historical-header-left">
+                <span class="activity-ring-tag">REGISTROS API</span>
+                <h4 class="historical-title">Datos históricos</h4>
+            </div>
+            <div class="historical-header-right">
+                <span id="historicoCountBadge" class="historical-count-badge">0 lecturas</span>
+                <span class="historical-chevron">▼</span>
+            </div>
+        </button>
+        <div class="historical-collapse-body" id="bodyHistoricoDatos" style="display: none;">
+            <div id="listaHistoricoPesos" class="historical-list">
+                <div class="historical-empty">Sin datos registrados o sin sincronización activa.</div>
             </div>
         </div>
     </div>

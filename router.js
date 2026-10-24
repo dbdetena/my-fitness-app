@@ -36,8 +36,9 @@ const LIFECYCLE_HOOKS = {
 /**
  * Carga una vista HTML parcial en el contenedor principal #app-content
  * @param {string} vista - Nombre del archivo/vista (sin .html)
+ * @param {boolean} registrarHistorial - Si debe registrarse el estado en la History API
  */
-export async function cargarVista(vista) {
+export async function cargarVista(vista, registrarHistorial = true) {
     const contenedor = document.getElementById("app-content");
     if (!contenedor) return;
 
@@ -79,14 +80,23 @@ export async function cargarVista(vista) {
         // 3. Actualizar estado de navegación activa
         actualizarNavegacion(vista);
 
-        // 4. Ejecutar inicialización de scripts de la nueva vista
+        // 4. Registrar en History API para soporte del botón físico de retroceso
+        if (registrarHistorial) {
+            if (vista !== "dashboard") {
+                history.pushState({ vista }, "", `#${vista}`);
+            } else if (window.location.hash !== "#dashboard" && window.location.hash !== "") {
+                history.pushState({ vista: "dashboard" }, "", "#dashboard");
+            }
+        }
+
+        // 5. Ejecutar inicialización de scripts de la nueva vista
         if (LIFECYCLE_HOOKS[vista]?.init) {
             LIFECYCLE_HOOKS[vista].init();
         }
 
         vistaActual = vista;
 
-        // 5. Actualizar estado del FAB universal de sesión activa
+        // 6. Actualizar estado del FAB universal de sesión activa
         actualizarFabUniversal();
     } catch (error) {
         console.error(`Error al cargar la vista '${vista}':`, error);
@@ -142,6 +152,17 @@ function initRouter() {
     // Inicializar frase motivadora del día
     initFraseDelDia();
 
+    // Interceptar el botón físico de retroceso de Android mediante el evento popstate
+    window.addEventListener("popstate", (e) => {
+        const vistaDestino = e.state?.vista || (window.location.hash.replace("#", "") || "dashboard");
+        // Si estamos en un módulo secundario y se pulsa atrás, volver al Panel Central
+        if (vistaActual && vistaActual !== "dashboard" && (vistaDestino === "dashboard" || !e.state)) {
+            cargarVista("dashboard", false);
+        } else if (vistaDestino && vistaDestino !== vistaActual) {
+            cargarVista(vistaDestino, false);
+        }
+    });
+
     // Escuchar vuelta a primer plano de Android / PWA
     window.addEventListener("focus", () => {
         actualizarFabUniversal();
@@ -154,8 +175,11 @@ function initRouter() {
         }
     });
 
-    // Abrir automáticamente la vista 'dashboard' al iniciar
-    cargarVista("dashboard");
+    // Establecer estado inicial en el historial y abrir la vista correspondiente
+    const hash = window.location.hash.replace("#", "");
+    const vistaInicial = ["dashboard", "salud", "gimnasio", "diario", "coach"].includes(hash) ? hash : "dashboard";
+    history.replaceState({ vista: vistaInicial }, "", `#${vistaInicial}`);
+    cargarVista(vistaInicial, false);
 }
 
 // Exportar globalmente para eventos inline

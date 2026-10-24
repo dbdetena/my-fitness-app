@@ -6,7 +6,7 @@
 // ========================================================
 import { generarHtmlDesgloseEntrada } from "./progreso-manager.js";
 import { db } from "./firebase-config.js";
-import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const STORAGE_KEY = "fitness_bitacora_entries";
 
@@ -18,7 +18,8 @@ const state = {
     reconocimientoVoz: null,
     targetInputVoz: null,
     transcriptAcumulado: "",
-    ultimoIndiceProcesado: -1
+    ultimoIndiceProcesado: -1,
+    notaEnEdicionId: null
 };
 
 /**
@@ -248,18 +249,49 @@ export async function guardarEntradaBitacora({ texto, categoria = "general", rut
 }
 
 /**
- * Elimina una entrada por su ID
+ * Elimina una entrada por su ID (Firestore y LocalStorage tras confirmación)
  */
-export function eliminarEntradaBitacora(id) {
+export async function eliminarEntradaBitacora(id) {
+    if (!confirm("¿Deseas eliminar permanentemente esta nota del diario?")) {
+        return;
+    }
+
     let entradas = obtenerEntradasBitacora();
+    const entradaAEliminar = entradas.find(e => e.id === id);
+
+    // Borrado en Firestore
+    try {
+        if (db && entradaAEliminar) {
+            if (entradaAEliminar.firestoreId) {
+                await deleteDoc(doc(db, "diario_notas", entradaAEliminar.firestoreId));
+            } else {
+                const q = query(collection(db, "diario_notas"), where("idLocal", "==", id));
+                const snap = await getDocs(q);
+                snap.forEach(async (d) => {
+                    await deleteDoc(doc(db, "diario_notas", d.id));
+                });
+            }
+        }
+    } catch (err) {
+        console.warn("Aviso al eliminar de Firestore:", err);
+    }
+
+    // Borrado en localStorage
     entradas = entradas.filter(e => e.id !== id);
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(entradas));
     } catch (e) {
-        console.error("Error al eliminar entrada:", e);
+        console.error("Error al eliminar entrada de localStorage:", e);
     }
+
+    // Si la nota en edición era la eliminada, resetear formulario
+    if (state.notaEnEdicionId === id) {
+        cancelarEdicionNota();
+    }
+
     renderizarListaBitacora();
     actualizarEstadisticasBitacora();
+    mostrarNotificacionToast("🗑️ Nota eliminada del Diario");
 }
 
 /**
@@ -497,9 +529,14 @@ export function renderizarListaBitacora() {
                         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                         <span>${e.fechaFormato}</span>
                     </span>
-                    <button class="btn-delete-entry" title="Eliminar nota" onclick="window.diario?.eliminarNota('${e.id}')">
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
+                    <div class="entry-actions-group" style="display: inline-flex; align-items: center; gap: 4px;">
+                        <button class="btn-edit-entry" title="Editar nota" onclick="window.diario?.iniciarEdicionNota('${e.id}')">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        </button>
+                        <button class="btn-delete-entry" title="Eliminar nota" onclick="window.diario?.eliminarNota('${e.id}')">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -578,7 +615,10 @@ export function seleccionarCategoriaDropdown(cat) {
     const triggerLabel = document.getElementById("dropdown-trigger-label");
     const menu = document.getElementById("dropdown-categoria-menu");
 
-    if (hiddenInput) hiddenInput.value = cat;
+    if (hiddenInput) {
+        hiddenInput.value = cat;
+        hiddenInput.dispatchEvent(new Event("change"));
+    }
 
     const config = CATEGORIA_CONFIG[cat] || CATEGORIA_CONFIG.general;
     const iconSvg = CATEGORIA_ICONS[cat] || CATEGORIA_ICONS.general;
@@ -594,7 +634,20 @@ export function seleccionarCategoriaDropdown(cat) {
         });
     }
 
+    actualizarVisibilidadRpe(cat);
     alternarDropdownCategoria(false);
+}
+
+/**
+ * Muestra u oculta la escala RPE según la categoría:
+ * Visible solo para entrenamiento ('post-entreno') o notas libres ('general').
+ * Oculta para 'recuperacion' (Energía/Sueño), 'nutricion', etc.
+ */
+export function actualizarVisibilidadRpe(cat) {
+    const rpeSection = document.querySelector(".rpe-cylinder-section");
+    if (!rpeSection) return;
+    const categoriasConRpe = ["general", "post-entreno"];
+    rpeSection.style.display = categoriasConRpe.includes(cat) ? "block" : "none";
 }
 
 /**
@@ -624,7 +677,72 @@ export function alternarFormularioNota(forzarEstado = null) {
 }
 
 /**
- * Procesa el envío del formulario de nueva nota
+ * Vuelca el contenido de una nota al formulario superior en modo edición
+ */
+export function iniciarEdicionNota(id) {
+    const entradas = obtenerEntradasBitacora();
+    const entrada = entradas.find(e => e.id === id);
+    if (!entrada) return;
+
+    state.notaEnEdicionId = id;
+
+    const inputTexto = document.getElementById("input-bitacora-texto");
+    const btnGuardarLabel = document.getElementById("btn-guardar-nota-label");
+    const btnCancelar = document.getElementById("btn-cancelar-edicion");
+
+    if (inputTexto) {
+        inputTexto.value = entrada.texto || "";
+    }
+
+    seleccionarCategoriaDropdown(entrada.categoria || "general");
+
+    if (entrada.rpe) {
+        setRpeCylinderValue(entrada.rpe);
+    }
+
+    if (btnGuardarLabel) {
+        btnGuardarLabel.textContent = "Actualizar Nota";
+    }
+    if (btnCancelar) {
+        btnCancelar.style.display = "inline-flex";
+    }
+
+    // Desplegar el formulario si está contraído
+    alternarFormularioNota(true);
+
+    const card = document.getElementById("bitacora-composer-card");
+    if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    mostrarNotificacionToast("✏️ Editando nota en el formulario superior");
+}
+
+/**
+ * Cancela el modo de edición y resetea el formulario
+ */
+export function cancelarEdicionNota() {
+    state.notaEnEdicionId = null;
+    const inputTexto = document.getElementById("input-bitacora-texto");
+    const btnGuardarLabel = document.getElementById("btn-guardar-nota-label");
+    const btnCancelar = document.getElementById("btn-cancelar-edicion");
+
+    if (inputTexto) {
+        inputTexto.value = "";
+        inputTexto.dataset.porVoz = "false";
+    }
+    if (btnGuardarLabel) {
+        btnGuardarLabel.textContent = "Guardar en Diario";
+    }
+    if (btnCancelar) {
+        btnCancelar.style.display = "none";
+    }
+    seleccionarCategoriaDropdown("general");
+    setRpeCylinderValue(8);
+}
+
+/**
+ * Procesa el envío del formulario de nueva nota o actualización de una existente
  */
 export async function registrarNotaManual() {
     const inputTexto = document.getElementById("input-bitacora-texto");
@@ -637,9 +755,12 @@ export async function registrarNotaManual() {
         return;
     }
 
-    const texto = inputTexto.value;
+    const texto = inputTexto.value.trim();
     const categoria = selectCategoria ? selectCategoria.value : "general";
-    const rpe = inputRpe && inputRpe.value ? parseInt(inputRpe.value, 10) : 8;
+    const categoriasConRpe = ["general", "post-entreno"];
+    const rpe = (categoriasConRpe.includes(categoria) && inputRpe && inputRpe.value) 
+        ? parseInt(inputRpe.value, 10) 
+        : null;
     const porVoz = inputTexto.dataset.porVoz === "true";
 
     if (btnGuardar) {
@@ -648,25 +769,75 @@ export async function registrarNotaManual() {
     }
 
     try {
-        const resultado = await guardarEntradaBitacora({
-            texto,
-            categoria,
-            rpe,
-            porVoz
-        });
+        if (state.notaEnEdicionId) {
+            // ================= MODO EDICIÓN =================
+            const entradas = obtenerEntradasBitacora();
+            const idx = entradas.findIndex(e => e.id === state.notaEnEdicionId);
+            if (idx !== -1) {
+                const config = CATEGORIA_CONFIG[categoria] || CATEGORIA_CONFIG.general;
+                const entrada = entradas[idx];
+                entrada.texto = texto;
+                entrada.categoria = categoria;
+                entrada.categoriaLabel = config.label;
+                entrada.rpe = rpe;
+                entrada.fechaModificado = new Date().toISOString();
 
-        if (resultado) {
-            // Limpiar formulario y resetear selector cilíndrico a 8 y dropdown a General
-            inputTexto.value = "";
-            inputTexto.dataset.porVoz = "false";
-            setRpeCylinderValue(8);
-            seleccionarCategoriaDropdown("general");
+                // Actualizar en Firestore si está conectado
+                try {
+                    if (db) {
+                        if (entrada.firestoreId) {
+                            await updateDoc(doc(db, "diario_notas", entrada.firestoreId), {
+                                texto,
+                                categoria,
+                                categoriaLabel: config.label,
+                                rpe,
+                                fechaModificado: serverTimestamp ? serverTimestamp() : new Date().toISOString()
+                            });
+                        } else {
+                            const q = query(collection(db, "diario_notas"), where("idLocal", "==", entrada.id));
+                            const snap = await getDocs(q);
+                            snap.forEach(async (d) => {
+                                await updateDoc(doc(db, "diario_notas", d.id), {
+                                    texto,
+                                    categoria,
+                                    categoriaLabel: config.label,
+                                    rpe,
+                                    fechaModificado: serverTimestamp ? serverTimestamp() : new Date().toISOString()
+                                });
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.warn("Aviso al actualizar en Firestore:", err);
+                }
 
-            // Contraer el formulario automáticamente tras el guardado
-            alternarFormularioNota(false);
+                // Guardar en localStorage
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(entradas));
+                renderizarListaBitacora();
+                actualizarEstadisticasBitacora();
 
-            // Mensaje de confirmación
-            mostrarNotificacionToast("✅ Nota guardada en el Diario");
+                cancelarEdicionNota();
+                alternarFormularioNota(false);
+                mostrarNotificacionToast("✅ Nota actualizada con éxito");
+            }
+        } else {
+            // ================= MODO CREACIÓN =================
+            const resultado = await guardarEntradaBitacora({
+                texto,
+                categoria,
+                rpe,
+                porVoz
+            });
+
+            if (resultado) {
+                inputTexto.value = "";
+                inputTexto.dataset.porVoz = "false";
+                setRpeCylinderValue(8);
+                seleccionarCategoriaDropdown("general");
+
+                alternarFormularioNota(false);
+                mostrarNotificacionToast("✅ Nota guardada en el Diario");
+            }
         }
     } catch (err) {
         console.error("Error al registrar nota:", err);
@@ -695,6 +866,14 @@ export function initDiario() {
     renderizarListaBitacora();
     actualizarEstadisticasBitacora();
     initRpeCylinder(8);
+
+    // Listener para visibilidad condicional de RPE al cambiar categoría
+    const selectCat = document.getElementById("select-bitacora-categoria");
+    if (selectCat && !selectCat._hasRpeListener) {
+        selectCat.addEventListener("change", (e) => actualizarVisibilidadRpe(e.target.value));
+        selectCat._hasRpeListener = true;
+    }
+    actualizarVisibilidadRpe(selectCat ? selectCat.value : "general");
 
     // Event listener en el botón del lápiz para alternar acordeón
     const btnToggle = document.getElementById("btn-toggle-composer");
@@ -858,6 +1037,9 @@ window.diario = {
     alternarFormularioNota,
     registrarNotaManual,
     eliminarNota: eliminarEntradaBitacora,
+    iniciarEdicionNota,
+    cancelarEdicionNota,
+    actualizarVisibilidadRpe,
     setFiltro: setFiltroBitacora,
     guardarEntrada: guardarEntradaBitacora,
     obtenerEntradas: obtenerEntradasBitacora,
@@ -867,3 +1049,4 @@ window.diario = {
     alternarDropdownCategoria,
     seleccionarCategoriaDropdown
 };
+

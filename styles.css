@@ -1037,6 +1037,190 @@ body.modal-open {
     margin-top: -6px;
 }
 
+/* Bloque Cambios Recientes (Estilo Zepp) */
+.weight-recent-changes-box {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(51, 65, 85, 0.6);
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.recent-changes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.recent-changes-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.recent-changes-val {
+    font-size: 0.95rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #e2e8f0;
+}
+
+.recent-changes-val.val-increase {
+    color: #f87171;
+}
+
+.recent-changes-val.val-decrease {
+    color: #4ade80;
+}
+
+.recent-changes-sub {
+    font-size: 0.7rem;
+    color: #64748b;
+    line-height: 1.3;
+}
+
+/* Tarjeta Desplegable de Datos Históricos (Estilo Zepp) */
+.historical-data-card {
+    background: #1c1c1e;
+    border: 1px solid #334155;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.08),
+        0 10px 24px -6px rgba(0, 0, 0, 0.65);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+}
+
+.historical-data-card.open {
+    border-color: rgba(56, 189, 248, 0.4);
+}
+
+.historical-toggle-btn {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.historical-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.historical-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin: 0;
+}
+
+.historical-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.historical-count-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.historical-chevron {
+    font-size: 0.72rem;
+    color: #64748b;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.historical-data-card.open .historical-chevron {
+    transform: rotate(180deg);
+    color: #38bdf8;
+}
+
+.historical-collapse-body {
+    padding: 0 16px 16px;
+    border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.historical-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+.historical-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(51, 65, 85, 0.5);
+    border-radius: 10px;
+    transition: background 0.15s ease;
+}
+
+.historical-row:hover {
+    background: rgba(30, 41, 59, 0.8);
+}
+
+.historical-row-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.historical-weight {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+}
+
+.historical-source-badge {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    padding: 2px 6px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.historical-date {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.historical-empty {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.78rem;
+    padding: 16px 0;
+}
+
 /* Tarjeta de Frecuencia Cardíaca (Intradía) */
 .heart-rate-card {
     background: #1c1c1e;
@@ -4784,6 +4968,21 @@ body.modal-open {
     font-weight: 700;
     color: #94a3b8;
     white-space: nowrap;
+}
+
+.btn-edit-entry {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: color 0.18s ease;
+}
+
+.btn-edit-entry:hover {
+    color: #38bdf8;
 }
 
 .btn-delete-entry {
