@@ -47,7 +47,7 @@
     <!-- Rejilla de Botones Cuadrados (2 Columnas, Varias Filas) -->
     <div class="modules-grid">
         <!-- 1. Botón Cuadrado: Peso y Salud -->
-        <button class="module-btn" id="btn-mod-salud" onclick="window.abrirModalPeso?.()" aria-label="Abrir módulo de Peso y Salud">
+        <button class="module-btn" id="btn-mod-salud" onclick="window.router?.cargarVista('salud') || window.abrirModalPeso?.()" aria-label="Abrir módulo de Peso y Salud">
             <div class="module-btn-corner"></div>
             <div class="module-icon-wrap">
                 <svg viewBox="0 0 100 100" class="module-svg">
@@ -234,32 +234,85 @@
         </div>
 
         <div id="googleFitFeedback" class="biometric-feedback" style="display: none;"></div>
+
+        <!-- Panel de Lectura Biométrica (Google Fit REST API) -->
+        <div class="biometric-readout-grid" style="margin-top: 10px;">
+            <!-- Tarjeta 1: Peso Corporal (Solo Lectura) -->
+            <div class="biometric-stat-card" id="card-dash-fit-peso">
+                <div class="biometric-card-header">
+                    <div class="biometric-stat-icon-wrap">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                    </div>
+                    <div class="biometric-stat-meta">
+                        <span class="biometric-stat-tag">PESO • GOOGLE FIT</span>
+                        <h4 class="biometric-stat-title">Peso Corporal</h4>
+                    </div>
+                </div>
+                <div class="biometric-stat-body">
+                    <div class="biometric-main-val">
+                        <span id="fitPesoValorDash" class="biometric-num">--</span>
+                        <span class="biometric-unit">kg</span>
+                    </div>
+                    <div class="biometric-stat-footer">
+                        <span id="fitPesoEstadoDash" class="biometric-subtext">Google Fit (últimas 24h)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarjeta 2: Pasos Totales (Solo Lectura) -->
+            <div class="biometric-stat-card" id="card-dash-fit-pasos">
+                <div class="biometric-card-header">
+                    <div class="biometric-stat-icon-wrap icon-steps">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M13 4v6l3 3" />
+                            <path d="M4 17l5-5 4 4 7-7" />
+                            <circle cx="4" cy="17" r="1" />
+                            <circle cx="20" cy="9" r="1" />
+                        </svg>
+                    </div>
+                    <div class="biometric-stat-meta">
+                        <span class="biometric-stat-tag" style="color: #4ade80;">ACTIVIDAD • 24H</span>
+                        <h4 class="biometric-stat-title">Pasos Totales</h4>
+                    </div>
+                </div>
+                <div class="biometric-stat-body">
+                    <div class="biometric-main-val">
+                        <span id="fitPasosValorDash" class="biometric-num">--</span>
+                        <span class="biometric-unit">pasos</span>
+                    </div>
+                    <div class="biometric-stat-footer">
+                        <span id="fitPasosEstadoDash" class="biometric-subtext">Google Fit (últimas 24h)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
-<!-- MODAL REGISTRO DE PESO Y SALUD (Accesible desde el botón cuadrado de Salud) -->
+<!-- MODAL LECTURA BIOMÉTRICA (Accesible desde el botón cuadrado de Salud) -->
 <div id="modal-registro-peso" class="modal-overlay" onclick="window.cerrarModalPeso?.()">
     <div class="modal-card modal-industrial" onclick="event.stopPropagation()">
         <div class="modal-header">
             <div class="modal-title-group">
                 <span class="modal-tag">SEGUIMIENTO BIOMÉTRICO</span>
-                <h3>Peso y Salud</h3>
+                <h3>Google Fit Biométrica</h3>
             </div>
             <button class="modal-close-btn" onclick="window.cerrarModalPeso?.()">✕</button>
         </div>
 
         <div class="modal-body">
             <div class="weight-display-box">
-                <span class="weight-label">Último peso registrado:</span>
-                <p id="ultimoPesoDisplayModal" class="weight-value">Cargando...</p>
+                <span class="weight-label">Peso Sincronizado (Google Fit):</span>
+                <p id="ultimoPesoDisplayModal" class="weight-value">-- kg</p>
             </div>
 
-            <div class="input-group weight-input-group">
-                <input type="number" id="pesoInput" step="0.1" min="30" max="300" placeholder="Ej: 75.5" autocomplete="off" inputmode="decimal">
-                <button id="btnGuardarPeso" class="btn-primary">Guardar</button>
+            <div style="text-align: center; margin-top: 10px;">
+                <button type="button" class="btn-primary" style="width: 100%;" onclick="window.router.cargarVista('salud'); window.cerrarModalPeso?.();">
+                    Abrir Módulo de Salud Completo
+                </button>
             </div>
-
-            <p id="pesoFeedback" class="feedback-msg"></p>
         </div>
 
         <div class="modal-footer">
