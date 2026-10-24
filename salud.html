@@ -1,0 +1,119 @@
+<!-- Vista: Módulo de Salud & Sincronización Biométrica (Google Fit API) -->
+<section class="view-container animate-fade-in salud-view">
+    <!-- SVG Defs con Filtros Neón y Gradientes Metálicos -->
+    <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+        <defs>
+            <filter id="neon-glow-cyan-salud" x="-40%" y="-40%" width="180%" height="180%">
+                <feDropShadow dx="0" dy="0" stdDeviation="4.5" flood-color="#38bdf8" flood-opacity="0.95" />
+                <feDropShadow dx="0" dy="0" stdDeviation="9" flood-color="#0284c7" flood-opacity="0.6" />
+                <feMerge>
+                    <feMergeNode />
+                    <feMergeNode in="SourceGraphic" />
+                </feMerge>
+            </filter>
+            <linearGradient id="metal-steel-light-salud" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" />
+                <stop offset="25%" stop-color="#e2e8f0" />
+                <stop offset="50%" stop-color="#94a3b8" />
+                <stop offset="75%" stop-color="#64748b" />
+                <stop offset="100%" stop-color="#334155" />
+            </linearGradient>
+        </defs>
+    </svg>
+
+    <!-- Barra de Encabezado Superior -->
+    <div class="hub-header-bar" style="margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn-ghost" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 8px;" onclick="window.router.cargarVista('dashboard')">
+                ← Hoy
+            </button>
+            <span class="hub-tag">MÓDULO DE SALUD</span>
+        </div>
+        <span id="dbStatusBadge" class="status-indicator">Conectando...</span>
+    </div>
+
+    <!-- ========================================================
+         TARJETA 1: SINCRONIZACIÓN BIOMÉTRICA (GOOGLE FIT OAUTH 2.0)
+         ======================================================== -->
+    <div class="biometric-sync-card card-carbon" id="card-sincronizacion-biometrica">
+        <div class="biometric-sync-header">
+            <div class="biometric-icon-wrap">
+                <svg viewBox="0 0 24 24" class="biometric-svg" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="#38bdf8" />
+                    <polyline points="7 12 10 12 11.5 9 13.5 15 15 12 17 12" stroke="#4ade80" stroke-width="1.8" />
+                </svg>
+            </div>
+            <div class="biometric-title-group">
+                <div class="biometric-tag-row">
+                    <span class="biometric-tag">GOOGLE FIT OAUTH 2.0</span>
+                    <span id="googleFitStatusBadge" class="biometric-status-pill">Desconectado</span>
+                </div>
+                <h3 class="biometric-title">Sincronización Biométrica</h3>
+            </div>
+        </div>
+
+        <p class="biometric-desc">
+            Vincula tu cuenta de Google Fit para la lectura y consolidación automática de actividad física, pulsaciones y métricas corporales.
+        </p>
+
+        <div class="biometric-actions-row">
+            <button type="button" id="btnConectarGoogleFit" class="btn-google-fit" onclick="window.salud?.conectarGoogleFit()">
+                <svg class="google-g-icon" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.15z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.45 7.37 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/>
+                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.55 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                </svg>
+                <span id="txtBtnGoogleFit">Conectar con Google Fit</span>
+            </button>
+        </div>
+
+        <div id="googleFitFeedback" class="biometric-feedback" style="display: none;"></div>
+    </div>
+
+    <!-- ========================================================
+         TARJETA 2: SEGUIMIENTO DE PESO CORPORAL
+         ======================================================== -->
+    <div class="card card-carbon" style="background: #1c1c1e; border: 1px solid #334155; border-radius: 20px; padding: 20px 18px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+            <div>
+                <span style="font-size: 0.65rem; font-weight: 800; color: #38bdf8; letter-spacing: 0.08em; text-transform: uppercase;">MÉTRICA ACTIVA</span>
+                <h3 style="font-size: 1.1rem; font-weight: 800; color: #fff; margin: 2px 0 0;">Peso Corporal</h3>
+            </div>
+            <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid #475569; padding: 4px 10px; border-radius: 10px;">
+                <span id="ultimoPesoDisplay" style="font-weight: 800; color: #38bdf8; font-size: 0.95rem;">Cargando...</span>
+            </div>
+        </div>
+
+        <div class="weight-display-box" style="margin-bottom: 16px;">
+            <span class="weight-label">Último registro confirmado:</span>
+            <p id="ultimoPesoDisplayModal" class="weight-value" style="font-size: 1.3rem; margin: 4px 0 0; color: #38bdf8;">Cargando...</p>
+        </div>
+
+        <div class="input-group weight-input-group" style="display: flex; gap: 8px;">
+            <input type="number" id="pesoInput" step="0.1" min="30" max="300" placeholder="Ej: 75.5" autocomplete="off" inputmode="decimal" style="flex: 1;">
+            <button id="btnGuardarPeso" class="btn-primary" style="min-width: 100px;">Guardar</button>
+        </div>
+
+        <p id="pesoFeedback" class="feedback-msg" style="margin-top: 10px;"></p>
+    </div>
+
+    <!-- ========================================================
+         TARJETA 3: ESTADO DE INTEGRACIONES BIOMÉTRICAS FUTURAS
+         ======================================================== -->
+    <div class="card card-carbon" style="background: #18181b; border: 1px dashed #3f3f46; border-radius: 16px; padding: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <span style="font-size: 1.2rem;">📡</span>
+            <h4 style="font-size: 0.88rem; font-weight: 700; color: #e2e8f0; margin: 0;">Próximas Integraciones Biométricas</h4>
+        </div>
+        <p style="font-size: 0.75rem; color: #94a3b8; line-height: 1.4; margin: 0 0 10px;">
+            Con la autenticación de Google Fit lista, las próximas versiones leerán automáticamente tus pasos diarios, calorías quemadas y frecuencia cardíaca en reposo.
+        </p>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span style="font-size: 0.65rem; background: #27272a; color: #a1a1aa; padding: 3px 8px; border-radius: 6px;">Pasos & Distancia</span>
+            <span style="font-size: 0.65rem; background: #27272a; color: #a1a1aa; padding: 3px 8px; border-radius: 6px;">Frecuencia Cardíaca</span>
+            <span style="font-size: 0.65rem; background: #27272a; color: #a1a1aa; padding: 3px 8px; border-radius: 6px;">Calorías Activas</span>
+            <span style="font-size: 0.65rem; background: #27272a; color: #a1a1aa; padding: 3px 8px; border-radius: 6px;">Horas de Sueño</span>
+        </div>
+    </div>
+</section>

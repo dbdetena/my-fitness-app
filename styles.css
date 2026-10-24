@@ -391,6 +391,170 @@ body.modal-open {
 }
 
 /* ==========================================
+   SINCRONIZACIÓN BIOMÉTRICA (GOOGLE FIT API)
+   ========================================== */
+.biometric-sync-card {
+    background: #1c1c1e;
+    border: 1px solid #334155;
+    border-top: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 20px;
+    padding: 18px 16px;
+    margin-top: 6px;
+    margin-bottom: 20px;
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.08),
+        0 10px 24px -6px rgba(0, 0, 0, 0.65);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.biometric-sync-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 70px;
+    height: 70px;
+    background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.biometric-sync-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.biometric-icon-wrap {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+}
+
+.biometric-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+}
+
+.biometric-tag-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.biometric-tag {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--accent-color);
+    text-transform: uppercase;
+}
+
+.biometric-status-pill {
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid #475569;
+    color: #94a3b8;
+    transition: all 0.25s ease;
+}
+
+.biometric-status-pill.connected {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(74, 222, 128, 0.4);
+    color: #4ade80;
+}
+
+.biometric-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.biometric-desc {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    line-height: 1.45;
+    margin: 0;
+}
+
+.biometric-actions-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.btn-google-fit {
+    width: 100%;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border: 1.5px solid rgba(56, 189, 248, 0.45);
+    color: #f8fafc;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow:
+        inset 0 1px 1px rgba(255, 255, 255, 0.15),
+        0 4px 14px rgba(0, 0, 0, 0.5);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn-google-fit:hover {
+    background: linear-gradient(135deg, #27354f 0%, #131d33 100%);
+    border-color: #38bdf8;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-google-fit:active {
+    transform: scale(0.98);
+}
+
+/* Estado post-login: resplandor fijo box-shadow: 0 0 8px #38bdf8 */
+.btn-google-fit.synced {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%);
+    border-color: #38bdf8;
+    color: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+}
+
+.biometric-feedback {
+    font-size: 0.74rem;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid #334155;
+    color: #94a3b8;
+    line-height: 1.35;
+    animation: fadeIn 0.25s ease;
+}
+
+/* ==========================================
    VISTA DASHBOARD: PESO Y SALUD
    ========================================== */
 .weight-display-box {

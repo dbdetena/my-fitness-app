@@ -15,6 +15,10 @@ const LIFECYCLE_HOOKS = {
         init: initSalud,
         cleanup: cleanupSalud
     },
+    salud: {
+        init: initSalud,
+        cleanup: cleanupSalud
+    },
     gimnasio: {
         init: initGimnasio,
         cleanup: cleanupGimnasio

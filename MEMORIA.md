@@ -43,7 +43,11 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
   - **Cierre por Inactividad (60 min):** Si no hay actividad (inputs, series marcadas, pausas) durante 1 hora (60 minutos), la sesión se cierra automáticamente y genera una incidencia de tipo alerta en el Diario de Notas con el resumen de métricas y series completadas.
 
 ## 4. ESTRUCTURA MODULAR (5 PESTAÑAS)
-1. **Hoy (`dashboard.html` / `salud.js`):** Resumen ejecutivo. Balance calórico dinámico, recuperación, peso (con entrada rápida y origen del dato), y acceso rápido al entreno del día.
+1. **Hoy (`dashboard.html` / `salud.html` / `salud.js`):** Resumen ejecutivo. Balance calórico dinámico, recuperación, peso (con entrada rápida y origen del dato), acceso rápido al entreno del día y **Sincronización Biométrica (Google Fit OAuth 2.0)**:
+   - **Tarjeta Visual Industrial:** Tarjeta en acero mate y fondo oscuro `#1c1c1e` con bisel y resplandor radial neón cian.
+   - **Autenticación Firebase Auth:** `getAuth`, `GoogleAuthProvider` con scopes obligatorios para la Fitness API (`https://www.googleapis.com/auth/fitness.activity.read` y `https://www.googleapis.com/auth/fitness.body.read`), empleando `signInWithPopup` (mobile-first) con fallback automático a `signInWithRedirect`.
+   - **Almacén de Token:** Extracción de `credential.accessToken` persistido de forma segura en `localStorage` (`fitToken`) junto a metadatos de sincronización para futuras peticiones REST.
+   - **Feedback Visual Neón:** Transición tras login al estado "Google Fit Sincronizado" con resplandor fijo neón cian (`box-shadow: 0 0 8px #38bdf8`).
 2. **Gimnasio (`gimnasio.html` / `gimnasio.js`):** Tres bibliotecas especializadas:
    - **Catálogo Biomecánico de Ejercicios (29 ejercicios):** Ilustraciones anatómicas 3D realistas en escala de grises y plata de alto contraste con volumen y sombras sobre fondo liso oscuro `#1c1c1e` (idéntico al patrón de "Salto a la Comba"), con activación de músculos diana en rojo/naranja intensos y etiqueta `🧬 3D Anatómico` en la esquina inferior derecha. Queda totalmente prohibido el uso de esquemas de vectores, neones, líneas o articulaciones de puntos ("esqueletos"). Modelo de datos estandarizado con clonación estricta de schema (posturas en 3 fases, cues técnicos y nomenclatura bilingüe `Nombre en Español (Nombre Habitual/Inglés)`).
    - **Filtros Avanzados en Píldora con Scroll Horizontal:** Taxonomía estandarizada en contenedor horizontal fluido (`.filter-chips-scroll`):
