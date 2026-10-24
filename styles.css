@@ -1025,6 +1025,177 @@ body.modal-open {
     color: #e2e8f0;
 }
 
+/* Permite scroll vertical de la página y pan/pinch horizontal sobre la gráfica */
+.weight-chart-container canvas {
+    touch-action: pan-y;
+}
+
+.chart-hint {
+    font-size: 0.62rem;
+    color: #64748b;
+    text-align: center;
+    margin-top: -6px;
+}
+
+/* Selector temporal 1S / 1M / 3M / 1A */
+.range-selector {
+    display: flex;
+    gap: 6px;
+}
+
+.range-btn {
+    flex: 1;
+    min-height: 34px;
+    background: #2c2c2e;
+    border: 1px solid #3a3a3c;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.range-btn.active {
+    color: #38bdf8;
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+}
+
+.range-btn:active {
+    transform: scale(0.96);
+}
+
+.range-btn.range-reset {
+    flex: 0 0 40px;
+}
+
+/* Segmented control de métrica */
+.segmented-control {
+    display: flex;
+    background: #2c2c2e;
+    border: 1px solid #3a3a3c;
+    border-radius: 12px;
+    padding: 3px;
+    gap: 3px;
+}
+
+.segment-btn {
+    flex: 1;
+    min-height: 34px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.segment-btn.active {
+    background: #1c1c1e;
+    color: #38bdf8;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Resumen rápido */
+.health-summary-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.health-summary-chip {
+    background: #1c1c1e;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06);
+}
+
+.health-summary-lbl {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #94a3b8;
+}
+
+.health-summary-val {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #38bdf8;
+    text-transform: capitalize;
+}
+
+/* Lista compacta de sesiones de cardio */
+.cardio-section {
+    margin-bottom: 24px;
+}
+
+.cardio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cardio-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #1c1c1e;
+    border: 1px solid #334155;
+    border-left: 3px solid #38bdf8;
+    border-radius: 14px;
+    padding: 10px 14px;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06), 0 6px 14px -6px rgba(0, 0, 0, 0.6);
+}
+
+.cardio-card-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cardio-card-name {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.cardio-card-date {
+    font-size: 0.68rem;
+    color: #94a3b8;
+}
+
+.cardio-card-dur {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 3px 10px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.cardio-empty {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-align: center;
+    padding: 14px;
+    border: 1px dashed #3f3f46;
+    border-radius: 14px;
+}
+
 
 
 /* ==========================================

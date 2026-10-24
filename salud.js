@@ -1,11 +1,10 @@
-import { app, db, auth } from "./firebase-config.js";
+import { db, auth } from "./firebase-config.js";
 import { 
     collection, 
     query, 
     orderBy, 
     limit, 
-    onSnapshot,
-    getDocs 
+    onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { 
     GoogleAuthProvider, 
@@ -17,27 +16,90 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // ==========================================
-// ESTADO Y REFERENCIAS DEL MÓDULO SALUD
+// CONSTANTES
+// ==========================================
+const FIT_AGGREGATE_URL = "https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate";
+const META_PASOS = 10000;
+const META_KCAL = 2000; // calories.expended incluye metabolismo basal (total diario)
+const DIA_MS = 86400000;
+const CACHE_HISTORIAL_MS = 10 * 60 * 1000;
+const MAX_DIAS_POR_PETICION = 90;
+const CLAVE_CONTEXTO_IA = "health_context_ai";
+
+// Tipos de sueño de Google Fit que cuentan como sueño real (2 sleep, 4 light, 5 deep, 6 REM)
+const TIPOS_SUENO_VALIDOS = [2, 4, 5, 6];
+
+// Actividades de cardio reconocidas (com.google.activity.segment)
+const ACTIVIDADES_CARDIO = {
+    1: "Ciclismo",
+    7: "Caminata",
+    8: "Carrera",
+    9: "Aeróbic",
+    35: "Senderismo",
+    56: "Carrera (trote)",
+    57: "Carrera (arena)",
+    58: "Carrera (cinta)",
+    82: "Natación (piscina)"
+};
+
+// ==========================================
+// ESTADO DEL MÓDULO
 // ==========================================
 let displayPeso = null;
 let displayModal = null;
 let statusBadge = null;
 let unsubscribeFirestore = null;
 let unsubscribeAuth = null;
+let sincronizacionEnCurso = null;
+let avisoSuenoMostrado = false;
 
-// Instancias de Chart.js
 let chartPasosInstance = null;
 let chartCaloriasInstance = null;
-let chartPesoInstance = null;
+let chartMainInstance = null;
 
-let ultimoDatoBiometrico = {
-    peso: null,
-    pasos: 0,
-    calorias: 0
+const estado = {
+    metrica: "peso",        // peso | sueno | pasos
+    rango: 30,              // 7 | 30 | 90 | 365
+    hoy: null,              // datos del día en curso
+    dias: [],               // histórico saneado del rango activo
+    cache: {}               // rango -> { ts, dias }
 };
 
 // ==========================================
-// MODAL CONTROLLERS (PESO / BIOMETRÍA)
+// UTILIDADES DE FECHA
+// ==========================================
+function inicioDelDia(fecha = new Date()) {
+    const d = new Date(fecha);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+}
+
+function claveDia(ms) {
+    const d = new Date(ms);
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function etiquetaDia(ms) {
+    return new Date(ms).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+}
+
+function duracionPuntoMs(punto) {
+    try {
+        return Number((BigInt(punto.endTimeNanos) - BigInt(punto.startTimeNanos)) / 1000000n);
+    } catch (e) {
+        return 0;
+    }
+}
+
+function setTexto(id, texto) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = texto;
+}
+
+// ==========================================
+// MODAL CONTROLLERS (dashboard)
 // ==========================================
 export function abrirModalPeso() {
     const modal = document.getElementById("modal-registro-peso");
@@ -64,36 +126,44 @@ window.cerrarModalPeso = cerrarModalPeso;
 window.mostrarAvisoFuturo = mostrarAvisoFuturo;
 
 // ==========================================
-// GESTIÓN DE CARGA DE CHART.JS
+// CARGA DE CHART.JS (+ ZOOM) SI NO ESTÁ DISPONIBLE
 // ==========================================
-async function asegurarChartJS() {
-    if (window.Chart) return window.Chart;
+function cargarScript(src) {
     return new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/chart.js";
-        script.onload = () => resolve(window.Chart);
-        script.onerror = () => reject(new Error("No se pudo cargar Chart.js"));
-        document.head.appendChild(script);
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
+        document.head.appendChild(s);
     });
+}
+
+async function asegurarChartJS() {
+    if (!window.Chart) {
+        await cargarScript("https://cdn.jsdelivr.net/npm/chart.js");
+    }
+    if (!window.Hammer) {
+        try { await cargarScript("https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"); } catch (e) { console.warn(e.message); }
+    }
+    if (!window.ChartZoom && !document.querySelector('script[src*="chartjs-plugin-zoom"]')) {
+        try { await cargarScript("https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"); } catch (e) { console.warn(e.message); }
+    }
+    return window.Chart;
 }
 
 // ==========================================
 // GOOGLE FIT OAUTH 2.0 (FIREBASE AUTH)
 // ==========================================
-
 export function crearGoogleFitProvider() {
     const provider = new GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/fitness.activity.read');
-    provider.addScope('https://www.googleapis.com/auth/fitness.body.read');
-    provider.setCustomParameters({
-        prompt: 'select_account'
-    });
+    provider.addScope("https://www.googleapis.com/auth/fitness.activity.read");
+    provider.addScope("https://www.googleapis.com/auth/fitness.body.read");
+    provider.addScope("https://www.googleapis.com/auth/fitness.sleep.read");
+    provider.setCustomParameters({ prompt: "select_account" });
     return provider;
 }
 
-/**
- * Inicio de sesión MANUAL (solo se dispara cuando el usuario pulsa 'Conectar con Google Fit')
- */
+/** Inicio de sesión MANUAL: solo se dispara por acción directa del usuario */
 export async function conectarGoogleFit() {
     const btn = document.getElementById("btnConectarGoogleFit");
     const txtBtn = document.getElementById("txtBtnGoogleFit");
@@ -109,21 +179,16 @@ export async function conectarGoogleFit() {
         try {
             result = await signInWithPopup(auth, provider);
         } catch (popupErr) {
-            if (popupErr.code === "auth/popup-blocked" || 
+            if (popupErr.code === "auth/popup-blocked" ||
                 popupErr.code === "auth/cancelled-popup-request" ||
                 popupErr.code === "auth/operation-not-supported-in-this-environment") {
-                console.warn("Popup bloqueado, recurriendo a signInWithRedirect...", popupErr);
                 mostrarFeedbackGoogleFit("Redirigiendo a Google...", "#38bdf8");
                 await signInWithRedirect(auth, provider);
                 return;
-            } else {
-                throw popupErr;
             }
+            throw popupErr;
         }
-
-        if (result) {
-            await procesarResultadoGoogleAuth(result);
-        }
+        if (result) await procesarResultadoGoogleAuth(result);
     } catch (error) {
         console.error("Error al autenticar con Google Fit:", error);
         mostrarFeedbackGoogleFit(
@@ -138,7 +203,6 @@ export async function conectarGoogleFit() {
 
 async function procesarResultadoGoogleAuth(result) {
     if (!result) return;
-
     try {
         const credential = GoogleAuthProvider.credentialFromResult(result);
         const accessToken = credential ? credential.accessToken : null;
@@ -150,516 +214,595 @@ async function procesarResultadoGoogleAuth(result) {
             if (user?.email) localStorage.setItem("fitUserEmail", user.email);
             if (user?.displayName) localStorage.setItem("fitUserName", user.displayName);
 
-            actualizarEstadoGoogleFitUI(true);
+            avisoSuenoMostrado = false;
+            actualizarEstadoGoogleFitUI(true, "Sincronizando...");
             mostrarFeedbackGoogleFit(
-                `✅ Conectado con Google Fit (${user?.displayName || user?.email || 'Cuenta verificada'})`,
+                `✅ Conectado con Google Fit (${user?.displayName || user?.email || "Cuenta verificada"})`,
                 "#4ade80"
             );
-
-            // Sincronización automática silenciosa
-            await fetchFitData(accessToken);
+            await fetchFitData(accessToken, { forzar: true });
         } else {
-            console.warn("No se pudo obtener credential.accessToken del resultado.");
             mostrarFeedbackGoogleFit("⚠️ No se recibió token de acceso OAuth.", "#facc15");
             actualizarEstadoGoogleFitUI(false);
         }
     } catch (err) {
         console.error("Error al procesar credencial de Google Fit:", err);
-        mostrarFeedbackGoogleFit("Error al procesar credenciales de Google.", "#f87171");
-        actualizarEstadoGoogleFitUI(false);
+        if (!err || err.status !== 401) {
+            mostrarFeedbackGoogleFit("Error al procesar credenciales de Google.", "#f87171");
+        }
     }
 }
 
-/**
- * Cierre de sesión voluntario de Google Fit
- */
 export async function desconectarGoogleFit() {
-    const confirmar = confirm("¿Deseas desconectar Google Fit de esta aplicación?");
-    if (!confirmar) return;
+    if (!confirm("¿Deseas desconectar Google Fit de esta aplicación?")) return;
 
-    localStorage.removeItem("fitToken");
-    localStorage.removeItem("fitTokenTimestamp");
-    localStorage.removeItem("fitUserEmail");
-    localStorage.removeItem("fitUserName");
+    ["fitToken", "fitTokenTimestamp", "fitUserEmail", "fitUserName"].forEach(k => localStorage.removeItem(k));
+    estado.cache = {};
+    estado.dias = [];
+    estado.hoy = null;
 
-    try {
-        await signOut(auth);
-    } catch (e) {
-        console.warn("signOut auth:", e);
-    }
+    try { await signOut(auth); } catch (e) { console.warn("signOut auth:", e); }
 
     actualizarEstadoGoogleFitUI(false);
-    renderizarEstadoDesconectadoUI();
+    await renderizarEstadoDesconectadoUI();
     mostrarFeedbackGoogleFit("Google Fit desconectado.", "#94a3b8");
 }
 
 /**
- * Modifica la UI según el estado de autenticación:
- * - Si conectado: Oculta el botón 'Conectar' y muestra el indicador silencioso 'Sincronizando...' / 'Sincronizado'
- * - Si desconectado: Muestra el botón 'Conectar' y oculta el indicador silencioso
+ * Conectado: oculta 'Conectar' y muestra el indicador silencioso.
+ * Desconectado: muestra 'Conectar' y oculta el indicador.
  */
 export function actualizarEstadoGoogleFitUI(sincronizado = true, mensajeEstado = null) {
-    const btnConectarList = document.querySelectorAll("#btnConectarGoogleFit");
-    const syncIndicatorList = document.querySelectorAll("#syncStatusIndicator");
-    const syncTextList = document.querySelectorAll("#syncStatusText");
-    const syncPulseList = document.querySelectorAll("#syncPulseDot");
-    const badgeList = document.querySelectorAll("#googleFitStatusBadge");
+    const btns = document.querySelectorAll("#btnConectarGoogleFit");
+    const pills = document.querySelectorAll("#syncStatusIndicator");
+    const textos = document.querySelectorAll("#syncStatusText");
+    const puntos = document.querySelectorAll("#syncPulseDot");
+    const badges = document.querySelectorAll("#googleFitStatusBadge");
 
     if (sincronizado) {
-        // Ocultar botón 'Conectar'
-        btnConectarList.forEach(btn => {
-            btn.style.display = "none";
-        });
-
-        // Mostrar indicador silencioso
-        syncIndicatorList.forEach(pill => {
-            pill.style.display = "flex";
-        });
-
+        btns.forEach(b => { b.style.display = "none"; });
+        pills.forEach(p => { p.style.display = "flex"; });
         const texto = mensajeEstado || "Google Fit Sincronizado";
-        syncTextList.forEach(el => {
-            el.textContent = texto;
+        textos.forEach(t => { t.textContent = texto; });
+        puntos.forEach(d => {
+            if (texto.includes("Sincronizando")) d.classList.remove("synced");
+            else d.classList.add("synced");
         });
-
-        syncPulseList.forEach(dot => {
-            if (mensajeEstado && mensajeEstado.includes("Sincronizando")) {
-                dot.classList.remove("synced");
-            } else {
-                dot.classList.add("synced");
-            }
-        });
-
-        badgeList.forEach(b => {
-            b.textContent = "Sincronizado";
-            b.classList.add("connected");
-        });
+        badges.forEach(b => { b.textContent = "Sincronizado"; b.classList.add("connected"); });
     } else {
-        // Mostrar botón 'Conectar'
-        btnConectarList.forEach(btn => {
-            btn.style.display = "inline-flex";
-            btn.disabled = false;
-            btn.classList.remove("synced");
-            btn.style.boxShadow = "";
+        btns.forEach(b => {
+            b.style.display = "inline-flex";
+            b.disabled = false;
+            b.classList.remove("synced");
+            b.style.boxShadow = "";
         });
-
-        const txtBtnList = document.querySelectorAll("#txtBtnGoogleFit");
-        txtBtnList.forEach(txt => {
-            txt.textContent = "Conectar con Google Fit";
-        });
-
-        // Ocultar indicador silencioso
-        syncIndicatorList.forEach(pill => {
-            pill.style.display = "none";
-        });
-
-        badgeList.forEach(b => {
-            b.textContent = "Desconectado";
-            b.classList.remove("connected");
-        });
+        document.querySelectorAll("#txtBtnGoogleFit").forEach(t => { t.textContent = "Conectar con Google Fit"; });
+        pills.forEach(p => { p.style.display = "none"; });
+        badges.forEach(b => { b.textContent = "Desconectado"; b.classList.remove("connected"); });
     }
 }
 
 function mostrarFeedbackGoogleFit(mensaje, color) {
-    const fbList = document.querySelectorAll("#googleFitFeedback");
-    fbList.forEach(fb => {
+    const lista = document.querySelectorAll("#googleFitFeedback");
+    lista.forEach(fb => {
         fb.textContent = mensaje;
         fb.style.color = color;
         fb.style.display = "block";
     });
-
     setTimeout(() => {
-        fbList.forEach(fb => {
-            if (fb.textContent === mensaje) {
-                fb.style.display = "none";
-            }
-        });
-    }, 4500);
+        lista.forEach(fb => { if (fb.textContent === mensaje) fb.style.display = "none"; });
+    }, 5000);
 }
 
 // ==========================================
-// GOOGLE FIT REST API: LECTURA DE MÉTRICAS
+// GOOGLE FIT REST API: PETICIONES
 // ==========================================
+async function consultarAggregate(token, cuerpo) {
+    const resp = await fetch(FIT_AGGREGATE_URL, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json;encoding=utf-8"
+        },
+        body: JSON.stringify(cuerpo)
+    });
 
+    if (resp.status === 401) {
+        const e = new Error("Token expirado (401)");
+        e.status = 401;
+        throw e;
+    }
+    if (!resp.ok) {
+        const e = new Error(`Error en API: ${resp.status} ${resp.statusText}`);
+        e.status = resp.status;
+        throw e;
+    }
+    return resp.json();
+}
+
+function cuerpoActividad(inicio, fin, bucketMs) {
+    return {
+        aggregateBy: [
+            { dataTypeName: "com.google.step_count.delta" },
+            { dataTypeName: "com.google.calories.expended" },
+            { dataTypeName: "com.google.weight" },
+            { dataTypeName: "com.google.activity.segment" }
+        ],
+        bucketByTime: { durationMillis: Math.max(1, Math.round(bucketMs)) },
+        startTimeMillis: inicio,
+        endTimeMillis: fin
+    };
+}
+
+function cuerpoSueno(inicio, fin, bucketMs) {
+    return {
+        aggregateBy: [{ dataTypeName: "com.google.sleep.segment" }],
+        bucketByTime: { durationMillis: Math.max(1, Math.round(bucketMs)) },
+        startTimeMillis: inicio,
+        endTimeMillis: fin
+    };
+}
+
+/** El sueño requiere el scope fitness.sleep.read; un 403 no debe tumbar el resto de métricas */
+async function consultarSuenoTolerante(token, cuerpo) {
+    try {
+        return await consultarAggregate(token, cuerpo);
+    } catch (e) {
+        if (e.status === 401) throw e;
+        console.warn("Sueño no disponible:", e.message);
+        if (!avisoSuenoMostrado) {
+            avisoSuenoMostrado = true;
+            mostrarFeedbackGoogleFit("Para ver el sueño, desconecta y vuelve a conectar Google Fit (permiso nuevo).", "#facc15");
+        }
+        return { bucket: [] };
+    }
+}
+
+/** Convierte la respuesta aggregate en un acumulador por día natural local */
+function acumularBuckets(mapa, data) {
+    if (!data || !Array.isArray(data.bucket)) return;
+
+    for (const bucket of data.bucket) {
+        const inicioMs = Number(bucket.startTimeMillis);
+        const clave = claveDia(inicioMs + 6 * 3600 * 1000); // robusto ante cambios de hora (DST)
+        if (!mapa.has(clave)) {
+            mapa.set(clave, { clave, ms: inicioMs, pasos: 0, calorias: 0, pesos: [], suenoMs: 0, cardio: {} });
+        }
+        const dia = mapa.get(clave);
+
+        for (const dataset of (bucket.dataset || [])) {
+            const dataId = (dataset.dataSourceId || "").toLowerCase();
+
+            for (const punto of (dataset.point || [])) {
+                const tipoDato = (punto.dataTypeName || dataId).toLowerCase();
+                const valores = punto.value || [];
+
+                if (tipoDato.includes("step_count")) {
+                    for (const v of valores) {
+                        dia.pasos += Number(v.intVal ?? Math.round(v.fpVal || 0)) || 0;
+                    }
+                } else if (tipoDato.includes("calories")) {
+                    for (const v of valores) {
+                        if (typeof v.fpVal === "number" && v.fpVal > 0) dia.calorias += v.fpVal;
+                    }
+                } else if (tipoDato.includes("weight")) {
+                    // value[0] = media del bucket (avg, max, min)
+                    const media = valores[0]?.fpVal;
+                    if (typeof media === "number" && media > 0) dia.pesos.push(media);
+                } else if (tipoDato.includes("sleep")) {
+                    const tipo = Number(valores[0]?.intVal);
+                    if (TIPOS_SUENO_VALIDOS.includes(tipo)) dia.suenoMs += duracionPuntoMs(punto);
+                } else if (tipoDato.includes("activity")) {
+                    const tipo = Number(valores[0]?.intVal);
+                    if (ACTIVIDADES_CARDIO[tipo]) {
+                        const ms = Number(valores[1]?.intVal) || duracionPuntoMs(punto);
+                        dia.cardio[tipo] = (dia.cardio[tipo] || 0) + ms;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ==========================================
+// LIMPIEZA DE DATOS (FILTRO DE ANOMALÍAS)
+// ==========================================
 /**
- * Petición POST a Google Fit dataset:aggregate para las últimas 24 horas.
- * Agrega pasos, calorías y peso.
+ * - Descarta pesos < 40 kg.
+ * - Promedia por día natural (varias lecturas el mismo día).
+ * - Descarta saltos > 5 kg respecto al último dato válido de uno o dos días antes.
  */
-export async function fetchFitData(token = null) {
-    if (!token) {
-        token = localStorage.getItem("fitToken");
+function sanearPesos(dias) {
+    let ultimo = null;
+    let ultimoIdx = -99;
+
+    dias.forEach((dia, i) => {
+        const validos = (dia._pesosRaw || []).filter(p => p >= 40 && p <= 250);
+        if (validos.length === 0) {
+            dia.peso = null;
+            return;
+        }
+        const media = validos.reduce((a, b) => a + b, 0) / validos.length;
+
+        if (ultimo !== null && (i - ultimoIdx) <= 2 && Math.abs(media - ultimo) > 5) {
+            dia.peso = null; // fluctuación anómala
+            return;
+        }
+        dia.peso = parseFloat(media.toFixed(1));
+        ultimo = dia.peso;
+        ultimoIdx = i;
+    });
+}
+
+/** Construye la serie diaria completa (huecos = null) para el rango pedido */
+function construirDias(mapa, diasRango) {
+    const lista = [];
+    const hoyInicio = inicioDelDia();
+
+    for (let i = diasRango - 1; i >= 0; i--) {
+        const d = new Date(hoyInicio);
+        d.setDate(d.getDate() - i);
+        const clave = claveDia(d.getTime());
+        const acc = mapa.get(clave);
+
+        lista.push({
+            clave,
+            ms: d.getTime(),
+            pasos: acc && acc.pasos > 0 ? acc.pasos : null,
+            sueno: acc && acc.suenoMs > 0 ? parseFloat(Math.min(16, acc.suenoMs / 3600000).toFixed(1)) : null,
+            cardio: acc ? acc.cardio : {},
+            _pesosRaw: acc ? acc.pesos : [],
+            peso: null
+        });
     }
 
-    if (!token) {
-        actualizarEstadoGoogleFitUI(false);
-        renderizarEstadoDesconectadoUI();
+    sanearPesos(lista);
+    return lista;
+}
+
+function trocearRango(inicioMs, finMs) {
+    const tramos = [];
+    let cursor = new Date(inicioMs);
+    while (cursor.getTime() < finMs) {
+        const sig = new Date(cursor);
+        sig.setDate(sig.getDate() + MAX_DIAS_POR_PETICION);
+        const fin = Math.min(sig.getTime(), finMs);
+        tramos.push([cursor.getTime(), fin]);
+        cursor = new Date(fin);
+    }
+    return tramos;
+}
+
+// ==========================================
+// DATOS DE HOY (00:00 LOCAL) Y HISTÓRICO
+// ==========================================
+async function obtenerDatosHoy(token) {
+    const ahora = Date.now();
+    const medianoche = inicioDelDia(); // startTimeMillis = 00:00:00 local del día en curso
+    const nocheAnterior = medianoche - 6 * 3600 * 1000; // sueño de la última noche (desde las 18:00 de ayer)
+
+    const [datosActividad, datosSueno] = await Promise.all([
+        consultarAggregate(token, cuerpoActividad(medianoche, ahora, ahora - medianoche)),
+        consultarSuenoTolerante(token, cuerpoSueno(nocheAnterior, ahora, ahora - nocheAnterior))
+    ]);
+
+    const mapaAct = new Map();
+    acumularBuckets(mapaAct, datosActividad);
+    const mapaSueno = new Map();
+    acumularBuckets(mapaSueno, datosSueno);
+
+    let pasos = 0, calorias = 0, cardioMs = 0, suenoMs = 0;
+    const pesos = [];
+    mapaAct.forEach(d => {
+        pasos += d.pasos;
+        calorias += d.calorias;
+        pesos.push(...d.pesos);
+        cardioMs += Object.values(d.cardio).reduce((a, b) => a + b, 0);
+    });
+    mapaSueno.forEach(d => { suenoMs += d.suenoMs; });
+
+    const pesosValidos = pesos.filter(p => p >= 40 && p <= 250);
+
+    return {
+        pasos,
+        calorias: Math.round(calorias),
+        cardioMin: Math.round(cardioMs / 60000),
+        suenoHoras: suenoMs > 0 ? parseFloat(Math.min(16, suenoMs / 3600000).toFixed(1)) : null,
+        peso: pesosValidos.length ? parseFloat((pesosValidos.reduce((a, b) => a + b, 0) / pesosValidos.length).toFixed(1)) : null
+    };
+}
+
+async function cargarHistorial(token, rango, forzar = false) {
+    const cache = estado.cache[rango];
+    if (!forzar && cache && (Date.now() - cache.ts) < CACHE_HISTORIAL_MS) {
+        estado.dias = cache.dias;
         return;
     }
 
-    const endTimeMillis = Date.now();
-    const startTimeMillis = endTimeMillis - (24 * 60 * 60 * 1000); // 24 horas
+    const hoyInicio = inicioDelDia();
+    const inicio = new Date(hoyInicio);
+    inicio.setDate(inicio.getDate() - (rango - 1));
+    const fin = Date.now();
 
-    const payload = {
-        aggregateBy: [
-            { dataTypeName: "com.google.weight" },
-            { dataTypeName: "com.google.step_count.delta" },
-            { dataTypeName: "com.google.calories.expended" }
-        ],
-        bucketByTime: {
-            durationMillis: 86400000 // 1 día (24 horas)
-        },
-        startTimeMillis: startTimeMillis,
-        endTimeMillis: endTimeMillis
-    };
+    const tramos = trocearRango(inicio.getTime(), fin);
+    const respuestas = await Promise.all(tramos.map(async ([s, e]) => {
+        const [act, sue] = await Promise.all([
+            consultarAggregate(token, cuerpoActividad(s, e, DIA_MS)),
+            consultarSuenoTolerante(token, cuerpoSueno(s, e, DIA_MS))
+        ]);
+        return [act, sue];
+    }));
 
-    actualizarEstadoGoogleFitUI(true, "Sincronizando datos...");
+    const mapa = new Map();
+    respuestas.forEach(([act, sue]) => {
+        acumularBuckets(mapa, act);
+        acumularBuckets(mapa, sue);
+    });
 
-    try {
-        const response = await fetch("https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${token}`,
-                "Content-Type": "application/json;encoding=utf-8"
-            },
-            body: JSON.stringify(payload)
-        });
-
-        // Error 401 Unauthorized: token expirado
-        if (response.status === 401) {
-            console.warn("Google Fit API: 401 Unauthorized (Token caducado o revocado).");
-            manejarTokenExpirado("⚠️ Tu sesión de Google Fit ha caducado (401). Pulsa 'Conectar con Google Fit' para renovar.");
-            throw new Error("Token expirado (401)");
-        }
-
-        if (!response.ok) {
-            const errorTxt = await response.text();
-            console.error(`Error ${response.status} en Google Fit API:`, errorTxt);
-            throw new Error(`Error en API: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const resultados = parsearFitAggregateData(data);
-
-        ultimoDatoBiometrico = resultados;
-
-        // Renderizar anillos y gráfico de tendencia
-        await renderizarDashboardVisual(resultados);
-
-        actualizarEstadoGoogleFitUI(true, "Google Fit Sincronizado");
-
-        return resultados;
-    } catch (error) {
-        console.error("Error al consultar Google Fit REST API:", error);
-        if (error.message && error.message.includes("401")) {
-            // Ya limpiado en manejarTokenExpirado
-        } else {
-            actualizarEstadoGoogleFitUI(true, "Aviso de conexión");
-        }
-        throw error;
-    }
+    const dias = construirDias(mapa, rango);
+    estado.cache[rango] = { ts: Date.now(), dias };
+    estado.dias = dias;
 }
 
-/**
- * Parsea el JSON devuelto por Google Fit aggregate
- */
-function parsearFitAggregateData(data) {
-    let pesoEncontrado = null;
-    let pasosAcumulados = 0;
-    let caloriasAcumuladas = 0;
+// ==========================================
+// FUNCIÓN PRINCIPAL DE SINCRONIZACIÓN
+// ==========================================
+export function fetchFitData(token = null, opciones = {}) {
+    if (sincronizacionEnCurso) return sincronizacionEnCurso;
 
-    if (!data || !Array.isArray(data.bucket)) {
-        return { peso: null, pasos: 0, calorias: 0 };
-    }
+    sincronizacionEnCurso = (async () => {
+        token = token || localStorage.getItem("fitToken");
+        if (!token) {
+            actualizarEstadoGoogleFitUI(false);
+            await renderizarEstadoDesconectadoUI();
+            return null;
+        }
 
-    for (const bucket of data.bucket) {
-        if (!Array.isArray(bucket.dataset)) continue;
+        actualizarEstadoGoogleFitUI(true, "Sincronizando...");
 
-        for (const dataset of bucket.dataset) {
-            const dataId = (dataset.dataSourceId || "").toLowerCase();
-            const points = dataset.point || [];
+        try {
+            await asegurarChartJS().catch(e => console.warn(e.message));
 
-            for (const point of points) {
-                const dataTypeName = (point.dataTypeName || "").toLowerCase();
-                const values = point.value || [];
+            estado.hoy = await obtenerDatosHoy(token);
+            await renderizarHoy(estado.hoy);
 
-                // 1. Pasos (com.google.step_count.delta)
-                if (dataTypeName.includes("step_count") || dataId.includes("step_count")) {
-                    for (const val of values) {
-                        if (typeof val.intVal === "number") {
-                            pasosAcumulados += val.intVal;
-                        } else if (typeof val.intVal === "string") {
-                            pasosAcumulados += parseInt(val.intVal, 10) || 0;
-                        } else if (typeof val.fpVal === "number") {
-                            pasosAcumulados += Math.round(val.fpVal);
-                        }
-                    }
-                }
-
-                // 2. Calorías (com.google.calories.expended)
-                if (dataTypeName.includes("calories") || dataId.includes("calories")) {
-                    for (const val of values) {
-                        if (typeof val.fpVal === "number" && val.fpVal > 0) {
-                            caloriasAcumuladas += Math.round(val.fpVal);
-                        }
-                    }
-                }
-
-                // 3. Peso (com.google.weight)
-                if (dataTypeName.includes("weight") || dataId.includes("weight")) {
-                    for (const val of values) {
-                        if (typeof val.fpVal === "number" && val.fpVal > 0) {
-                            pesoEncontrado = val.fpVal;
-                        }
-                    }
-                }
+            if (document.getElementById("chartMain")) {
+                await cargarHistorial(token, estado.rango, Boolean(opciones.forzar));
+                await renderizarGraficaPrincipal();
+                renderizarListaCardio();
             }
+
+            exportarContextoIA();
+            actualizarEstadoGoogleFitUI(true, "Google Fit Sincronizado");
+            return estado.hoy;
+        } catch (error) {
+            if (error.status === 401) {
+                manejarTokenExpirado("⚠️ Tu sesión de Google Fit ha caducado (401). Pulsa 'Conectar con Google Fit' para renovar.");
+            } else {
+                console.error("Error al consultar Google Fit REST API:", error);
+                actualizarEstadoGoogleFitUI(true, "Aviso de conexión");
+                mostrarFeedbackGoogleFit(`Error al sincronizar: ${error.message}`, "#f87171");
+            }
+            throw error;
         }
+    })();
+
+    const liberar = () => { sincronizacionEnCurso = null; };
+    sincronizacionEnCurso.then(liberar, liberar);
+    return sincronizacionEnCurso;
+}
+
+// ==========================================
+// EXPORTACIÓN DE CONTEXTO PARA EL AI COACH
+// ==========================================
+function estimarFatiga(suenoHoras, pasos, cardioMin) {
+    if (suenoHoras === null && !pasos) return "sin datos";
+    let puntos = 0;
+    if (suenoHoras !== null) {
+        if (suenoHoras < 6) puntos += 2;
+        else if (suenoHoras < 7) puntos += 1;
     }
+    if (pasos > 15000) puntos += 1;
+    if (cardioMin > 60) puntos += 1;
+    return puntos >= 3 ? "alta" : (puntos >= 1 ? "media" : "baja");
+}
 
-    // Estimación de calorías si Google Fit aún no las computó en el aggregate
-    const caloriasFinal = caloriasAcumuladas > 0 
-        ? caloriasAcumuladas 
-        : (pasosAcumulados > 0 ? Math.round(pasosAcumulados * 0.04) : 0);
+function calcularTendenciaPeso() {
+    const validos = estado.dias.filter(d => d.peso !== null).slice(-7).map(d => d.peso);
+    if (validos.length) {
+        return parseFloat((validos.reduce((a, b) => a + b, 0) / validos.length).toFixed(1));
+    }
+    return null;
+}
 
-    return {
-        peso: pesoEncontrado !== null ? parseFloat(pesoEncontrado.toFixed(1)) : null,
-        pasos: pasosAcumulados,
-        calorias: caloriasFinal
+/** Consolida el resumen del día en localStorage ('health_context_ai') para coach.js */
+export function exportarContextoIA() {
+    const hoy = estado.hoy;
+    if (!hoy) return null;
+
+    let previo = {};
+    try { previo = JSON.parse(localStorage.getItem(CLAVE_CONTEXTO_IA) || "{}"); } catch (e) { previo = {}; }
+
+    const tendencia = calcularTendenciaPeso() ?? hoy.peso ?? previo.tendenciaPeso ?? null;
+
+    const data = {
+        fecha: claveDia(Date.now()),
+        pasosHoy: hoy.pasos,
+        caloriasHoy: hoy.calorias,
+        suenoHoras: hoy.suenoHoras,
+        cardioMinutosHoy: hoy.cardioMin,
+        fatigaEstimada: estimarFatiga(hoy.suenoHoras, hoy.pasos, hoy.cardioMin),
+        tendenciaPeso: tendencia,
+        actualizado: new Date().toISOString()
     };
+
+    localStorage.setItem(CLAVE_CONTEXTO_IA, JSON.stringify(data));
+    return data;
 }
 
 // ==========================================
-// RENDERIZADO VISUAL ESTILO ZEPP / GOOGLE FIT (CHART.JS)
+// RENDER: ANILLOS, RESUMEN Y DASHBOARD
 // ==========================================
+async function renderizarHoy(hoy) {
+    const contexto = (() => {
+        try { return JSON.parse(localStorage.getItem(CLAVE_CONTEXTO_IA) || "{}"); } catch (e) { return {}; }
+    })();
+    const pesoMostrar = hoy.peso ?? calcularTendenciaPeso() ?? contexto.tendenciaPeso ?? null;
 
-export async function renderizarDashboardVisual(resultados) {
-    await asegurarChartJS();
+    // Resumen rápido
+    setTexto("resumenSueno", hoy.suenoHoras !== null ? `${hoy.suenoHoras} h` : "--");
+    setTexto("resumenCardio", `${hoy.cardioMin} min`);
+    setTexto("resumenFatiga", estimarFatiga(hoy.suenoHoras, hoy.pasos, hoy.cardioMin));
 
-    const { peso, pasos, calorias } = resultados;
+    // Tarjetas del dashboard principal (si está presente)
+    setTexto("fitPasosValorDash", hoy.pasos.toLocaleString());
+    setTexto("fitPesoValorDash", pesoMostrar !== null ? pesoMostrar.toFixed(1) : "--");
+    document.querySelectorAll("#fitPasosValorDash").forEach(el => el.classList.add("loaded-steps"));
+    if (pesoMostrar !== null) document.querySelectorAll("#fitPesoValorDash").forEach(el => el.classList.add("loaded"));
 
-    // 1. Anillo de Pasos (Meta: 10.000)
-    renderizarAnilloDoughnut({
-        canvasId: "chartPasosRing",
-        valorActual: pasos || 0,
-        meta: 10000,
-        colorProgreso: "#38bdf8",
-        colorFondo: "#2c2c2e",
-        labelValorId: "ringPasosValor",
-        labelPctId: "ringPasosPct",
-        instanciaRef: "pasos"
-    });
-
-    // 2. Anillo de Calorías (Meta: 500 kcal)
-    renderizarAnilloDoughnut({
-        canvasId: "chartCaloriasRing",
-        valorActual: calorias || 0,
-        meta: 500,
-        colorProgreso: "#38bdf8",
-        colorFondo: "#2c2c2e",
-        labelValorId: "ringCaloriasValor",
-        labelPctId: "ringCaloriasPct",
-        instanciaRef: "calorias"
-    });
-
-    // 3. Actualizar textos de estado y badges en dashboard
-    const pesoBadge = document.getElementById("chartPesoActualBadge");
-    if (pesoBadge) {
-        pesoBadge.textContent = peso !== null ? `${peso.toFixed(1)} kg` : "-- kg";
+    if (displayPeso && pesoMostrar !== null) {
+        displayPeso.innerText = `${pesoMostrar.toFixed(1)} kg`;
+        displayPeso.style.color = "#38bdf8";
+    }
+    if (displayModal && pesoMostrar !== null) {
+        displayModal.innerText = `${pesoMostrar.toFixed(1)} kg (Google Fit)`;
+        displayModal.style.color = "#38bdf8";
     }
 
-    if (displayPeso) {
-        if (peso !== null) {
-            displayPeso.innerText = `${peso.toFixed(1)} kg`;
-            displayPeso.style.color = "#38bdf8";
-        }
+    if (document.getElementById("chartPasosRing")) {
+        renderizarAnillo("chartPasosRing", hoy.pasos, META_PASOS, "ringPasosValor", "ringPasosPct", "pasos");
+        renderizarAnillo("chartCaloriasRing", hoy.calorias, META_KCAL, "ringCaloriasValor", "ringCaloriasPct", "calorias");
     }
-    if (displayModal) {
-        if (peso !== null) {
-            displayModal.innerText = `${peso.toFixed(1)} kg (Google Fit)`;
-            displayModal.style.color = "#38bdf8";
-        }
-    }
-
-    // 4. Gráfico de Tendencia de Peso (Curvas suaves, gradiente cian)
-    await renderizarGraficoTendenciaPeso(peso);
 }
 
-/**
- * Renderiza un gráfico Doughnut minimalista con progreso neón #38bdf8 sobre raíl #2c2c2e
- */
-function renderizarAnilloDoughnut({
-    canvasId,
-    valorActual,
-    meta,
-    colorProgreso = "#38bdf8",
-    colorFondo = "#2c2c2e",
-    labelValorId,
-    labelPctId,
-    instanciaRef
-}) {
+function renderizarAnillo(canvasId, valor, meta, idValor, idPct, ref) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
+    if (!canvas || !window.Chart) return;
 
-    const valorSeguro = Math.max(0, valorActual || 0);
-    const restante = Math.max(0, meta - valorSeguro);
-    const porcentaje = Math.min(100, Math.round((valorSeguro / meta) * 100));
+    const seguro = Math.max(0, valor || 0);
+    const restante = Math.max(0, meta - seguro);
+    const pct = Math.min(100, Math.round((seguro / meta) * 100));
 
-    // Actualizar texto central grande
-    const labelVal = document.getElementById(labelValorId);
-    if (labelVal) {
-        labelVal.textContent = valorSeguro.toLocaleString();
-    }
-    const labelPct = document.getElementById(labelPctId);
-    if (labelPct) {
-        labelPct.textContent = `${porcentaje}%`;
-    }
+    setTexto(idValor, seguro.toLocaleString());
+    setTexto(idPct, `${pct}%`);
 
-    // Destruir instancia previa
-    if (instanciaRef === "pasos" && chartPasosInstance) {
-        chartPasosInstance.destroy();
-        chartPasosInstance = null;
-    } else if (instanciaRef === "calorias" && chartCaloriasInstance) {
-        chartCaloriasInstance.destroy();
-        chartCaloriasInstance = null;
-    }
+    if (ref === "pasos" && chartPasosInstance) { chartPasosInstance.destroy(); chartPasosInstance = null; }
+    if (ref === "calorias" && chartCaloriasInstance) { chartCaloriasInstance.destroy(); chartCaloriasInstance = null; }
 
-    const ctx = canvas.getContext("2d");
-
-    const config = {
+    const instancia = new window.Chart(canvas.getContext("2d"), {
         type: "doughnut",
         data: {
             datasets: [{
-                data: [valorSeguro, restante],
-                backgroundColor: [colorProgreso, colorFondo],
+                data: [seguro, restante],
+                backgroundColor: ["#38bdf8", "#2c2c2e"],
                 borderWidth: 0,
                 cutout: "80%",
-                borderRadius: 16,
-                circumference: 360
+                borderRadius: 16
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: {
-                duration: 900,
-                easing: "easeOutQuart"
-            },
-            plugins: {
-                tooltip: { enabled: false },
-                legend: { display: false }
-            }
+            animation: { duration: 900, easing: "easeOutQuart" },
+            plugins: { tooltip: { enabled: false }, legend: { display: false } }
         }
-    };
+    });
 
-    const nuevaInstancia = new window.Chart(ctx, config);
-
-    if (instanciaRef === "pasos") {
-        chartPasosInstance = nuevaInstancia;
-    } else if (instanciaRef === "calorias") {
-        chartCaloriasInstance = nuevaInstancia;
-    }
+    if (ref === "pasos") chartPasosInstance = instancia;
+    else chartCaloriasInstance = instancia;
 }
 
-/**
- * Gráfico de Tendencia de Peso (Line Chart):
- * - Curvas suaves (tension: 0.4)
- * - Puntos ocultos a menos que se toquen (pointRadius: 0, hover: 6)
- * - Gradiente semitransparente cian/azul bajo la línea
- * - Sin cuadrículas de fondo (grid: false)
- */
-async function renderizarGraficoTendenciaPeso(pesoActual) {
-    const canvas = document.getElementById("chartPesoTrend");
-    if (!canvas) return;
+// ==========================================
+// RENDER: GRÁFICA PRINCIPAL (PESO / SUEÑO / PASOS)
+// ==========================================
+const CONFIG_METRICAS = {
+    peso:  { titulo: "Evolución de Peso", unidad: "kg",    decimales: 1, campo: "peso" },
+    sueno: { titulo: "Horas de Sueño",    unidad: "h",     decimales: 1, campo: "sueno" },
+    pasos: { titulo: "Pasos Diarios",     unidad: "pasos", decimales: 0, campo: "pasos" }
+};
 
-    // Obtener historial de registros desde Firestore
-    let historial = await obtenerHistorialPesoFirestore();
+function formatearValor(v, cfg) {
+    if (v === null || v === undefined || isNaN(v)) return "--";
+    const txt = cfg.decimales ? v.toFixed(cfg.decimales) : Math.round(v).toLocaleString();
+    return `${txt} ${cfg.unidad}`;
+}
 
-    // Si Google Fit tiene un peso confirmado hoy, asegurar que figure en el historial
-    if (pesoActual !== null && !isNaN(pesoActual)) {
-        const hoyStr = "Hoy";
-        const ultimo = historial[historial.length - 1];
-        if (!ultimo || ultimo.fecha !== hoyStr) {
-            historial.push({ fecha: hoyStr, peso: pesoActual });
-        } else {
-            ultimo.peso = pesoActual;
-        }
+async function renderizarGraficaPrincipal() {
+    const canvas = document.getElementById("chartMain");
+    if (!canvas || !canvas.isConnected) return;
+    await asegurarChartJS();
+    if (!canvas.isConnected) return;
+
+    const cfg = CONFIG_METRICAS[estado.metrica];
+    const dias = estado.dias;
+    const labels = dias.map(d => etiquetaDia(d.ms));
+    const valores = dias.map(d => d[cfg.campo]); // null = hueco (spanGaps lo ignora)
+    const reales = valores.filter(v => v !== null);
+
+    setTexto("chartMainTitle", cfg.titulo);
+    setTexto("chartPesoActualBadge", reales.length ? formatearValor(reales[reales.length - 1], cfg) : "--");
+
+    if (reales.length) {
+        const min = Math.min(...reales);
+        const max = Math.max(...reales);
+        const avg = reales.reduce((a, b) => a + b, 0) / reales.length;
+        setTexto("weightStatMin", formatearValor(min, cfg));
+        setTexto("weightStatAvg", formatearValor(avg, cfg));
+        setTexto("weightStatMax", formatearValor(max, cfg));
+    } else {
+        ["weightStatMin", "weightStatAvg", "weightStatMax"].forEach(id => setTexto(id, "--"));
     }
 
-    // Si el historial está vacío (inicio nuevo), generar puntos realistas de referencia
-    if (historial.length === 0) {
-        const base = pesoActual || 75.0;
-        historial = [
-            { fecha: "Día -6", peso: base + 0.9 },
-            { fecha: "Día -5", peso: base + 0.6 },
-            { fecha: "Día -4", peso: base + 0.4 },
-            { fecha: "Día -3", peso: base + 0.2 },
-            { fecha: "Día -2", peso: base + 0.3 },
-            { fecha: "Ayer", peso: base + 0.1 },
-            { fecha: "Hoy", peso: base }
-        ];
-    }
-
-    const labels = historial.map(h => h.fecha);
-    const dataVals = historial.map(h => h.peso);
-
-    // Calcular estadísticas
-    const minVal = Math.min(...dataVals);
-    const maxVal = Math.max(...dataVals);
-    const avgVal = dataVals.reduce((acc, v) => acc + v, 0) / dataVals.length;
-
-    const elMin = document.getElementById("weightStatMin");
-    const elAvg = document.getElementById("weightStatAvg");
-    const elMax = document.getElementById("weightStatMax");
-    if (elMin) elMin.textContent = `${minVal.toFixed(1)} kg`;
-    if (elAvg) elAvg.textContent = `${avgVal.toFixed(1)} kg`;
-    if (elMax) elMax.textContent = `${maxVal.toFixed(1)} kg`;
-
-    // Destruir instancia previa
-    if (chartPesoInstance) {
-        chartPesoInstance.destroy();
-        chartPesoInstance = null;
-    }
+    if (chartMainInstance) { chartMainInstance.destroy(); chartMainInstance = null; }
 
     const ctx = canvas.getContext("2d");
+    const altura = canvas.clientHeight || 190;
+    const gradiente = ctx.createLinearGradient(0, 0, 0, altura);
+    gradiente.addColorStop(0, "rgba(56, 189, 248, 0.42)");
+    gradiente.addColorStop(0.65, "rgba(56, 189, 248, 0.10)");
+    gradiente.addColorStop(1, "rgba(56, 189, 248, 0)");
 
-    // Crear gradiente cian semitransparente a transparente
-    const gradient = ctx.createLinearGradient(0, 0, 0, 190);
-    gradient.addColorStop(0, "rgba(56, 189, 248, 0.42)");
-    gradient.addColorStop(0.65, "rgba(56, 189, 248, 0.1)");
-    gradient.addColorStop(1, "rgba(56, 189, 248, 0.0)");
+    const ejeY = {
+        grid: { display: false },
+        border: { display: false },
+        ticks: { color: "#94a3b8", font: { size: 11 } }
+    };
+    if (estado.metrica === "peso" && reales.length) {
+        ejeY.suggestedMin = Math.floor(Math.min(...reales) - 1);
+        ejeY.suggestedMax = Math.ceil(Math.max(...reales) + 1);
+    } else {
+        ejeY.beginAtZero = true;
+    }
 
-    const config = {
+    chartMainInstance = new window.Chart(ctx, {
         type: "line",
         data: {
-            labels: labels,
+            labels,
             datasets: [{
-                label: "Peso",
-                data: dataVals,
+                label: cfg.titulo,
+                data: valores,
                 borderColor: "#38bdf8",
                 borderWidth: 2.5,
-                tension: 0.4, // Curvas suaves solicitadas
+                tension: 0.4,
+                spanGaps: true,
                 fill: true,
-                backgroundColor: gradient,
-                pointRadius: 0, // Ocultar puntos por defecto
-                pointHoverRadius: 6, // Visibles al tocar / hover
+                backgroundColor: gradiente,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                pointHitRadius: 14,
                 pointBackgroundColor: "#38bdf8",
                 pointBorderColor: "#ffffff",
-                pointBorderWidth: 2,
-                pointHoverBackgroundColor: "#38bdf8",
-                pointHoverBorderColor: "#ffffff",
-                pointHoverBorderWidth: 2
+                pointBorderWidth: 2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                mode: "index",
-                intersect: false
-            },
+            interaction: { mode: "index", intersect: false },
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: "rgba(15, 23, 42, 0.95)",
+                    backgroundColor: "rgba(28, 28, 30, 0.96)",
                     titleColor: "#94a3b8",
                     bodyColor: "#38bdf8",
                     bodyFont: { weight: "bold", size: 13 },
@@ -667,145 +810,148 @@ async function renderizarGraficoTendenciaPeso(pesoActual) {
                     borderWidth: 1,
                     padding: 10,
                     displayColors: false,
-                    callbacks: {
-                        label: (ctx) => `${ctx.parsed.y} kg`
-                    }
+                    callbacks: { label: (c) => formatearValor(c.parsed.y, cfg) }
+                },
+                zoom: {
+                    pan: { enabled: true, mode: "x" },
+                    zoom: {
+                        wheel: { enabled: true },
+                        pinch: { enabled: true },
+                        mode: "x"
+                    },
+                    limits: { x: { min: "original", max: "original", minRange: 3 } }
                 }
             },
             scales: {
                 x: {
-                    grid: { display: false }, // Sin cuadrículas
-                    ticks: {
-                        color: "#94a3b8",
-                        font: { size: 11, family: "Inter, sans-serif" }
-                    },
-                    border: { display: false }
-                },
-                y: {
-                    grid: { display: false }, // Sin cuadrículas
-                    ticks: {
-                        color: "#94a3b8",
-                        font: { size: 11, family: "Inter, sans-serif" },
-                        callback: (v) => `${v}`
-                    },
+                    grid: { display: false },
                     border: { display: false },
-                    suggestedMin: Math.floor(minVal - 1),
-                    suggestedMax: Math.ceil(maxVal + 1)
-                }
+                    ticks: { color: "#94a3b8", font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }
+                },
+                y: ejeY
             }
         }
-    };
-
-    chartPesoInstance = new window.Chart(ctx, config);
+    });
 }
 
-async function obtenerHistorialPesoFirestore() {
-    try {
-        const q = query(
-            collection(db, "registros_peso"),
-            orderBy("timestamp", "asc"),
-            limit(10)
-        );
-        const snapshot = await getDocs(q);
-        const lista = [];
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            if (d.peso) {
-                const fecha = d.fecha ? d.fecha.substring(5) : "Reg";
-                lista.push({ fecha, peso: parseFloat(d.peso) });
-            }
+async function renderizarEstadoDesconectadoUI() {
+    estado.dias = [];
+    setTexto("chartPesoActualBadge", "--");
+    ["weightStatMin", "weightStatAvg", "weightStatMax", "resumenSueno", "resumenCardio", "resumenFatiga"].forEach(id => setTexto(id, "--"));
+
+    if (document.getElementById("chartPasosRing")) {
+        try {
+            await asegurarChartJS();
+            renderizarAnillo("chartPasosRing", 0, META_PASOS, "ringPasosValor", "ringPasosPct", "pasos");
+            renderizarAnillo("chartCaloriasRing", 0, META_KCAL, "ringCaloriasValor", "ringCaloriasPct", "calorias");
+            if (document.getElementById("chartMain")) await renderizarGraficaPrincipal();
+        } catch (e) {
+            console.warn(e.message);
+        }
+    }
+    renderizarListaCardio();
+}
+
+// ==========================================
+// RENDER: SESIONES DE CARDIO
+// ==========================================
+function renderizarListaCardio() {
+    const lista = document.getElementById("listaCardio");
+    if (!lista) return;
+
+    const sesiones = [];
+    estado.dias.forEach(dia => {
+        Object.entries(dia.cardio || {}).forEach(([tipo, ms]) => {
+            if (ms >= 5 * 60000) sesiones.push({ ms: dia.ms, tipo: Number(tipo), dur: ms });
         });
-        return lista;
+    });
+    sesiones.sort((a, b) => b.ms - a.ms);
+
+    if (sesiones.length === 0) {
+        lista.innerHTML = '<div class="cardio-empty">Sin sesiones recientes o sin conexión.</div>';
+        return;
+    }
+
+    lista.innerHTML = sesiones.slice(0, 6).map(s => {
+        const min = Math.round(s.dur / 60000);
+        const fecha = new Date(s.ms).toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "short" });
+        const dur = min >= 60 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} min` : `${min} min`;
+        return `
+            <div class="cardio-card">
+                <div class="cardio-card-main">
+                    <span class="cardio-card-name">${ACTIVIDADES_CARDIO[s.tipo]}</span>
+                    <span class="cardio-card-date">${fecha}</span>
+                </div>
+                <span class="cardio-card-dur">${dur}</span>
+            </div>`;
+    }).join("");
+}
+
+// ==========================================
+// CONTROLES: RANGO, MÉTRICA, ZOOM
+// ==========================================
+async function cambiarRango(rango) {
+    estado.rango = rango;
+    document.querySelectorAll(".range-btn[data-range]").forEach(b => {
+        b.classList.toggle("active", Number(b.dataset.range) === rango);
+    });
+
+    const token = localStorage.getItem("fitToken");
+    if (!token) {
+        mostrarFeedbackGoogleFit("Conecta Google Fit para ver el histórico.", "#facc15");
+        return;
+    }
+
+    try {
+        setTexto("chartPesoActualBadge", "...");
+        await cargarHistorial(token, rango);
+        await renderizarGraficaPrincipal();
+        renderizarListaCardio();
+        exportarContextoIA();
     } catch (e) {
-        console.warn("Fallo al leer historial de peso de Firestore:", e);
-        return [];
-    }
-}
-
-function renderizarEstadoDesconectadoUI() {
-    // Renderizar anillos en cero
-    renderizarAnilloDoughnut({
-        canvasId: "chartPasosRing",
-        valorActual: 0,
-        meta: 10000,
-        colorProgreso: "#38bdf8",
-        colorFondo: "#2c2c2e",
-        labelValorId: "ringPasosValor",
-        labelPctId: "ringPasosPct",
-        instanciaRef: "pasos"
-    });
-
-    renderizarAnilloDoughnut({
-        canvasId: "chartCaloriasRing",
-        valorActual: 0,
-        meta: 500,
-        colorProgreso: "#38bdf8",
-        colorFondo: "#2c2c2e",
-        labelValorId: "ringCaloriasValor",
-        labelPctId: "ringCaloriasPct",
-        instanciaRef: "calorias"
-    });
-
-    const pesoBadge = document.getElementById("chartPesoActualBadge");
-    if (pesoBadge) pesoBadge.textContent = "-- kg";
-
-    renderGraficoVacio();
-}
-
-function renderGraficoVacio() {
-    const canvas = document.getElementById("chartPesoTrend");
-    if (!canvas || !window.Chart) return;
-
-    if (chartPesoInstance) {
-        chartPesoInstance.destroy();
-        chartPesoInstance = null;
-    }
-
-    const ctx = canvas.getContext("2d");
-    chartPesoInstance = new window.Chart(ctx, {
-        type: "line",
-        data: {
-            labels: ["--", "--", "--", "--", "--"],
-            datasets: [{
-                data: [70, 70, 70, 70, 70],
-                borderColor: "#334155",
-                borderWidth: 1.5,
-                borderDash: [5, 5],
-                fill: false,
-                pointRadius: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false }, tooltip: { enabled: false } },
-            scales: {
-                x: { grid: { display: false }, ticks: { color: "#475569" }, border: { display: false } },
-                y: { grid: { display: false }, ticks: { display: false }, border: { display: false } }
-            }
+        if (e.status === 401) {
+            manejarTokenExpirado("⚠️ Tu sesión de Google Fit ha caducado (401). Pulsa 'Conectar con Google Fit' para renovar.");
+        } else {
+            mostrarFeedbackGoogleFit(`Error al cargar el histórico: ${e.message}`, "#f87171");
         }
+    }
+}
+
+async function cambiarMetrica(metrica) {
+    estado.metrica = metrica;
+    document.querySelectorAll(".segment-btn[data-metric]").forEach(b => {
+        b.classList.toggle("active", b.dataset.metric === metrica);
     });
+    await renderizarGraficaPrincipal();
+}
+
+function enlazarControles() {
+    document.querySelectorAll(".range-btn[data-range]").forEach(btn => {
+        btn.onclick = () => cambiarRango(Number(btn.dataset.range));
+        btn.classList.toggle("active", Number(btn.dataset.range) === estado.rango);
+    });
+    document.querySelectorAll(".segment-btn[data-metric]").forEach(btn => {
+        btn.onclick = () => cambiarMetrica(btn.dataset.metric);
+        btn.classList.toggle("active", btn.dataset.metric === estado.metrica);
+    });
+    const reset = document.getElementById("btnResetZoom");
+    if (reset) {
+        reset.onclick = () => {
+            if (chartMainInstance && typeof chartMainInstance.resetZoom === "function") chartMainInstance.resetZoom();
+        };
+    }
 }
 
 // ==========================================
-// GESTIÓN DE EXPIRACIÓN Y ERRORES 401
+// EXPIRACIÓN (401) Y REFRESCO MANUAL
 // ==========================================
-
 export function manejarTokenExpirado(mensaje = "Sesión de Google Fit expirada. Pulsa para reconectar.") {
     console.warn("Limpiando estado de autenticación de Google Fit (401)...");
+    ["fitToken", "fitTokenTimestamp", "fitUserEmail", "fitUserName"].forEach(k => localStorage.removeItem(k));
+    estado.cache = {};
 
-    localStorage.removeItem("fitToken");
-    localStorage.removeItem("fitTokenTimestamp");
-    localStorage.removeItem("fitUserEmail");
-    localStorage.removeItem("fitUserName");
-
-    // Vuelve a mostrar el botón de Conectar de forma visible y limpia
     actualizarEstadoGoogleFitUI(false);
-
-    // Muestra feedback claro
     mostrarFeedbackGoogleFit(mensaje, "#f87171");
-
-    // Reset de visualización
     renderizarEstadoDesconectadoUI();
 }
 
@@ -816,23 +962,19 @@ export async function refrescarFitData() {
         actualizarEstadoGoogleFitUI(false);
         return;
     }
-
     mostrarFeedbackGoogleFit("🔄 Sincronizando con Google Fit...", "#38bdf8");
     try {
-        const datos = await fetchFitData(token);
+        const datos = await fetchFitData(token, { forzar: true });
         mostrarFeedbackGoogleFit("✅ Métricas actualizadas con éxito.", "#4ade80");
         return datos;
     } catch (e) {
-        if (!e.message || !e.message.includes("401")) {
-            mostrarFeedbackGoogleFit(`Error al sincronizar: ${e.message}`, "#f87171");
-        }
+        // El error ya se ha comunicado en fetchFitData
     }
 }
 
 // ==========================================
-// INICIALIZACIÓN Y CICLO DE VIDA (INIT/CLEANUP)
+// INICIALIZACIÓN Y CICLO DE VIDA
 // ==========================================
-
 export function initSalud() {
     cleanupSalud();
 
@@ -841,42 +983,33 @@ export function initSalud() {
     statusBadge = document.getElementById("dbStatusBadge");
 
     const btnGoogleFit = document.getElementById("btnConectarGoogleFit");
-    if (btnGoogleFit) {
-        btnGoogleFit.onclick = conectarGoogleFit;
-    }
+    if (btnGoogleFit) btnGoogleFit.onclick = conectarGoogleFit;
 
-    // Captura silenciosa si regresamos de un signInWithRedirect
+    enlazarControles();
+
+    // Captura silenciosa tras un signInWithRedirect
     try {
         getRedirectResult(auth).then((result) => {
-            if (result) {
-                procesarResultadoGoogleAuth(result);
-            }
+            if (result) procesarResultadoGoogleAuth(result);
         }).catch((err) => {
-            if (err && err.code !== "auth/null-user") {
-                console.warn("Información de getRedirectResult:", err);
-            }
+            if (err && err.code !== "auth/null-user") console.warn("getRedirectResult:", err);
         });
     } catch (e) {
         console.warn("getRedirectResult no disponible:", e);
     }
 
-    // PERSISTENCIA Y SINCRONIZACIÓN AUTOMÁTICA CON onAuthStateChanged
+    // Persistencia: usuario activo + token => sincronización automática y silenciosa
     try {
         unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             const token = localStorage.getItem("fitToken");
-            const tieneUsuario = Boolean(user || auth.currentUser);
-
-            if (tieneUsuario && token) {
-                // Hay usuario activo y token: ejecutar fetchFitData() automático y silencioso
-                // Oculta botón 'Conectar' y muestra indicador 'Sincronizando...'
+            if ((user || auth.currentUser) && token) {
                 actualizarEstadoGoogleFitUI(true, "Sincronizando...");
                 try {
                     await fetchFitData(token);
                 } catch (err) {
-                    console.warn("Error en sincronización silenciosa:", err.message);
+                    console.warn("Sincronización silenciosa:", err.message);
                 }
             } else {
-                // No logueado o sin token: mostrar botón de Conectar (sin abrir popups automáticos)
                 actualizarEstadoGoogleFitUI(false);
                 renderizarEstadoDesconectadoUI();
             }
@@ -886,74 +1019,33 @@ export function initSalud() {
     }
 
     document.addEventListener("keydown", handleEscapeKey);
-
-    escucharUltimoPesoFirestore();
+    escucharEstadoFirestore();
 }
 
 export function cleanupSalud() {
-    if (typeof unsubscribeFirestore === "function") {
-        unsubscribeFirestore();
-        unsubscribeFirestore = null;
-    }
-    if (typeof unsubscribeAuth === "function") {
-        unsubscribeAuth();
-        unsubscribeAuth = null;
-    }
+    if (typeof unsubscribeFirestore === "function") { unsubscribeFirestore(); unsubscribeFirestore = null; }
+    if (typeof unsubscribeAuth === "function") { unsubscribeAuth(); unsubscribeAuth = null; }
 
-    // Destruir instancias de Chart.js para evitar fugas de memoria
-    if (chartPasosInstance) {
-        chartPasosInstance.destroy();
-        chartPasosInstance = null;
-    }
-    if (chartCaloriasInstance) {
-        chartCaloriasInstance.destroy();
-        chartCaloriasInstance = null;
-    }
-    if (chartPesoInstance) {
-        chartPesoInstance.destroy();
-        chartPesoInstance = null;
-    }
+    [chartPasosInstance, chartCaloriasInstance, chartMainInstance].forEach(c => { if (c) c.destroy(); });
+    chartPasosInstance = null;
+    chartCaloriasInstance = null;
+    chartMainInstance = null;
 
     document.removeEventListener("keydown", handleEscapeKey);
 }
 
 function handleEscapeKey(e) {
-    if (e.key === "Escape") {
-        cerrarModalPeso();
-    }
+    if (e.key === "Escape") cerrarModalPeso();
 }
 
-function escucharUltimoPesoFirestore() {
+/** Indicador de conexión con Firestore (la fuente de datos de salud es Google Fit, solo lectura) */
+function escucharEstadoFirestore() {
     try {
-        const q = query(
-            collection(db, "registros_peso"), 
-            orderBy("timestamp", "desc"), 
-            limit(1)
-        );
-
-        unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+        const q = query(collection(db, "registros_peso"), orderBy("timestamp", "desc"), limit(1));
+        unsubscribeFirestore = onSnapshot(q, () => {
             if (statusBadge) {
                 statusBadge.textContent = "🟢 Firestore conectado";
                 statusBadge.style.color = "#4ade80";
-            }
-
-            if (!snapshot.empty) {
-                const docData = snapshot.docs[0].data();
-                const pesoVal = docData.peso;
-                const fechaVal = docData.fecha || "Reciente";
-
-                if (ultimoDatoBiometrico.peso === null) {
-                    if (displayPeso) {
-                        displayPeso.innerText = `${pesoVal} kg`;
-                        displayPeso.style.color = "#38bdf8";
-                    }
-                    if (displayModal) {
-                        displayModal.innerText = `${pesoVal} kg (${fechaVal})`;
-                        displayModal.style.color = "#38bdf8";
-                    }
-                    const pesoBadge = document.getElementById("chartPesoActualBadge");
-                    if (pesoBadge) pesoBadge.textContent = `${pesoVal} kg`;
-                }
             }
         }, (error) => {
             console.error("Error al escuchar Firestore:", error);
@@ -979,7 +1071,7 @@ window.salud = {
     desconectarGoogleFit,
     actualizarEstadoGoogleFitUI,
     manejarTokenExpirado,
-    renderizarDashboardVisual,
+    exportarContextoIA,
     abrirModalPeso,
     cerrarModalPeso,
     crearGoogleFitProvider,
