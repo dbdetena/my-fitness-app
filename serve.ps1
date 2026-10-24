@@ -80,10 +80,15 @@ try {
 
         $bytes = [System.IO.File]::ReadAllBytes($filePath)
         $response.ContentLength64 = $bytes.Length
-        $response.OutputStream.Write($bytes, 0, $bytes.Length)
-        $response.Close()
-
-        Write-Host "200 OK - $path ($contentType)" -ForegroundColor Green
+        try {
+            if ($context.Request.HttpMethod -ne "HEAD") {
+                $response.OutputStream.Write($bytes, 0, $bytes.Length)
+            }
+            $response.Close()
+            Write-Host "200 OK - $path ($contentType)" -ForegroundColor Green
+        } catch {
+            Write-Host "Warn: $($_.Exception.Message)" -ForegroundColor DarkGray
+        }
     }
 } finally {
     $listener.Stop()
