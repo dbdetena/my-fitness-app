@@ -370,44 +370,100 @@ export async function consolidarContextoUsuario() {
 // ========================================================
 
 /**
- * Compilador de Contexto Biométrico (Payload):
- * Extrae en tiempo real de localStorage y del estado global un JSON minificado
- * con los datos clave: peso actual, horas de sueño de anoche, últimos RPE y última rutina registrada.
+ * Compilador de Contexto Biométrico Dinámico (Payload):
+ * Lee en vivo los datos más recientes de Firestore (últimos pesajes en registros_peso,
+ * últimos RPEs y notas del Diario en diario_notas) y las medias de sueño/salud de Google Fit,
+ * compilándolos en un JSON minificado que se inyecta invisiblemente como system_instruction.
  */
-export function buildCoachContext() {
+export async function buildCoachContext() {
     let pesoActual = null;
+    let ultimosPesajes = [];
     let suenoAnoche = null;
+    let suenoMedio7d = null;
     let pasosHoy = null;
     let bpmActual = null;
     let fatigaEstimada = null;
 
-    // 1. Datos biométricos de salud (de health_context_ai o estado global de salud)
+    // 1. Consultar Firestore dinámicamente para los últimos registros de peso
+    try {
+        const qPeso = query(collection(db, "registros_peso"), orderBy("timestamp", "desc"), limit(5));
+        const snapPeso = await getDocs(qPeso);
+        if (!snapPeso.empty) {
+            ultimosPesajes = snapPeso.docs.map(d => {
+                const data = d.data();
+                return {
+                    peso: data.peso,
+                    fecha: data.fecha || (data.timestamp ? new Date(data.timestamp).toLocaleDateString("es-ES") : "Reciente")
+                };
+            });
+            if (ultimosPesajes.length > 0 && typeof ultimosPesajes[0].peso === "number") {
+                pesoActual = ultimosPesajes[0].peso;
+            }
+        }
+    } catch (errPeso) {
+        console.warn("Aviso: Consulta Firestore de registros_peso no disponible, usando fallback:", errPeso);
+    }
+
+    // Fallback de peso si Firestore no devolvió datos
+    if (pesoActual === null) {
+        if (window.salud?.estado?.hoy && typeof window.salud.estado.hoy.peso === "number") {
+            pesoActual = window.salud.estado.hoy.peso;
+        } else {
+            const rawPeso = localStorage.getItem("ultimo_peso_registrado");
+            if (rawPeso) pesoActual = parseFloat(rawPeso);
+        }
+    }
+
+    // 2. Medias de sueño y métricas de Google Fit (de health_context_ai o estado global de salud)
     try {
         const rawHealth = localStorage.getItem("health_context_ai");
         if (rawHealth) {
             const h = JSON.parse(rawHealth);
-            pesoActual = h.tendenciaPeso ?? h.pesoActual ?? null;
+            if (pesoActual === null) pesoActual = h.tendenciaPeso ?? h.pesoActual ?? null;
             suenoAnoche = h.suenoHoras ?? null;
+            suenoMedio7d = h.suenoMedia7d ?? null;
             pasosHoy = h.pasosHoy ?? null;
             bpmActual = h.bpmUltimoHoy ?? h.bpmAvgHoy ?? null;
             fatigaEstimada = h.fatigaEstimada ?? null;
         }
     } catch (_) {}
 
-    // Fallback reactivo a la instancia global de salud si está activa
-    if (window.salud?.estado?.hoy) {
-        const shoy = window.salud.estado.hoy;
+    // Fallback reactivo al estado global de salud si está activo
+    if (window.salud?.estado) {
+        const shoy = window.salud.estado.hoy || {};
+        const shist = window.salud.estado.historico || [];
         if (typeof shoy.peso === "number") pesoActual = shoy.peso;
         if (typeof shoy.suenoHoras === "number") suenoAnoche = shoy.suenoHoras;
         if (typeof shoy.pasos === "number") pasosHoy = shoy.pasos;
         if (typeof shoy.bpmUltimo === "number" || typeof shoy.bpmAvg === "number") {
             bpmActual = shoy.bpmUltimo || shoy.bpmAvg;
         }
+        if (shist.length > 0 && !suenoMedio7d) {
+            const suenosValidos = shist.map(d => d.suenoHoras).filter(s => typeof s === "number" && s > 0);
+            if (suenosValidos.length > 0) {
+                suenoMedio7d = parseFloat((suenosValidos.reduce((a, b) => a + b, 0) / suenosValidos.length).toFixed(1));
+            }
+        }
     }
 
-    // 2. Últimos RPE del Diario
-    const entradasDiario = obtenerEntradasBitacora() || [];
-    const entrenos = entradasDiario.filter(e => e.categoria === "post-entreno");
+    // 3. Consultar Firestore dinámicamente para los últimos RPE y notas del Diario
+    let notasDiario = [];
+    try {
+        const qNotas = query(collection(db, "diario_notas"), orderBy("fecha", "desc"), limit(8));
+        const snapNotas = await getDocs(qNotas);
+        if (!snapNotas.empty) {
+            notasDiario = snapNotas.docs.map(d => d.data());
+        }
+    } catch (errNotas) {
+        console.warn("Aviso: Consulta Firestore de diario_notas no disponible, usando local:", errNotas);
+    }
+
+    // Si Firestore no tiene notas o falló la conexión, usar las de almacenamiento local
+    if (notasDiario.length === 0) {
+        notasDiario = obtenerEntradasBitacora() || [];
+    }
+
+    const entrenos = notasDiario.filter(e => e.categoria === "post-entreno");
 
     const ultimosRpe = entrenos
         .filter(e => typeof e.rpe === "number" && !isNaN(e.rpe))
@@ -422,7 +478,7 @@ export function buildCoachContext() {
         ? parseFloat((ultimosRpe.reduce((acc, cur) => acc + cur.rpe, 0) / ultimosRpe.length).toFixed(1))
         : null;
 
-    // 3. Última rutina registrada
+    // 4. Última rutina registrada
     let ultimaRutina = null;
     if (entrenos.length > 0) {
         const u = entrenos[0];
@@ -436,23 +492,27 @@ export function buildCoachContext() {
         };
     }
 
-    // 4. Sesión activa en vivo si está en marcha
+    // 5. Sesión activa en vivo si está en marcha
     const sesionViva = obtenerSesionActiva();
     const sesionActiva = sesionViva ? {
         nombre: sesionViva.nombre,
         hora_inicio: new Date(sesionViva.inicioTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     } : null;
 
+    // Compilar en un JSON minificado que se inyectará como system_instruction
     const payload = {
         peso_actual_kg: pesoActual,
+        historial_pesos: ultimosPesajes.slice(0, 3),
         sueno_anoche_h: suenoAnoche,
+        sueno_medio_7d: suenoMedio7d,
         ultimos_rpe: ultimosRpe,
         rpe_medio: rpeMedio,
         ultima_rutina: ultimaRutina,
         sesion_activa: sesionActiva,
         pasos_hoy: pasosHoy,
         bpm_actual: bpmActual,
-        fatiga_estimada: fatigaEstimada
+        fatiga_estimada: fatigaEstimada,
+        sync_timestamp: new Date().toISOString()
     };
 
     return JSON.stringify(payload);
@@ -587,7 +647,7 @@ async function consultarGeminiStream(contents, systemInstruction, onChunk) {
  * Método de compatibilidad directa (no streaming o fallback)
  */
 async function consultarGemini(mensajeUsuario) {
-    const biometricJson = buildCoachContext();
+    const biometricJson = await buildCoachContext();
     const contexto = await consolidarContextoUsuario();
     const systemInstruction = construirSystemPrompt(contexto, biometricJson);
 
@@ -1171,7 +1231,7 @@ export async function enviarMensajeUsuario(textoForzado = null) {
 
     try {
         // 2. Compilar contexto biométrico minificado en tiempo real justo antes de enviar el prompt
-        const biometricPayload = buildCoachContext();
+        const biometricPayload = await buildCoachContext();
         const contexto = await consolidarContextoUsuario();
         const systemInstruction = construirSystemPrompt(contexto, biometricPayload);
 
@@ -1403,35 +1463,59 @@ function actualizarBotonKeyBadge(tieneKey) {
     if (btn) btn.classList.toggle("active", tieneKey);
 }
 
-export function abrirModalMemoria() {
-    const modal = document.getElementById("modal-coach-memory");
-    if (modal) modal.classList.add("active");
-    if (state.memoriaActual) {
-        actualizarModalMemoria(state.memoriaActual);
-    } else {
-        obtenerMemoriaCoach().then(actualizarModalMemoria);
+/**
+ * Exporta una copia de seguridad local completa en formato .json
+ * Descarga automáticamente un archivo estructurado con coach_memory,
+ * historial de bitácora, registros de peso y biometría.
+ */
+export async function exportarCopiaSeguridad() {
+    try {
+        const memoria = await obtenerMemoriaCoach();
+        const entradasDiario = obtenerEntradasBitacora() || [];
+
+        let registrosPeso = [];
+        try {
+            const q = query(collection(db, "registros_peso"), orderBy("timestamp", "desc"), limit(25));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+                registrosPeso = snap.docs.map(d => d.data());
+            }
+        } catch (_) {}
+
+        let biometriaLocal = {};
+        try {
+            biometriaLocal = JSON.parse(localStorage.getItem("health_context_ai") || "{}");
+        } catch (_) {}
+
+        const backupData = {
+            aplicacion: "Antigravity Fitness AI Coach",
+            version: "2.1",
+            exportadoEn: new Date().toISOString(),
+            coach_memory: memoria,
+            diario_entradas: entradasDiario,
+            registros_peso: registrosPeso,
+            biometria_salud: biometriaLocal,
+            historial_chat_reciente: state.historialConversacion
+        };
+
+        const jsonString = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([jsonString], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+
+        const fechaHoy = new Date().toISOString().split("T")[0];
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `antigravity_backup_${fechaHoy}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        mostrarToastCoach("📥 Copia de seguridad exportada en .json");
+    } catch (err) {
+        console.error("Error al exportar copia de seguridad:", err);
+        alert("Error al exportar la copia de seguridad: " + err.message);
     }
-}
-
-export function cerrarModalMemoria() {
-    const modal = document.getElementById("modal-coach-memory");
-    if (modal) modal.classList.remove("active");
-}
-
-function actualizarModalMemoria(memoria) {
-    const pre = document.getElementById("coach-memory-json-display");
-    const syncText = document.getElementById("memory-last-sync");
-    if (pre) pre.textContent = JSON.stringify(memoria, null, 2);
-    if (syncText && memoria.ultimaActualizacion) {
-        syncText.textContent = `Última sincronización: ${new Date(memoria.ultimaActualizacion).toLocaleString()}`;
-    }
-}
-
-export async function reiniciarMemoria() {
-    if (!confirm("¿Deseas restablecer el documento coach_memory a los valores base predeterminados?")) return;
-    const base = { ...MEMORIA_BASE_DEFAULT, ultimaActualizacion: new Date().toISOString() };
-    await guardarMemoriaCoach(base);
-    mostrarToastCoach("Memoria restablecida a valores base");
 }
 
 // ========================================================
@@ -1456,25 +1540,10 @@ export async function initCoach() {
     if (labelVoz) labelVoz.textContent = state.vozActivada ? "Voz Activa" : "Silenciado";
     if (btnVoz) btnVoz.classList.toggle("active", state.vozActivada);
 
-    // 4. Inicializar memoria de Firestore
-    const memoria = await obtenerMemoriaCoach();
+    // 4. Inicializar memoria de Firestore en segundo plano
+    await obtenerMemoriaCoach();
 
-    // 5. Cargar saludo inicial solo si el chat está vacío
-    const contenedor = document.getElementById("coach-chat-messages");
-    if (contenedor && contenedor.children.length === 0) {
-        const entrenos = (obtenerEntradasBitacora() || []).filter(e => e.categoria === "post-entreno");
-        const ultimoEntreno = entrenos[0];
-
-        let saludo = `¡Listo para entrenar! Soy tu **AI Coach de Rendimiento** con memoria persistente.\n\n`;
-        saludo += `• **Objetivo Actual:** ${memoria.objetivoActual}\n`;
-        saludo += `• **Foco Biomecánico:** ${memoria.focoBiomecanico}\n`;
-        if (ultimoEntreno) {
-            saludo += `• **Último Registro:** ${ultimoEntreno.rutinaRelacionada || 'Sesión'} (RPE ${ultimoEntreno.rpe || 8})\n`;
-        }
-        saludo += `\nPuedes preguntarme por técnica, sugerencias de descarga, sobrecarga progresiva o pulsar el micrófono para hablarme.`;
-
-        agregarMensajeAlChat("coach", saludo, new Date(), false);
-    }
+    // 5. El chat arranca limpio sin mensaje inicial estático
 
     // 6. Soporte para Enter en textarea
     const textarea = document.getElementById("coach-input-text");
@@ -1564,7 +1633,6 @@ window.coach = {
     borrarKey,
     probarConexionKey,
     alternarVisibilidadKey,
-    abrirModalMemoria,
-    cerrarModalMemoria,
-    reiniciarMemoria
+    exportarCopiaSeguridad,
+    abrirModalMemoria: exportarCopiaSeguridad
 };

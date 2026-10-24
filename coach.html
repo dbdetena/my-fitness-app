@@ -49,14 +49,14 @@
                 <span>Gráficas</span>
             </button>
 
-            <!-- Visor de Memoria -->
-            <button type="button" id="btn-view-memory" class="coach-tool-btn" title="Ver memoria persistente del Coach" onclick="window.coach?.abrirModalMemoria()">
+            <!-- Exportar Copia de Seguridad Local (.json) -->
+            <button type="button" id="btn-export-coach" class="coach-tool-btn" title="Descargar copia de seguridad local en JSON" onclick="window.coach?.exportarCopiaSeguridad()">
                 <svg class="tool-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
-                <span>Memoria</span>
+                <span>Exportar</span>
             </button>
 
             <!-- Configurar IA / Bóveda de API Key (Engranaje) -->
@@ -200,34 +200,6 @@
                 <button type="button" class="btn-ghost" onclick="window.coach?.borrarKey()">Borrar Clave</button>
                 <button type="button" class="btn-test-key" onclick="window.coach?.probarConexionKey()">Probar Conexión</button>
                 <button type="button" class="btn-primary btn-neon-cyan" onclick="window.coach?.guardarKey()">Guardar en Bóveda</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: VISOR Y GESTOR DE MEMORIA PERSISTENTE (coach_memory) -->
-    <div id="modal-coach-memory" class="modal-overlay" onclick="window.coach?.cerrarModalMemoria()">
-        <div class="modal-card modal-industrial" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <div class="modal-title-group">
-                    <span class="modal-tag">MEMORIA DE LARGO PLAZO</span>
-                    <h3>Documento Maestro: coach_memory</h3>
-                </div>
-                <button type="button" class="modal-close-btn" onclick="window.coach?.cerrarModalMemoria()">✕</button>
-            </div>
-            <div class="modal-body">
-                <p class="config-desc" style="margin-bottom: 12px;">
-                    Este documento JSON se sincroniza con <strong>Firebase Firestore</strong> y sobrevive a todas las actualizaciones de la PWA. El Coach lo lee antes de responderte y lo actualiza tras cada evaluación.
-                </p>
-                <div class="memory-json-box">
-                    <pre id="coach-memory-json-display">Cargando memoria...</pre>
-                </div>
-                <div class="memory-meta-row">
-                    <span id="memory-last-sync">Última sincronización: --</span>
-                </div>
-            </div>
-            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: space-between;">
-                <button type="button" class="btn-danger-outline" onclick="window.coach?.reiniciarMemoria()">Restablecer a Valores Base</button>
-                <button type="button" class="btn-primary btn-neon-cyan" onclick="window.coach?.cerrarModalMemoria()">Entendido</button>
             </div>
         </div>
     </div>
