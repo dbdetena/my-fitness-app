@@ -1912,6 +1912,19 @@ body.modal-open {
     gap: 16px;
 }
 
+.config-card-integration {
+    border-left: 3px solid #38bdf8;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(20, 29, 51, 0.9) 100%);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.config-integration-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
 .config-header-row {
     display: flex;
     gap: 12px;

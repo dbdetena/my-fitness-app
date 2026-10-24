@@ -18,6 +18,12 @@ export function abrirModalConfig() {
     if (modal) {
         modal.classList.add("active");
         document.body.classList.add("modal-open");
+
+        // Refrescar estado visual de Google Fit al abrir el modal de ajustes
+        const token = localStorage.getItem("fitToken");
+        if (window.salud?.actualizarEstadoGoogleFitUI) {
+            window.salud.actualizarEstadoGoogleFitUI(!!token);
+        }
     }
 }
 
