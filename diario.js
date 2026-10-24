@@ -5,6 +5,8 @@
 // desglose de tiempos por actividad y comparativa de progreso.
 // ========================================================
 import { generarHtmlDesgloseEntrada } from "./progreso-manager.js";
+import { db } from "./firebase-config.js";
+import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const STORAGE_KEY = "fitness_bitacora_entries";
 
@@ -180,9 +182,9 @@ export function obtenerEntradasBitacora() {
 }
 
 /**
- * Guarda una nueva entrada en la bitácora
+ * Guarda una nueva entrada en la bitácora (Firestore & LocalStorage)
  */
-export function guardarEntradaBitacora({ texto, categoria = "general", rutinaRelacionada = null, rpe = null, energia = "normal", porVoz = false, metricas = null }) {
+export async function guardarEntradaBitacora({ texto, categoria = "general", rutinaRelacionada = null, rpe = null, energia = "normal", porVoz = false, metricas = null }) {
     if (!texto || !texto.trim()) return null;
 
     const entradas = obtenerEntradasBitacora();
@@ -203,6 +205,31 @@ export function guardarEntradaBitacora({ texto, categoria = "general", rutinaRel
         porVoz,
         metricas: metricas || null
     };
+
+    // Guardado en Firestore
+    try {
+        if (db) {
+            const docRef = await addDoc(collection(db, "diario_notas"), {
+                idLocal: nuevaEntrada.id,
+                fechaIso: nuevaEntrada.fechaIso,
+                fechaFormato: nuevaEntrada.fechaFormato,
+                categoria: nuevaEntrada.categoria,
+                categoriaLabel: nuevaEntrada.categoriaLabel,
+                rutinaRelacionada: nuevaEntrada.rutinaRelacionada,
+                rpe: nuevaEntrada.rpe,
+                energia: nuevaEntrada.energia,
+                texto: nuevaEntrada.texto,
+                porVoz: nuevaEntrada.porVoz,
+                metricas: nuevaEntrada.metricas,
+                creadoEn: serverTimestamp ? serverTimestamp() : new Date().toISOString()
+            });
+            if (docRef && docRef.id) {
+                nuevaEntrada.firestoreId = docRef.id;
+            }
+        }
+    } catch (e) {
+        console.warn("Aviso al guardar nota en Firestore (se mantiene respaldo local):", e);
+    }
 
     // Añadir al principio (orden cronológico inverso)
     entradas.unshift(nuevaEntrada);
@@ -571,12 +598,39 @@ export function seleccionarCategoriaDropdown(cat) {
 }
 
 /**
+ * Alterna el cuerpo desplegable (acordeón) de Añadir Nota al Diario
+ */
+export function alternarFormularioNota(forzarEstado = null) {
+    const card = document.getElementById("bitacora-composer-card");
+    const toggleBtn = document.getElementById("btn-toggle-composer");
+    const body = document.getElementById("composer-collapsible-body");
+    if (!card || !body) return;
+
+    const estaAbierto = card.classList.contains("open");
+    const nuevoEstado = forzarEstado !== null ? !!forzarEstado : !estaAbierto;
+
+    card.classList.toggle("open", nuevoEstado);
+    if (toggleBtn) {
+        toggleBtn.setAttribute("aria-expanded", String(nuevoEstado));
+        toggleBtn.classList.toggle("active", nuevoEstado);
+    }
+
+    if (nuevoEstado) {
+        const inputTexto = document.getElementById("input-bitacora-texto");
+        if (inputTexto) {
+            setTimeout(() => inputTexto.focus(), 120);
+        }
+    }
+}
+
+/**
  * Procesa el envío del formulario de nueva nota
  */
-export function registrarNotaManual() {
+export async function registrarNotaManual() {
     const inputTexto = document.getElementById("input-bitacora-texto");
     const selectCategoria = document.getElementById("select-bitacora-categoria");
     const inputRpe = document.getElementById("input-bitacora-rpe");
+    const btnGuardar = document.getElementById("btn-guardar-nota");
 
     if (!inputTexto || !inputTexto.value.trim()) {
         alert("Por favor escribe o dicta alguna nota antes de guardar.");
@@ -588,21 +642,41 @@ export function registrarNotaManual() {
     const rpe = inputRpe && inputRpe.value ? parseInt(inputRpe.value, 10) : 8;
     const porVoz = inputTexto.dataset.porVoz === "true";
 
-    guardarEntradaBitacora({
-        texto,
-        categoria,
-        rpe,
-        porVoz
-    });
+    if (btnGuardar) {
+        btnGuardar.disabled = true;
+        btnGuardar.style.opacity = "0.7";
+    }
 
-    // Limpiar formulario y resetear selector cilíndrico a 8 y dropdown a General
-    inputTexto.value = "";
-    inputTexto.dataset.porVoz = "false";
-    setRpeCylinderValue(8);
-    seleccionarCategoriaDropdown("general");
+    try {
+        const resultado = await guardarEntradaBitacora({
+            texto,
+            categoria,
+            rpe,
+            porVoz
+        });
 
-    // Mensaje de confirmación
-    mostrarNotificacionToast("✅ Nota registrada en el Diario de Notas");
+        if (resultado) {
+            // Limpiar formulario y resetear selector cilíndrico a 8 y dropdown a General
+            inputTexto.value = "";
+            inputTexto.dataset.porVoz = "false";
+            setRpeCylinderValue(8);
+            seleccionarCategoriaDropdown("general");
+
+            // Contraer el formulario automáticamente tras el guardado
+            alternarFormularioNota(false);
+
+            // Mensaje de confirmación
+            mostrarNotificacionToast("✅ Nota guardada en el Diario");
+        }
+    } catch (err) {
+        console.error("Error al registrar nota:", err);
+        mostrarNotificacionToast("⚠️ Error al registrar nota en el Diario");
+    } finally {
+        if (btnGuardar) {
+            btnGuardar.disabled = false;
+            btnGuardar.style.opacity = "1";
+        }
+    }
 }
 
 function mostrarNotificacionToast(mensaje) {
@@ -621,6 +695,23 @@ export function initDiario() {
     renderizarListaBitacora();
     actualizarEstadisticasBitacora();
     initRpeCylinder(8);
+
+    // Event listener en el botón del lápiz para alternar acordeón
+    const btnToggle = document.getElementById("btn-toggle-composer");
+    if (btnToggle && !btnToggle._hasToggleListener) {
+        btnToggle.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            alternarFormularioNota();
+        });
+        btnToggle._hasToggleListener = true;
+    }
+
+    const titleClickable = document.getElementById("composer-title-clickable");
+    if (titleClickable && !titleClickable._hasToggleListener) {
+        titleClickable.addEventListener("click", () => alternarFormularioNota());
+        titleClickable._hasToggleListener = true;
+    }
 
     // Registrar listeners para cerrar dropdown al pulsar fuera o Escape
     if (!window._diarioDropdownListenerRegistered) {
@@ -764,6 +855,7 @@ export function toggleDesgloseProgreso(entradaId) {
 // Exportar funciones globalmente para eventos en HTML
 window.diario = {
     alternarGrabacionVoz,
+    alternarFormularioNota,
     registrarNotaManual,
     eliminarNota: eliminarEntradaBitacora,
     setFiltro: setFiltroBitacora,

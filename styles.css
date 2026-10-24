@@ -3973,17 +3973,25 @@ body.modal-open {
     box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
 }
 
-/* Compositor de Entrada */
+/* Compositor de Entrada (Acordeón Desplegable) */
 .bitacora-composer-card {
-    padding: 18px;
+    padding: 14px 18px;
     border-radius: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 0;
     border: 1px solid rgba(56, 189, 248, 0.25);
     background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(10, 15, 29, 0.98) 100%);
-    box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bitacora-composer-card.open {
+    padding: 18px;
+    gap: 14px;
+    border-color: rgba(56, 189, 248, 0.45);
+    box-shadow: 0 14px 35px -6px rgba(0, 0, 0, 0.75), 0 0 20px rgba(56, 189, 248, 0.12);
 }
 
 .composer-header {
@@ -4017,6 +4025,64 @@ body.modal-open {
     border: 1px solid rgba(56, 189, 248, 0.35);
     color: #38bdf8;
     flex-shrink: 0;
+}
+
+/* Botón Lápiz Toggle Acordeón */
+.composer-icon-badge.btn-composer-toggle {
+    cursor: pointer;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+    outline: none;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.composer-icon-badge.btn-composer-toggle:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: #38bdf8;
+    color: #fff;
+    transform: scale(1.08);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+}
+
+.composer-icon-badge.btn-composer-toggle:active {
+    transform: scale(0.96);
+}
+
+.bitacora-composer-card.open .composer-icon-badge.btn-composer-toggle,
+.composer-icon-badge.btn-composer-toggle.active {
+    background: #38bdf8;
+    color: #0b1120;
+    border-color: #38bdf8;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.55);
+    transform: rotate(-10deg) scale(1.06);
+}
+
+/* Cuerpo desplegable del formulario (oculto por defecto) */
+.composer-collapsible-body {
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 14px;
+    margin-top: 12px;
+    border-top: 1px solid rgba(51, 65, 85, 0.45);
+}
+
+.bitacora-composer-card.open .composer-collapsible-body {
+    display: flex;
+    animation: composerAccordionSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes composerAccordionSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .composer-title-row h4 {
