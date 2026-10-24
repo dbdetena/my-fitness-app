@@ -22,6 +22,7 @@ const FIT_AGGREGATE_URL = "https://www.googleapis.com/fitness/v1/users/me/datase
 const META_PASOS = 10000;
 const META_KCAL = 2000; // calories.expended incluye metabolismo basal (total diario)
 const DIA_MS = 86400000;
+const INTERVALO_CORAZON_HOY_MS = 15 * 60 * 1000; // 15 minutos (agrupación intradía)
 const CACHE_HISTORIAL_MS = 10 * 60 * 1000;
 const MAX_DIAS_POR_PETICION = 90;
 const CLAVE_CONTEXTO_IA = "health_context_ai";
@@ -55,12 +56,14 @@ let avisoSuenoMostrado = false;
 
 let chartPasosInstance = null;
 let chartCaloriasInstance = null;
+let chartCorazonHoyInstance = null;
 let chartMainInstance = null;
 
 const estado = {
-    metrica: "peso",        // peso | sueno | pasos
+    metrica: "peso",        // peso | sueno | pasos | bpm
     rango: 30,              // 7 | 30 | 90 | 365
     hoy: null,              // datos del día en curso
+    corazonHoy: [],         // puntos intradía de BPM de hoy
     dias: [],               // histórico saneado del rango activo
     cache: {}               // rango -> { ts, dias }
 };
@@ -159,6 +162,7 @@ export function crearGoogleFitProvider() {
     provider.addScope("https://www.googleapis.com/auth/fitness.activity.read");
     provider.addScope("https://www.googleapis.com/auth/fitness.body.read");
     provider.addScope("https://www.googleapis.com/auth/fitness.sleep.read");
+    provider.addScope("https://www.googleapis.com/auth/fitness.heart_rate.read");
     provider.setCustomParameters({ prompt: "select_account" });
     return provider;
 }
@@ -343,6 +347,15 @@ function cuerpoSueno(inicio, fin, bucketMs) {
     };
 }
 
+function cuerpoRitmoCardiaco(inicio, fin, bucketMs) {
+    return {
+        aggregateBy: [{ dataTypeName: "com.google.heart_rate.bpm" }],
+        bucketByTime: { durationMillis: Math.max(1, Math.round(bucketMs)) },
+        startTimeMillis: inicio,
+        endTimeMillis: fin
+    };
+}
+
 /** El sueño requiere el scope fitness.sleep.read; un 403 no debe tumbar el resto de métricas */
 async function consultarSuenoTolerante(token, cuerpo) {
     try {
@@ -358,6 +371,17 @@ async function consultarSuenoTolerante(token, cuerpo) {
     }
 }
 
+/** Frecuencia cardíaca tolerante ante falta de permisos o sensores */
+async function consultarCorazonTolerante(token, cuerpo) {
+    try {
+        return await consultarAggregate(token, cuerpo);
+    } catch (e) {
+        if (e.status === 401) throw e;
+        console.warn("Frecuencia cardíaca no disponible:", e.message);
+        return { bucket: [] };
+    }
+}
+
 /** Convierte la respuesta aggregate en un acumulador por día natural local */
 function acumularBuckets(mapa, data) {
     if (!data || !Array.isArray(data.bucket)) return;
@@ -366,9 +390,10 @@ function acumularBuckets(mapa, data) {
         const inicioMs = Number(bucket.startTimeMillis);
         const clave = claveDia(inicioMs + 6 * 3600 * 1000); // robusto ante cambios de hora (DST)
         if (!mapa.has(clave)) {
-            mapa.set(clave, { clave, ms: inicioMs, pasos: 0, calorias: 0, pesos: [], suenoMs: 0, cardio: {} });
+            mapa.set(clave, { clave, ms: inicioMs, pasos: 0, calorias: 0, pesos: [], suenoMs: 0, cardio: {}, bpms: [] });
         }
         const dia = mapa.get(clave);
+        if (!dia.bpms) dia.bpms = [];
 
         for (const dataset of (bucket.dataset || [])) {
             const dataId = (dataset.dataSourceId || "").toLowerCase();
@@ -397,6 +422,11 @@ function acumularBuckets(mapa, data) {
                     if (ACTIVIDADES_CARDIO[tipo]) {
                         const ms = Number(valores[1]?.intVal) || duracionPuntoMs(punto);
                         dia.cardio[tipo] = (dia.cardio[tipo] || 0) + ms;
+                    }
+                } else if (tipoDato.includes("heart_rate") || tipoDato.includes("bpm")) {
+                    const val = valores[0]?.fpVal ?? valores[0]?.intVal;
+                    if (typeof val === "number" && val >= 30 && val <= 240) {
+                        dia.bpms.push(val);
                     }
                 }
             }
@@ -445,6 +475,9 @@ function construirDias(mapa, diasRango) {
         const clave = claveDia(d.getTime());
         const acc = mapa.get(clave);
 
+        const validosBpm = (acc ? acc.bpms || [] : []).filter(b => typeof b === "number" && b >= 30 && b <= 240);
+        const bpmDia = validosBpm.length > 0 ? Math.round(validosBpm.reduce((a, b) => a + b, 0) / validosBpm.length) : null;
+
         lista.push({
             clave,
             ms: d.getTime(),
@@ -452,7 +485,8 @@ function construirDias(mapa, diasRango) {
             sueno: acc && acc.suenoMs > 0 ? parseFloat(Math.min(16, acc.suenoMs / 3600000).toFixed(1)) : null,
             cardio: acc ? acc.cardio : {},
             _pesosRaw: acc ? acc.pesos : [],
-            peso: null
+            peso: null,
+            bpm: bpmDia
         });
     }
 
@@ -476,14 +510,46 @@ function trocearRango(inicioMs, finMs) {
 // ==========================================
 // DATOS DE HOY (00:00 LOCAL) Y HISTÓRICO
 // ==========================================
+/** Consulta intradía detallada para el día en curso en intervalos de 15 a 30 minutos */
+async function obtenerCorazonHoy(token) {
+    const ahora = Date.now();
+    const medianoche = inicioDelDia(); // 00:00:00 local
+    const cuerpo = cuerpoRitmoCardiaco(medianoche, ahora, INTERVALO_CORAZON_HOY_MS);
+    const data = await consultarCorazonTolerante(token, cuerpo);
+
+    const puntos = [];
+    if (data && Array.isArray(data.bucket)) {
+        for (const bucket of data.bucket) {
+            const inicioMs = Number(bucket.startTimeMillis);
+            const validos = [];
+            for (const dataset of (bucket.dataset || [])) {
+                for (const punto of (dataset.point || [])) {
+                    const vals = punto.value || [];
+                    const v = vals[0]?.fpVal ?? vals[0]?.intVal;
+                    // Filtrado estricto: descartar 0 o nulos y anomalías
+                    if (typeof v === "number" && v > 0 && v >= 30 && v <= 240) {
+                        validos.push(v);
+                    }
+                }
+            }
+            puntos.push({
+                ms: inicioMs,
+                bpm: validos.length > 0 ? Math.round(validos.reduce((a, b) => a + b, 0) / validos.length) : null
+            });
+        }
+    }
+    return puntos;
+}
+
 async function obtenerDatosHoy(token) {
     const ahora = Date.now();
     const medianoche = inicioDelDia(); // startTimeMillis = 00:00:00 local del día en curso
     const nocheAnterior = medianoche - 6 * 3600 * 1000; // sueño de la última noche (desde las 18:00 de ayer)
 
-    const [datosActividad, datosSueno] = await Promise.all([
+    const [datosActividad, datosSueno, puntosCorazon] = await Promise.all([
         consultarAggregate(token, cuerpoActividad(medianoche, ahora, ahora - medianoche)),
-        consultarSuenoTolerante(token, cuerpoSueno(nocheAnterior, ahora, ahora - nocheAnterior))
+        consultarSuenoTolerante(token, cuerpoSueno(nocheAnterior, ahora, ahora - nocheAnterior)),
+        obtenerCorazonHoy(token)
     ]);
 
     const mapaAct = new Map();
@@ -503,12 +569,21 @@ async function obtenerDatosHoy(token) {
 
     const pesosValidos = pesos.filter(p => p >= 40 && p <= 250);
 
+    const bpmsValidos = puntosCorazon.map(p => p.bpm).filter(b => b !== null && b > 0);
+    const bpmAvg = bpmsValidos.length ? Math.round(bpmsValidos.reduce((a, b) => a + b, 0) / bpmsValidos.length) : null;
+    const bpmUltimo = bpmsValidos.length ? bpmsValidos[bpmsValidos.length - 1] : null;
+
+    estado.corazonHoy = puntosCorazon;
+
     return {
         pasos,
         calorias: Math.round(calorias),
         cardioMin: Math.round(cardioMs / 60000),
         suenoHoras: suenoMs > 0 ? parseFloat(Math.min(16, suenoMs / 3600000).toFixed(1)) : null,
-        peso: pesosValidos.length ? parseFloat((pesosValidos.reduce((a, b) => a + b, 0) / pesosValidos.length).toFixed(1)) : null
+        peso: pesosValidos.length ? parseFloat((pesosValidos.reduce((a, b) => a + b, 0) / pesosValidos.length).toFixed(1)) : null,
+        bpmAvg,
+        bpmUltimo,
+        puntosCorazon
     };
 }
 
@@ -526,17 +601,19 @@ async function cargarHistorial(token, rango, forzar = false) {
 
     const tramos = trocearRango(inicio.getTime(), fin);
     const respuestas = await Promise.all(tramos.map(async ([s, e]) => {
-        const [act, sue] = await Promise.all([
+        const [act, sue, cor] = await Promise.all([
             consultarAggregate(token, cuerpoActividad(s, e, DIA_MS)),
-            consultarSuenoTolerante(token, cuerpoSueno(s, e, DIA_MS))
+            consultarSuenoTolerante(token, cuerpoSueno(s, e, DIA_MS)),
+            consultarCorazonTolerante(token, cuerpoRitmoCardiaco(s, e, DIA_MS))
         ]);
-        return [act, sue];
+        return [act, sue, cor];
     }));
 
     const mapa = new Map();
-    respuestas.forEach(([act, sue]) => {
+    respuestas.forEach(([act, sue, cor]) => {
         acumularBuckets(mapa, act);
         acumularBuckets(mapa, sue);
+        acumularBuckets(mapa, cor);
     });
 
     const dias = construirDias(mapa, rango);
@@ -565,6 +642,10 @@ export function fetchFitData(token = null, opciones = {}) {
 
             estado.hoy = await obtenerDatosHoy(token);
             await renderizarHoy(estado.hoy);
+
+            if (document.getElementById("chartCorazonHoy")) {
+                await renderizarCorazonHoy(estado.corazonHoy);
+            }
 
             if (document.getElementById("chartMain")) {
                 await cargarHistorial(token, estado.rango, Boolean(opciones.forzar));
@@ -631,6 +712,8 @@ export function exportarContextoIA() {
         caloriasHoy: hoy.calorias,
         suenoHoras: hoy.suenoHoras,
         cardioMinutosHoy: hoy.cardioMin,
+        bpmAvgHoy: hoy.bpmAvg || null,
+        bpmUltimoHoy: hoy.bpmUltimo || null,
         fatigaEstimada: estimarFatiga(hoy.suenoHoras, hoy.pasos, hoy.cardioMin),
         tendenciaPeso: tendencia,
         actualizado: new Date().toISOString()
@@ -713,12 +796,125 @@ function renderizarAnillo(canvasId, valor, meta, idValor, idPct, ref) {
 }
 
 // ==========================================
-// RENDER: GRÁFICA PRINCIPAL (PESO / SUEÑO / PASOS)
+// RENDER: GRÁFICA INTRADÍA (FRECUENCIA CARDÍACA HOY)
+// ==========================================
+async function renderizarCorazonHoy(puntos = []) {
+    const canvas = document.getElementById("chartCorazonHoy");
+    if (!canvas || !canvas.isConnected) return;
+    await asegurarChartJS();
+    if (!canvas.isConnected) return;
+
+    const labels = (puntos || []).map(p => new Date(p.ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }));
+    // Filtrado estricto de ceros: valores nulos o <= 0 se descartan y se pasan como null a Chart.js con spanGaps: true
+    const valores = (puntos || []).map(p => (typeof p.bpm === "number" && p.bpm > 0) ? p.bpm : null);
+    const reales = valores.filter(v => v !== null && v > 0);
+
+    const badge = document.getElementById("heartRateActualBadge");
+    if (reales.length) {
+        const ultimo = reales[reales.length - 1];
+        const min = Math.min(...reales);
+        const max = Math.max(...reales);
+        const avg = Math.round(reales.reduce((a, b) => a + b, 0) / reales.length);
+
+        setTexto("heartRateActualBadge", `${ultimo} BPM`);
+        setTexto("heartRateStatMin", `${min} BPM`);
+        setTexto("heartRateStatAvg", `${avg} BPM`);
+        setTexto("heartRateStatMax", `${max} BPM`);
+        if (badge) badge.classList.add("pulsing");
+    } else {
+        setTexto("heartRateActualBadge", "-- BPM");
+        ["heartRateStatMin", "heartRateStatAvg", "heartRateStatMax"].forEach(id => setTexto(id, "--"));
+        if (badge) badge.classList.remove("pulsing");
+    }
+
+    if (chartCorazonHoyInstance) {
+        chartCorazonHoyInstance.destroy();
+        chartCorazonHoyInstance = null;
+    }
+
+    const ctx = canvas.getContext("2d");
+    const altura = canvas.clientHeight || 180;
+    const gradiente = ctx.createLinearGradient(0, 0, 0, altura);
+    gradiente.addColorStop(0, "rgba(239, 68, 68, 0.42)");
+    gradiente.addColorStop(0.65, "rgba(239, 68, 68, 0.10)");
+    gradiente.addColorStop(1, "rgba(239, 68, 68, 0)");
+
+    const ejeY = {
+        grid: { display: false },
+        border: { display: false },
+        ticks: { color: "#94a3b8", font: { size: 11 } }
+    };
+    if (reales.length) {
+        ejeY.suggestedMin = Math.max(30, Math.floor(Math.min(...reales) - 5));
+        ejeY.suggestedMax = Math.min(220, Math.ceil(Math.max(...reales) + 5));
+        ejeY.beginAtZero = false;
+    } else {
+        ejeY.suggestedMin = 50;
+        ejeY.suggestedMax = 120;
+        ejeY.beginAtZero = false;
+    }
+
+    chartCorazonHoyInstance = new window.Chart(ctx, {
+        type: "line",
+        data: {
+            labels,
+            datasets: [{
+                label: "Frecuencia Cardíaca",
+                data: valores,
+                borderColor: "#ef4444",
+                borderWidth: 2.5,
+                tension: 0.4,
+                spanGaps: true,
+                fill: true,
+                backgroundColor: gradiente,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                pointHitRadius: 14,
+                pointBackgroundColor: "#ef4444",
+                pointBorderColor: "#ffffff",
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: "rgba(28, 28, 30, 0.96)",
+                    titleColor: "#94a3b8",
+                    bodyColor: "#ef4444",
+                    bodyFont: { weight: "bold", size: 13 },
+                    borderColor: "#334155",
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false,
+                    callbacks: {
+                        label: (c) => c.parsed.y ? `${c.parsed.y} BPM` : "Sin medición"
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: { color: "#94a3b8", font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }
+                },
+                y: ejeY
+            }
+        }
+    });
+}
+
+// ==========================================
+// RENDER: GRÁFICA PRINCIPAL (PESO / SUEÑO / PASOS / PULSACIONES)
 // ==========================================
 const CONFIG_METRICAS = {
-    peso:  { titulo: "Evolución de Peso", unidad: "kg",    decimales: 1, campo: "peso" },
-    sueno: { titulo: "Horas de Sueño",    unidad: "h",     decimales: 1, campo: "sueno" },
-    pasos: { titulo: "Pasos Diarios",     unidad: "pasos", decimales: 0, campo: "pasos" }
+    peso:  { titulo: "Evolución de Peso",        unidad: "kg",    decimales: 1, campo: "peso" },
+    sueno: { titulo: "Horas de Sueño",           unidad: "h",     decimales: 1, campo: "sueno" },
+    pasos: { titulo: "Pasos Diarios",            unidad: "pasos", decimales: 0, campo: "pasos" },
+    bpm:   { titulo: "Frecuencia Cardíaca Media", unidad: "BPM",   decimales: 0, campo: "bpm" }
 };
 
 function formatearValor(v, cfg) {
@@ -733,14 +929,22 @@ async function renderizarGraficaPrincipal() {
     await asegurarChartJS();
     if (!canvas.isConnected) return;
 
-    const cfg = CONFIG_METRICAS[estado.metrica];
+    const cfg = CONFIG_METRICAS[estado.metrica] || CONFIG_METRICAS.peso;
     const dias = estado.dias;
     const labels = dias.map(d => etiquetaDia(d.ms));
-    const valores = dias.map(d => d[cfg.campo]); // null = hueco (spanGaps lo ignora)
-    const reales = valores.filter(v => v !== null);
+    // Filtrado estricto de ceros: valores nulos o <= 0 se descartan para que spanGaps: true no haga caídas a 0
+    const valores = dias.map(d => (typeof d[cfg.campo] === "number" && d[cfg.campo] > 0) ? d[cfg.campo] : null);
+    const reales = valores.filter(v => v !== null && v > 0);
+
+    const esBpm = estado.metrica === "bpm";
+    const colorPrimario = esBpm ? "#ef4444" : "#38bdf8";
 
     setTexto("chartMainTitle", cfg.titulo);
-    setTexto("chartPesoActualBadge", reales.length ? formatearValor(reales[reales.length - 1], cfg) : "--");
+    const badge = document.getElementById("chartPesoActualBadge");
+    if (badge) {
+        badge.textContent = reales.length ? formatearValor(reales[reales.length - 1], cfg) : "--";
+        badge.classList.toggle("badge-bpm", esBpm);
+    }
 
     if (reales.length) {
         const min = Math.min(...reales);
@@ -758,9 +962,15 @@ async function renderizarGraficaPrincipal() {
     const ctx = canvas.getContext("2d");
     const altura = canvas.clientHeight || 190;
     const gradiente = ctx.createLinearGradient(0, 0, 0, altura);
-    gradiente.addColorStop(0, "rgba(56, 189, 248, 0.42)");
-    gradiente.addColorStop(0.65, "rgba(56, 189, 248, 0.10)");
-    gradiente.addColorStop(1, "rgba(56, 189, 248, 0)");
+    if (esBpm) {
+        gradiente.addColorStop(0, "rgba(239, 68, 68, 0.42)");
+        gradiente.addColorStop(0.65, "rgba(239, 68, 68, 0.10)");
+        gradiente.addColorStop(1, "rgba(239, 68, 68, 0)");
+    } else {
+        gradiente.addColorStop(0, "rgba(56, 189, 248, 0.42)");
+        gradiente.addColorStop(0.65, "rgba(56, 189, 248, 0.10)");
+        gradiente.addColorStop(1, "rgba(56, 189, 248, 0)");
+    }
 
     const ejeY = {
         grid: { display: false },
@@ -770,6 +980,11 @@ async function renderizarGraficaPrincipal() {
     if (estado.metrica === "peso" && reales.length) {
         ejeY.suggestedMin = Math.floor(Math.min(...reales) - 1);
         ejeY.suggestedMax = Math.ceil(Math.max(...reales) + 1);
+        ejeY.beginAtZero = false;
+    } else if (esBpm && reales.length) {
+        ejeY.suggestedMin = Math.max(30, Math.floor(Math.min(...reales) - 5));
+        ejeY.suggestedMax = Math.min(220, Math.ceil(Math.max(...reales) + 5));
+        ejeY.beginAtZero = false;
     } else {
         ejeY.beginAtZero = true;
     }
@@ -781,7 +996,7 @@ async function renderizarGraficaPrincipal() {
             datasets: [{
                 label: cfg.titulo,
                 data: valores,
-                borderColor: "#38bdf8",
+                borderColor: colorPrimario,
                 borderWidth: 2.5,
                 tension: 0.4,
                 spanGaps: true,
@@ -790,7 +1005,7 @@ async function renderizarGraficaPrincipal() {
                 pointRadius: 0,
                 pointHoverRadius: 6,
                 pointHitRadius: 14,
-                pointBackgroundColor: "#38bdf8",
+                pointBackgroundColor: colorPrimario,
                 pointBorderColor: "#ffffff",
                 pointBorderWidth: 2
             }]
@@ -804,7 +1019,7 @@ async function renderizarGraficaPrincipal() {
                 tooltip: {
                     backgroundColor: "rgba(28, 28, 30, 0.96)",
                     titleColor: "#94a3b8",
-                    bodyColor: "#38bdf8",
+                    bodyColor: colorPrimario,
                     bodyFont: { weight: "bold", size: 13 },
                     borderColor: "#334155",
                     borderWidth: 1,
@@ -836,8 +1051,14 @@ async function renderizarGraficaPrincipal() {
 
 async function renderizarEstadoDesconectadoUI() {
     estado.dias = [];
+    estado.corazonHoy = [];
     setTexto("chartPesoActualBadge", "--");
-    ["weightStatMin", "weightStatAvg", "weightStatMax", "resumenSueno", "resumenCardio", "resumenFatiga"].forEach(id => setTexto(id, "--"));
+    setTexto("heartRateActualBadge", "-- BPM");
+    ["weightStatMin", "weightStatAvg", "weightStatMax", "heartRateStatMin", "heartRateStatAvg", "heartRateStatMax", "resumenSueno", "resumenCardio", "resumenFatiga"].forEach(id => setTexto(id, "--"));
+
+    if (document.getElementById("chartCorazonHoy")) {
+        await renderizarCorazonHoy([]);
+    }
 
     if (document.getElementById("chartPasosRing")) {
         try {
@@ -1026,9 +1247,10 @@ export function cleanupSalud() {
     if (typeof unsubscribeFirestore === "function") { unsubscribeFirestore(); unsubscribeFirestore = null; }
     if (typeof unsubscribeAuth === "function") { unsubscribeAuth(); unsubscribeAuth = null; }
 
-    [chartPasosInstance, chartCaloriasInstance, chartMainInstance].forEach(c => { if (c) c.destroy(); });
+    [chartPasosInstance, chartCaloriasInstance, chartCorazonHoyInstance, chartMainInstance].forEach(c => { if (c) c.destroy(); });
     chartPasosInstance = null;
     chartCaloriasInstance = null;
+    chartCorazonHoyInstance = null;
     chartMainInstance = null;
 
     document.removeEventListener("keydown", handleEscapeKey);

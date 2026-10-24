@@ -122,7 +122,40 @@
     </div>
 
     <!-- ========================================================
-         GRÁFICA PRINCIPAL (Peso / Sueño / Pasos) · Zoom + Pan
+         GRÁFICA INTRADÍA: FRECUENCIA CARDÍACA (HOY)
+         ======================================================== -->
+    <div class="heart-rate-card card-carbon" id="card-corazon-hoy">
+        <div class="heart-rate-header">
+            <div class="heart-rate-meta">
+                <span class="heart-rate-tag">RITMO CARDÍACO · INTRADÍA</span>
+                <h3 class="biometric-title">Frecuencia Cardíaca (Hoy)</h3>
+            </div>
+            <span id="heartRateActualBadge" class="heart-rate-badge">-- BPM</span>
+        </div>
+
+        <div class="heart-rate-chart-container">
+            <canvas id="chartCorazonHoy"></canvas>
+        </div>
+        <span class="chart-hint" id="hintCorazonHoy">Cronología del día actual (intervalos 15 min) · Filtrado estricto de ceros</span>
+
+        <div class="heart-rate-stats-summary">
+            <div class="weight-stat-item">
+                <span class="weight-stat-lbl">Mínimo</span>
+                <span id="heartRateStatMin" class="weight-stat-val">--</span>
+            </div>
+            <div class="weight-stat-item">
+                <span class="weight-stat-lbl">Promedio</span>
+                <span id="heartRateStatAvg" class="weight-stat-val">--</span>
+            </div>
+            <div class="weight-stat-item">
+                <span class="weight-stat-lbl">Máximo</span>
+                <span id="heartRateStatMax" class="weight-stat-val">--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         GRÁFICA PRINCIPAL (Peso / Sueño / Pasos / Pulsaciones) · Zoom + Pan
          ======================================================== -->
     <div class="weight-trend-card card-carbon" id="card-grafica-principal">
         <div class="weight-trend-header">
@@ -147,6 +180,7 @@
             <button type="button" class="segment-btn active" data-metric="peso" role="tab">Peso</button>
             <button type="button" class="segment-btn" data-metric="sueno" role="tab">Sueño</button>
             <button type="button" class="segment-btn" data-metric="pasos" role="tab">Pasos</button>
+            <button type="button" class="segment-btn" data-metric="bpm" role="tab">Pulsaciones</button>
         </div>
 
         <div class="weight-chart-container">
