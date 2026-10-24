@@ -25,6 +25,13 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
   - Botón `✕ Abandonar` centrado inmediatamente debajo del título con separación vertical adecuada (`gap: 12px`).
 - **Scroll Horizontal en Pestañas Móviles:** Las barras de pestañas y selectores de rutinas usan `overflow-x: auto` con barra de scroll oculta para garantizar que no se apilen ni deformen en pantallas estrechas.
 - **Bloqueo Estricto en Pausa:** Con el cronómetro pausado, todos los checkboxes e inputs de series se deshabilitan visual y funcionalmente (`not-allowed`, menor opacidad) con banner de aviso para evitar registros accidentales.
+- **Directiva de UI Permanente para el Catálogo de Ejercicios (Anatomía 3D Premium Innegociable):**
+  A partir de ahora y para cualquier futura inyección de datos, el formato de las imágenes de los ejercicios es innegociable. Todas las nuevas imágenes deben seguir estrictamente el patrón "Anatomía 3D Premium":
+  - **Modelos del cuerpo:** Modelos anatómicos tridimensionales realistas en escala de grises y plata de alto contraste, mostrando musculatura superficial con volumen, relieve y sombras.
+  - **Fondo:** Fondo oscuro liso (estilo `#1c1c1e`), sin cuadrículas, círculos, rayas ni gráficos auxiliares.
+  - **Activación muscular:** Musculatura diana resaltada exclusivamente en colores rojo/naranja intensos y brillantes con estriaciones de fibra visibles.
+  - **Prohibición estricta:** Queda terminantemente prohibido el uso de esquemas vectoriales, esqueletos de líneas, puntos de articulación o diseños en neón azul para la representación muscular.
+  - **Criterio de Fallback:** Si un ejercicio no tiene la imagen con este estándar exacto, se usará un placeholder oscuro hasta que se proporcione el recurso 3D correcto.
 
 ## 3. USABILIDAD PREMIUM (UX) Y ESTADOS PERSISTENTES
 - **Cero bloqueos visuales:** Transiciones suaves entre vistas, sin recargas de página.
