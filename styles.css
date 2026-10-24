@@ -6864,6 +6864,33 @@ body.modal-open {
     color: #64748b;
 }
 
+/* Efecto Máquina de Escribir y Streaming */
+.typewriter-cursor {
+    display: inline-block;
+    color: #38bdf8;
+    margin-left: 2px;
+    font-weight: 900;
+    font-size: 0.95em;
+    animation: cursorBlink 0.8s ease-in-out infinite;
+    vertical-align: middle;
+}
+
+@keyframes cursorBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.stream-cursor-indicator {
+    font-size: 0.65rem;
+    color: #38bdf8;
+    animation: streamPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes streamPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.15); }
+}
+
 /* Indicador de Escritura */
 .coach-typing-wrap {
     display: flex;

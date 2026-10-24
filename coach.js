@@ -366,13 +366,102 @@ export async function consolidarContextoUsuario() {
 }
 
 // ========================================================
-// 2. PROMPT DEL SISTEMA & LLAMADA A GEMINI API
+// 2. COMPILADOR DE CONTEXTO BIOMÉTRICO & LLAMADA GEMINI STREAMING
 // ========================================================
 
 /**
- * Genera el System Prompt de alta precisión inyectando la memoria y datos del usuario
+ * Compilador de Contexto Biométrico (Payload):
+ * Extrae en tiempo real de localStorage y del estado global un JSON minificado
+ * con los datos clave: peso actual, horas de sueño de anoche, últimos RPE y última rutina registrada.
  */
-function construirSystemPrompt(contexto) {
+export function buildCoachContext() {
+    let pesoActual = null;
+    let suenoAnoche = null;
+    let pasosHoy = null;
+    let bpmActual = null;
+    let fatigaEstimada = null;
+
+    // 1. Datos biométricos de salud (de health_context_ai o estado global de salud)
+    try {
+        const rawHealth = localStorage.getItem("health_context_ai");
+        if (rawHealth) {
+            const h = JSON.parse(rawHealth);
+            pesoActual = h.tendenciaPeso ?? h.pesoActual ?? null;
+            suenoAnoche = h.suenoHoras ?? null;
+            pasosHoy = h.pasosHoy ?? null;
+            bpmActual = h.bpmUltimoHoy ?? h.bpmAvgHoy ?? null;
+            fatigaEstimada = h.fatigaEstimada ?? null;
+        }
+    } catch (_) {}
+
+    // Fallback reactivo a la instancia global de salud si está activa
+    if (window.salud?.estado?.hoy) {
+        const shoy = window.salud.estado.hoy;
+        if (typeof shoy.peso === "number") pesoActual = shoy.peso;
+        if (typeof shoy.suenoHoras === "number") suenoAnoche = shoy.suenoHoras;
+        if (typeof shoy.pasos === "number") pasosHoy = shoy.pasos;
+        if (typeof shoy.bpmUltimo === "number" || typeof shoy.bpmAvg === "number") {
+            bpmActual = shoy.bpmUltimo || shoy.bpmAvg;
+        }
+    }
+
+    // 2. Últimos RPE del Diario
+    const entradasDiario = obtenerEntradasBitacora() || [];
+    const entrenos = entradasDiario.filter(e => e.categoria === "post-entreno");
+
+    const ultimosRpe = entrenos
+        .filter(e => typeof e.rpe === "number" && !isNaN(e.rpe))
+        .slice(0, 5)
+        .map(e => ({
+            rpe: e.rpe,
+            fecha: e.fechaFormato || (e.fecha ? new Date(e.fecha).toLocaleDateString("es-ES") : "Reciente"),
+            rutina: e.rutinaRelacionada || "Entreno"
+        }));
+
+    const rpeMedio = ultimosRpe.length > 0
+        ? parseFloat((ultimosRpe.reduce((acc, cur) => acc + cur.rpe, 0) / ultimosRpe.length).toFixed(1))
+        : null;
+
+    // 3. Última rutina registrada
+    let ultimaRutina = null;
+    if (entrenos.length > 0) {
+        const u = entrenos[0];
+        ultimaRutina = {
+            nombre: u.rutinaRelacionada || "Sesión General",
+            fecha: u.fechaFormato || (u.fecha ? new Date(u.fecha).toLocaleDateString("es-ES") : "Reciente"),
+            rpe: u.rpe ?? null,
+            series: u.metricas?.seriesCompletadas ?? null,
+            duracion: u.metricas?.duracionFormato ?? null,
+            sensaciones: u.texto ? u.texto.slice(0, 100) : ""
+        };
+    }
+
+    // 4. Sesión activa en vivo si está en marcha
+    const sesionViva = obtenerSesionActiva();
+    const sesionActiva = sesionViva ? {
+        nombre: sesionViva.nombre,
+        hora_inicio: new Date(sesionViva.inicioTimestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    } : null;
+
+    const payload = {
+        peso_actual_kg: pesoActual,
+        sueno_anoche_h: suenoAnoche,
+        ultimos_rpe: ultimosRpe,
+        rpe_medio: rpeMedio,
+        ultima_rutina: ultimaRutina,
+        sesion_activa: sesionActiva,
+        pasos_hoy: pasosHoy,
+        bpm_actual: bpmActual,
+        fatiga_estimada: fatigaEstimada
+    };
+
+    return JSON.stringify(payload);
+}
+
+/**
+ * Genera el System Prompt de alta precisión inyectando la memoria y el JSON biométrico minificado
+ */
+function construirSystemPrompt(contexto, biometricJson) {
     return `Eres un entrenador personal de élite, experto en biomecánica, programación del entrenamiento y recuperación. Eres directo, motivador pero riguroso, y utilizas un lenguaje técnico pero accesible. Basa tus recomendaciones estrictamente en los datos históricos del usuario.
 
 === CONTEXTO DEL USUARIO (MEMORIA PERSISTENTE FIRESTORE) ===
@@ -383,15 +472,8 @@ function construirSystemPrompt(contexto) {
 • Resumen Histórico: ${contexto.memoria.resumenProgreso}
 • Notas Previas del Coach: ${contexto.memoria.notasCoach}
 
-=== DATOS Y REGISTROS RECIENTES ===
-• RPE Medio Histórico: ${contexto.rpeMedio}/10
-• Último Peso Registrado: ${contexto.ultimoPeso}
-• Sesión Actual en Curso: ${contexto.sesionActivaEnCurso}
-• Últimos Entrenamientos Registrados:
-${contexto.resumenEntrenos}
-
-• Alertas o Molestias en Diario:
-${contexto.resumenMolestias}
+=== CONTEXTO BIOMÉTRICO EN TIEMPO REAL (JSON MINIFICADO) ===
+${biometricJson}
 
 === REGLAS DE RESPUESTA ===
 1. Responde con criterio científico: hipertrofia con tensión mecánica y rango completo, sobrecarga progresiva (+kg o +reps) y control del esfuerzo (RIR 1-2 / RPE 8-9).
@@ -410,37 +492,16 @@ ${contexto.resumenMolestias}
 }
 
 /**
- * Envía la consulta a la API de Google Gemini (v1beta con gemini-3.8-flash)
+ * Consulta a la API de Google Gemini mediante Streaming SSE (streamGenerateContent)
  */
-async function consultarGemini(mensajeUsuario) {
+async function consultarGeminiStream(contents, systemInstruction, onChunk) {
     const apiKey = await obtenerApiKeyLocal();
     if (!apiKey) {
         abrirModalKey();
         throw new Error("Por favor introduce tu API Key de Gemini en la bóveda de configuración para activar el Coach.");
     }
 
-    const contexto = await consolidarContextoUsuario();
-    const systemInstruction = construirSystemPrompt(contexto);
-
-    // Formatear mensajes previos para contexto multi-turno
-    const contents = [];
-
-    // Añadir historial reciente (últimos 8 mensajes)
-    const turnosPrevios = state.historialConversacion.slice(-8);
-    turnosPrevios.forEach(msg => {
-        contents.push({
-            role: msg.rol === "user" ? "user" : "model",
-            parts: [{ text: msg.texto }]
-        });
-    });
-
-    // Añadir el mensaje actual del usuario
-    contents.push({
-        role: "user",
-        parts: [{ text: mensajeUsuario }]
-    });
-
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
     const payload = {
         system_instruction: {
@@ -453,7 +514,7 @@ async function consultarGemini(mensajeUsuario) {
         }
     };
 
-    let response = await fetch(endpoint, {
+    const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -465,14 +526,81 @@ async function consultarGemini(mensajeUsuario) {
         throw new Error(`Error en API Gemini (${GEMINI_MODEL}): ${mensajeError}`);
     }
 
-    const data = await response.json();
-    const respuestaTexto = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!response.body) {
+        throw new Error("El navegador no soporta streaming en fetch.");
+    }
 
-    if (!respuestaTexto) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+    let textoCompleto = "";
+
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith(":")) continue;
+            if (trimmed.startsWith("data:")) {
+                const dataPayload = trimmed.slice(5).trim();
+                if (dataPayload === "[DONE]") continue;
+                try {
+                    const parsed = JSON.parse(dataPayload);
+                    const chunkText = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (chunkText) {
+                        textoCompleto += chunkText;
+                        if (typeof onChunk === "function") {
+                            onChunk(textoCompleto, chunkText);
+                        }
+                    }
+                } catch (_) {}
+            }
+        }
+    }
+
+    if (buffer.trim().startsWith("data:")) {
+        try {
+            const parsed = JSON.parse(buffer.trim().slice(5).trim());
+            const chunkText = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (chunkText) {
+                textoCompleto += chunkText;
+                if (typeof onChunk === "function") {
+                    onChunk(textoCompleto, chunkText);
+                }
+            }
+        } catch (_) {}
+    }
+
+    if (!textoCompleto.trim()) {
         throw new Error("La API de Gemini devolvió una respuesta vacía.");
     }
 
-    return respuestaTexto;
+    return textoCompleto;
+}
+
+/**
+ * Método de compatibilidad directa (no streaming o fallback)
+ */
+async function consultarGemini(mensajeUsuario) {
+    const biometricJson = buildCoachContext();
+    const contexto = await consolidarContextoUsuario();
+    const systemInstruction = construirSystemPrompt(contexto, biometricJson);
+
+    const contents = state.historialConversacion.slice(-6).map(msg => ({
+        role: msg.role === "user" ? "user" : "model",
+        parts: [{ text: msg.text }]
+    }));
+    contents.push({
+        role: "user",
+        parts: [{ text: mensajeUsuario }]
+    });
+
+    return consultarGeminiStream(contents, systemInstruction);
 }
 
 // ========================================================
@@ -872,7 +1000,7 @@ export function renderizarGraficaCoach(tipo = "rpe") {
 /**
  * Añade una burbuja al contenedor de mensajes
  */
-function agregarMensajeAlChat(rol, texto, fecha = new Date()) {
+function agregarMensajeAlChat(rol, texto, fecha = new Date(), guardarEnHistorial = false) {
     const contenedor = document.getElementById("coach-chat-messages");
     if (!contenedor) return;
 
@@ -926,8 +1054,12 @@ function agregarMensajeAlChat(rol, texto, fecha = new Date()) {
     contenedor.appendChild(msgEl);
     contenedor.scrollTop = contenedor.scrollHeight;
 
-    // Persistir en memoria volátil de sesión
-    state.historialConversacion.push({ rol, texto, fecha: fecha.toISOString() });
+    if (guardarEnHistorial) {
+        state.historialConversacion.push({ role: rol === "user" ? "user" : "model", text: texto });
+        if (state.historialConversacion.length > 6) {
+            state.historialConversacion = state.historialConversacion.slice(-6);
+        }
+    }
 }
 
 function mostrarTyping(mostrar) {
@@ -938,7 +1070,84 @@ function mostrarTyping(mostrar) {
 }
 
 /**
- * Enviar mensaje del usuario a la IA
+ * Crea e inicializa una burbuja de respuesta para el Coach con soporte de renderizado progresivo en streaming
+ */
+function iniciarBurbujaStreaming() {
+    const contenedor = document.getElementById("coach-chat-messages");
+    if (!contenedor) return null;
+
+    const msgEl = document.createElement("div");
+    msgEl.className = "chat-bubble-row row-coach";
+    const horaStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    msgEl.innerHTML = `
+        <div class="chat-avatar-mini">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="#38bdf8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        </div>
+        <div class="chat-bubble bubble-coach is-streaming">
+            <div class="bubble-header-coach">
+                <span class="coach-tag">COACH ÉLITE</span>
+                <span class="stream-cursor-indicator" title="Generando respuesta en tiempo real">●</span>
+            </div>
+            <div class="bubble-content"><p><span class="streaming-text"></span><span class="typewriter-cursor">▋</span></p></div>
+            <span class="bubble-time">${horaStr}</span>
+        </div>
+    `;
+
+    contenedor.appendChild(msgEl);
+    contenedor.scrollTop = contenedor.scrollHeight;
+
+    const contentEl = msgEl.querySelector(".bubble-content");
+    const headerEl = msgEl.querySelector(".bubble-header-coach");
+
+    return {
+        element: msgEl,
+        actualizar(textoParcial) {
+            if (!contentEl) return;
+            let textoLimpio = textoParcial
+                .replace(/```json_memory[\s\S]*?```/g, "")
+                .replace(/\[GRAFICA:[a-z]+\]/g, "")
+                .trim();
+            contentEl.innerHTML = formatearMarkdownSeguro(textoLimpio) + `<span class="typewriter-cursor">▋</span>`;
+            contenedor.scrollTop = contenedor.scrollHeight;
+        },
+        finalizar(textoCompleto) {
+            const bubbleEl = msgEl.querySelector(".bubble-coach");
+            if (bubbleEl) bubbleEl.classList.remove("is-streaming");
+
+            let textoRender = textoCompleto.replace(/```json_memory[\s\S]*?```/g, "").trim();
+            const matchGrafica = textoRender.match(/\[GRAFICA:([a-z]+)\]/);
+            if (matchGrafica) {
+                textoRender = textoRender.replace(/\[GRAFICA:[a-z]+\]/g, "");
+                const tipoG = matchGrafica[1];
+                setTimeout(() => {
+                    alternarVisorGrafica(true);
+                    cambiarTipoGrafica(tipoG);
+                }, 400);
+            }
+
+            if (contentEl) {
+                contentEl.innerHTML = formatearMarkdownSeguro(textoRender);
+            }
+
+            if (headerEl) {
+                headerEl.innerHTML = `
+                    <span class="coach-tag">COACH ÉLITE</span>
+                    <button class="btn-bubble-listen" title="Escuchar este mensaje" onclick="window.coach?.reproducirTexto('${escaparAttr(textoRender)}')">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    </button>
+                `;
+            }
+            contenedor.scrollTop = contenedor.scrollHeight;
+        },
+        eliminar() {
+            msgEl.remove();
+        }
+    };
+}
+
+/**
+ * Enviar mensaje del usuario a la IA con Streaming y memoria de conversación
  */
 export async function enviarMensajeUsuario(textoForzado = null) {
     if (state.enGeneracion) return;
@@ -954,20 +1163,62 @@ export async function enviarMensajeUsuario(textoForzado = null) {
     }
 
     // 1. Añadir mensaje de usuario al chat
-    agregarMensajeAlChat("user", texto);
+    agregarMensajeAlChat("user", texto, new Date(), false);
     mostrarTyping(true);
     state.enGeneracion = true;
 
+    let streamBubble = null;
+
     try {
-        // 2. Consultar a Gemini API con todo el contexto acumulado
-        const respuesta = await consultarGemini(texto);
+        // 2. Compilar contexto biométrico minificado en tiempo real justo antes de enviar el prompt
+        const biometricPayload = buildCoachContext();
+        const contexto = await consolidarContextoUsuario();
+        const systemInstruction = construirSystemPrompt(contexto, biometricPayload);
+
+        // 3. Memoria de conversación: retener los últimos 6 mensajes (3 pares de user/model)
+        const historialReciente = state.historialConversacion.slice(-6);
+        const contents = historialReciente.map(msg => ({
+            role: msg.role === "user" ? "user" : "model",
+            parts: [{ text: msg.text }]
+        }));
+
+        // Añadir el mensaje actual del usuario al payload de contents
+        contents.push({
+            role: "user",
+            parts: [{ text: texto }]
+        });
+
+        // 4. Iniciar streaming con Gemini mediante streamGenerateContent
+        let primerChunk = true;
+        const respuestaCompleta = await consultarGeminiStream(contents, systemInstruction, (acumulado) => {
+            if (primerChunk) {
+                mostrarTyping(false);
+                streamBubble = iniciarBurbujaStreaming();
+                primerChunk = false;
+            }
+            if (streamBubble) {
+                streamBubble.actualizar(acumulado);
+            }
+        });
+
         mostrarTyping(false);
 
-        // 3. Añadir respuesta del Coach
-        agregarMensajeAlChat("coach", respuesta);
+        // 5. Finalizar renderizado progresivo
+        if (streamBubble) {
+            streamBubble.finalizar(respuestaCompleta);
+        } else {
+            agregarMensajeAlChat("coach", respuestaCompleta, new Date(), false);
+        }
 
-        // 4. Si la IA propuso actualización de memoria, extraer y sobrescribir coach_memory en Firestore
-        const matchMemoria = respuesta.match(/```json_memory\s*([\s\S]*?)\s*```/);
+        // 6. Actualizar historial de conversación en el estado (retener últimos 6 mensajes = 3 pares user/model)
+        state.historialConversacion.push({ role: "user", text: texto });
+        state.historialConversacion.push({ role: "model", text: respuestaCompleta });
+        if (state.historialConversacion.length > 6) {
+            state.historialConversacion = state.historialConversacion.slice(-6);
+        }
+
+        // 7. Si la IA propuso actualización de memoria, extraer y sobrescribir coach_memory en Firestore
+        const matchMemoria = respuestaCompleta.match(/```json_memory\s*([\s\S]*?)\s*```/);
         if (matchMemoria && matchMemoria[1]) {
             try {
                 const jsonMemoria = JSON.parse(matchMemoria[1]);
@@ -981,13 +1232,17 @@ export async function enviarMensajeUsuario(textoForzado = null) {
             }
         }
 
-        // 5. Lectura por voz en altavoz
-        reproducirVozCoach(respuesta);
+        // 8. Lectura por voz en altavoz si está activada
+        reproducirVozCoach(respuestaCompleta);
 
     } catch (err) {
         mostrarTyping(false);
+        if (streamBubble) {
+            streamBubble.eliminar();
+        }
         console.error("Error al procesar mensaje con el Coach:", err);
-        agregarMensajeAlChat("coach", `⚠️ **Incidencia al conectar con el Coach:** ${err.message}`);
+        const mensajeAmigable = `⚠️ **No he podido conectar con el Coach en este momento.**\n\n${err.message || "Por favor, comprueba tu conexión a internet o revisa tu API Key en la configuración."}`;
+        agregarMensajeAlChat("coach", mensajeAmigable, new Date(), false);
     } finally {
         state.enGeneracion = false;
     }
@@ -1218,7 +1473,7 @@ export async function initCoach() {
         }
         saludo += `\nPuedes preguntarme por técnica, sugerencias de descarga, sobrecarga progresiva o pulsar el micrófono para hablarme.`;
 
-        agregarMensajeAlChat("coach", saludo);
+        agregarMensajeAlChat("coach", saludo, new Date(), false);
     }
 
     // 6. Soporte para Enter en textarea
@@ -1302,6 +1557,7 @@ window.coach = {
     alternarGrabacionVoz: alternarGrabacionCoach,
     enviarMensajeUsuario,
     enviarPreguntaRapida,
+    buildCoachContext,
     abrirModalKey,
     cerrarModalKey,
     guardarKey,
