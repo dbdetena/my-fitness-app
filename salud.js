@@ -24,7 +24,7 @@ const META_KCAL = 2000; // calories.expended incluye metabolismo basal (total di
 const DIA_MS = 86400000;
 const INTERVALO_CORAZON_HOY_MS = 15 * 60 * 1000; // 15 minutos (agrupación intradía)
 const CACHE_HISTORIAL_MS = 10 * 60 * 1000;
-const MAX_DIAS_POR_PETICION = 90;
+const MAX_DIAS_POR_PETICION = 85; // Margen de seguridad bajo el límite estricto de 90 días (DST +1h)
 const CLAVE_CONTEXTO_IA = "health_context_ai";
 const CLAVE_SNAPSHOT_SALUD = "health_last_snapshot_v1";
 const CLAVE_AUTO_DISABLED = "fitAutoDisabled";
@@ -59,6 +59,7 @@ let unsubscribeAuth = null;
 let sincronizacionEnCurso = null;
 let autenticacionEnCurso = null;
 let initGeneracionId = 0;
+let rangoRequestId = 0;
 let avisoSuenoMostrado = false;
 
 let chartPasosInstance = null;
@@ -725,11 +726,12 @@ function construirDias(mapa, diasRango) {
 
 function trocearRango(inicioMs, finMs) {
     const tramos = [];
+    const maxDuracionMs = 89 * DIA_MS; // Blindaje estricto (< 90 días incluso con cambio de hora DST +1h)
     let cursor = new Date(inicioMs);
     while (cursor.getTime() < finMs) {
         const sig = new Date(cursor);
         sig.setDate(sig.getDate() + MAX_DIAS_POR_PETICION);
-        const fin = Math.min(sig.getTime(), finMs);
+        const fin = Math.min(sig.getTime(), cursor.getTime() + maxDuracionMs, finMs);
         tramos.push([cursor.getTime(), fin]);
         cursor = new Date(fin);
     }
@@ -829,14 +831,20 @@ async function cargarHistorial(token, rango, forzar = false) {
     const fin = Date.now();
 
     const tramos = trocearRango(inicio.getTime(), fin);
-    const respuestas = await Promise.all(tramos.map(async ([s, e]) => {
-        const [act, sue, cor] = await Promise.all([
-            consultarAggregate(token, cuerpoActividad(s, e, DIA_MS)),
-            consultarSuenoTolerante(token, cuerpoSueno(s, e, DIA_MS)),
-            consultarCorazonTolerante(token, cuerpoRitmoCardiaco(s, e, DIA_MS))
-        ]);
-        return [act, sue, cor];
-    }));
+    // Ejecutar en lotes de 2 tramos para evitar saturar cuota/conexiones en 1A (365 días)
+    const respuestas = [];
+    for (let i = 0; i < tramos.length; i += 2) {
+        const lote = tramos.slice(i, i + 2);
+        const resLote = await Promise.all(lote.map(async ([s, e]) => {
+            const [act, sue, cor] = await Promise.all([
+                consultarAggregate(token, cuerpoActividad(s, e, DIA_MS)),
+                consultarSuenoTolerante(token, cuerpoSueno(s, e, DIA_MS)),
+                consultarCorazonTolerante(token, cuerpoRitmoCardiaco(s, e, DIA_MS))
+            ]);
+            return [act, sue, cor];
+        }));
+        respuestas.push(...resLote);
+    }
 
     const mapa = new Map();
     respuestas.forEach(([act, sue, cor]) => {
@@ -1054,10 +1062,14 @@ async function renderizarCorazonHoy(puntos = []) {
         setTexto("heartRateStatMin", `${min} BPM`);
         setTexto("heartRateStatAvg", `${avg} BPM`);
         setTexto("heartRateStatMax", `${max} BPM`);
+        setTexto("hintCorazonHoy", "Cronología del día actual (intervalos 15 min) · Filtrado estricto de ceros");
         if (badge) badge.classList.add("pulsing");
     } else {
         setTexto("heartRateActualBadge", "-- BPM");
         ["heartRateStatMin", "heartRateStatAvg", "heartRateStatMax"].forEach(id => setTexto(id, "--"));
+        setTexto("hintCorazonHoy", (puntos && puntos.length > 0)
+            ? "Sin lecturas de pulso hoy en Google Fit · Revisa la sincronización del reloj/app"
+            : "Cronología del día actual (intervalos 15 min) · Sin datos disponibles");
         if (badge) badge.classList.remove("pulsing");
     }
 
@@ -1101,7 +1113,7 @@ async function renderizarCorazonHoy(puntos = []) {
                 spanGaps: true,
                 fill: true,
                 backgroundColor: gradiente,
-                pointRadius: 0,
+                pointRadius: (reales.length > 0 && reales.length <= 3) ? 4 : 0,
                 pointHoverRadius: 6,
                 pointHitRadius: 14,
                 pointBackgroundColor: "#ef4444",
@@ -1238,7 +1250,7 @@ async function renderizarGraficaPrincipal() {
                 spanGaps: true,
                 fill: true,
                 backgroundColor: gradiente,
-                pointRadius: 0,
+                pointRadius: (reales.length > 0 && reales.length <= 3) ? 4 : 0,
                 pointHoverRadius: 6,
                 pointHitRadius: 14,
                 pointBackgroundColor: colorPrimario,
@@ -1511,6 +1523,7 @@ function renderizarListaCardio() {
 // CONTROLES: RANGO, MÉTRICA, ZOOM
 // ==========================================
 async function cambiarRango(rango) {
+    const reqId = ++rangoRequestId;
     estado.rango = rango;
     document.querySelectorAll(".range-btn[data-range]").forEach(b => {
         b.classList.toggle("active", Number(b.dataset.range) === rango);
@@ -1529,17 +1542,21 @@ async function cambiarRango(rango) {
         return;
     }
 
+    const badgePrevio = document.getElementById("chartPesoActualBadge")?.textContent || "--";
     try {
         setTexto("chartPesoActualBadge", "...");
         await cargarHistorial(token, rango);
+        if (reqId !== rangoRequestId) return;
         await renderizarGraficaPrincipal();
         renderizarListaCardio();
         guardarSnapshotSalud();
         exportarContextoIA();
     } catch (e) {
+        if (reqId !== rangoRequestId) return;
         if (e.status === 401) {
             manejarTokenExpirado();
         } else {
+            setTexto("chartPesoActualBadge", badgePrevio);
             mostrarFeedbackGoogleFit(`Error al cargar el histórico: ${e.message}`, "#f87171");
         }
     }
