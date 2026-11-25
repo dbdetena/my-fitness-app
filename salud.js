@@ -1100,6 +1100,8 @@ async function renderizarCorazonHoy(puntos = []) {
         ejeY.beginAtZero = false;
     }
 
+    const radioPunto = reales.length > 45 ? 3 : 4;
+
     chartCorazonHoyInstance = new window.Chart(ctx, {
         type: "line",
         data: {
@@ -1108,17 +1110,20 @@ async function renderizarCorazonHoy(puntos = []) {
                 label: "Frecuencia Cardíaca",
                 data: valores,
                 borderColor: "#ef4444",
-                borderWidth: 2.5,
-                tension: 0.4,
+                borderWidth: 2,
+                tension: 0,
                 spanGaps: true,
+                segment: {
+                    borderDash: (ctxSeg) => (ctxSeg.p0.skip || ctxSeg.p1.skip) ? [4, 4] : undefined
+                },
                 fill: true,
                 backgroundColor: gradiente,
-                pointRadius: (reales.length > 0 && reales.length <= 3) ? 4 : 0,
+                pointRadius: radioPunto,
                 pointHoverRadius: 6,
                 pointHitRadius: 14,
                 pointBackgroundColor: "#ef4444",
-                pointBorderColor: "#ffffff",
-                pointBorderWidth: 2
+                pointBorderColor: "#0f172a",
+                pointBorderWidth: 1.5
             }]
         },
         options: {
@@ -1237,6 +1242,8 @@ async function renderizarGraficaPrincipal() {
         ejeY.beginAtZero = true;
     }
 
+    const radioPunto = reales.length > 60 ? 3 : 4;
+
     chartMainInstance = new window.Chart(ctx, {
         type: "line",
         data: {
@@ -1245,17 +1252,20 @@ async function renderizarGraficaPrincipal() {
                 label: cfg.titulo,
                 data: valores,
                 borderColor: colorPrimario,
-                borderWidth: 2.5,
-                tension: 0.4,
+                borderWidth: 2,
+                tension: 0,
                 spanGaps: true,
+                segment: {
+                    borderDash: (ctxSeg) => (ctxSeg.p0.skip || ctxSeg.p1.skip) ? [4, 4] : undefined
+                },
                 fill: true,
                 backgroundColor: gradiente,
-                pointRadius: (reales.length > 0 && reales.length <= 3) ? 4 : 0,
+                pointRadius: radioPunto,
                 pointHoverRadius: 6,
                 pointHitRadius: 14,
                 pointBackgroundColor: colorPrimario,
-                pointBorderColor: "#ffffff",
-                pointBorderWidth: 2
+                pointBorderColor: "#0f172a",
+                pointBorderWidth: 1.5
             }]
         },
         options: {

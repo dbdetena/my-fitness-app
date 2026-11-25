@@ -656,11 +656,12 @@ export function renderizarGraficaCoach(tipo = "rpe") {
                 backgroundColor: "rgba(56, 189, 248, 0.15)",
                 borderWidth: 2.5,
                 fill: true,
-                tension: 0.35,
+                tension: 0,
                 pointBackgroundColor: "#38bdf8",
                 pointBorderColor: "#0f172a",
                 pointBorderWidth: 2,
-                pointRadius: 5
+                pointRadius: 5,
+                pointHoverRadius: 7
             }]
         };
     } else if (tipo === "cargas") {
@@ -673,8 +674,12 @@ export function renderizarGraficaCoach(tipo = "rpe") {
                     borderColor: "#fbbf24",
                     backgroundColor: "rgba(251, 191, 36, 0.1)",
                     borderWidth: 2,
-                    tension: 0.2,
-                    pointBackgroundColor: "#fbbf24"
+                    tension: 0,
+                    pointBackgroundColor: "#fbbf24",
+                    pointBorderColor: "#0f172a",
+                    pointBorderWidth: 1.5,
+                    pointRadius: 4.5,
+                    pointHoverRadius: 6
                 },
                 {
                     label: "Curl Bíceps (kg)",
@@ -682,8 +687,12 @@ export function renderizarGraficaCoach(tipo = "rpe") {
                     borderColor: "#38bdf8",
                     backgroundColor: "rgba(56, 189, 248, 0.1)",
                     borderWidth: 2,
-                    tension: 0.2,
-                    pointBackgroundColor: "#38bdf8"
+                    tension: 0,
+                    pointBackgroundColor: "#38bdf8",
+                    pointBorderColor: "#0f172a",
+                    pointBorderWidth: 1.5,
+                    pointRadius: 4.5,
+                    pointHoverRadius: 6
                 }
             ]
         };
