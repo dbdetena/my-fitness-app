@@ -14,6 +14,12 @@ import {
     signOut,
     onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import {
+    tieneIntervalsConfigurado,
+    obtenerWellnessIntervals,
+    obtenerActividadesIntervals,
+    obtenerStreamCorazonActividad
+} from "./intervals-api.js";
 
 // ==========================================
 // CONSTANTES
@@ -35,7 +41,7 @@ const AUTO_AUTH_COOLDOWN_MS = 60 * 1000; // Evita bucles de redirección/popup
 // Tipos de sueño de Google Fit que cuentan como sueño real (2 sleep, 4 light, 5 deep, 6 REM)
 const TIPOS_SUENO_VALIDOS = [2, 4, 5, 6];
 
-// Actividades de cardio reconocidas (com.google.activity.segment)
+// Actividades de cardio reconocidas (com.google.activity.segment + Intervals.icu)
 const ACTIVIDADES_CARDIO = {
     1: "Ciclismo",
     7: "Caminata",
@@ -45,8 +51,22 @@ const ACTIVIDADES_CARDIO = {
     56: "Carrera (trote)",
     57: "Carrera (arena)",
     58: "Carrera (cinta)",
-    82: "Natación (piscina)"
+    82: "Natación (piscina)",
+    100: "Fuerza / Gimnasio",
+    101: "Entrenamiento"
 };
+
+function mapearTipoActividadIntervals(tipo = "", nombre = "") {
+    const t = String(tipo || "").toLowerCase();
+    if (t.includes("run")) return 8;
+    if (t.includes("ride") || t.includes("cycl") || t.includes("bike")) return 1;
+    if (t.includes("walk")) return 7;
+    if (t.includes("hike")) return 35;
+    if (t.includes("swim")) return 82;
+    if (t.includes("weight") || t.includes("strength")) return 100;
+    if (t.includes("elliptical") || t.includes("row") || t.includes("hiit") || t.includes("cardio") || t.includes("aerobic")) return 9;
+    return nombre ? String(nombre).slice(0, 28) : 101;
+}
 
 // ==========================================
 // ESTADO DEL MÓDULO
@@ -74,7 +94,8 @@ const estado = {
     corazonHoy: [],         // puntos intradía de BPM de hoy
     dias: [],               // histórico saneado del rango activo
     cache: {},              // rango -> { ts, dias }
-    ultimaSincro: null      // timestamp ms de la última sincronización exitosa
+    ultimaSincro: null,     // timestamp ms de la última sincronización exitosa
+    fuenteActiva: null      // "intervals" | "intervals+fit" | "googlefit"
 };
 
 // ==========================================
@@ -135,12 +156,16 @@ function actualizarBarraSyncSalud(modo = "syncing", textoPersonalizado = null) {
     }
 
     const hora = formatearHoraSincro(estado.ultimaSincro);
+    const nombreFuente = estado.fuenteActiva === "intervals+fit"
+        ? "Intervals.icu + Google Fit"
+        : (estado.fuenteActiva === "intervals" || tieneIntervalsConfigurado() ? "Intervals.icu" : "Google Fit");
+
     if (modo === "synced") {
-        textEl.textContent = hora ? `Google Fit sincronizado · ${hora}` : "Google Fit sincronizado";
+        textEl.textContent = hora ? `${nombreFuente} sincronizado · ${hora}` : `${nombreFuente} sincronizado`;
     } else if (modo === "syncing") {
-        textEl.textContent = hora ? `Mostrando datos (${hora}) · Actualizando...` : "Conectando con Google Fit...";
+        textEl.textContent = hora ? `Mostrando datos (${hora}) · Actualizando...` : `Conectando con ${nombreFuente}...`;
     } else {
-        textEl.textContent = hora ? `Última sincro: ${hora} · Toca 🔄 para actualizar` : "Sin sincronizar · Toca 🔄 para conectar";
+        textEl.textContent = hora ? `Última sincro: ${hora} · Toca 🔄 para actualizar` : "Sin sincronizar · Configura en ⚙️ o toca 🔄";
     }
 }
 
@@ -170,6 +195,7 @@ function guardarSnapshotSalud() {
         const snapshot = {
             ts: Date.now(),
             rango: estado.rango,
+            fuenteActiva: estado.fuenteActiva,
             hoy: estado.hoy,
             corazonHoy: estado.corazonHoy || [],
             cache: cachePersistir
@@ -191,6 +217,7 @@ function cargarSnapshotSalud() {
         estado.hoy = snap.hoy;
         estado.corazonHoy = Array.isArray(snap.corazonHoy) ? snap.corazonHoy : [];
         estado.ultimaSincro = snap.ts || null;
+        estado.fuenteActiva = snap.fuenteActiva || null;
 
         if (snap.cache && typeof snap.cache === "object") {
             estado.cache = { ...snap.cache, ...estado.cache };
@@ -406,6 +433,11 @@ export async function conectarGoogleFit(opciones = {}) {
  */
 export function abrirSaludDesdeDashboard() {
     window.router?.cargarVista("salud");
+
+    // Si Intervals.icu está configurado, no lanzar popups de Google OAuth
+    if (tieneIntervalsConfigurado()) {
+        return true;
+    }
 
     if (!esTokenFitValido() && puedeAutoAutenticar()) {
         conectarGoogleFit({ automatico: true });
@@ -856,29 +888,339 @@ async function cargarHistorial(token, rango, forzar = false) {
     const dias = construirDias(mapa, rango);
     estado.cache[rango] = { ts: Date.now(), dias };
     estado.dias = dias;
+    return dias;
 }
 
 // ==========================================
-// FUNCIÓN PRINCIPAL DE SINCRONIZACIÓN
+// INTERVALS.ICU: CONSULTA HOY, HISTÓRICO Y FUSIÓN HÍBRIDA
+// ==========================================
+function muestrearStreamCorazon(act, stream) {
+    if (!stream || !Array.isArray(stream.time) || !Array.isArray(stream.heartrate)) return [];
+    const baseMs = act.start_date_local ? new Date(act.start_date_local).getTime() : inicioDelDia();
+    if (!Number.isFinite(baseMs)) return [];
+
+    // Agrupar en intervalos de 5 minutos para no sobrecargar la gráfica y mostrar puntos reales
+    const pasoSeg = 300;
+    const cubos = new Map();
+    const len = Math.min(stream.time.length, stream.heartrate.length);
+    for (let i = 0; i < len; i++) {
+        const t = Number(stream.time[i]);
+        const hr = Number(stream.heartrate[i]);
+        if (!Number.isFinite(t) || !Number.isFinite(hr) || hr < 30 || hr > 240) continue;
+        const idx = Math.floor(t / pasoSeg);
+        if (!cubos.has(idx)) cubos.set(idx, { suma: 0, n: 0, tMs: baseMs + idx * pasoSeg * 1000 });
+        const c = cubos.get(idx);
+        c.suma += hr;
+        c.n += 1;
+    }
+
+    return Array.from(cubos.values())
+        .sort((a, b) => a.tMs - b.tMs)
+        .map(c => ({
+            ms: c.tMs,
+            bpm: Math.round(c.suma / c.n),
+            origen: "intervals-stream"
+        }));
+}
+
+async function obtenerDatosHoyIntervals() {
+    const hoyMs = inicioDelDia();
+    const hoyIso = claveDia(hoyMs);
+    const ayerIso = claveDia(hoyMs - DIA_MS);
+
+    const [wellnessArr, actsHoy] = await Promise.all([
+        obtenerWellnessIntervals(ayerIso, hoyIso),
+        obtenerActividadesIntervals(hoyIso, hoyIso)
+    ]);
+
+    const wHoy = wellnessArr.find(w => w?.id === hoyIso) || null;
+    const wAyer = wellnessArr.find(w => w?.id === ayerIso) || null;
+
+    const pasos = (typeof wHoy?.steps === "number" && wHoy.steps > 0) ? Math.round(wHoy.steps) : 0;
+
+    let suenoSecs = (typeof wHoy?.sleepSecs === "number" && wHoy.sleepSecs > 0) ? wHoy.sleepSecs : 0;
+    if (!suenoSecs && typeof wAyer?.sleepSecs === "number" && wAyer.sleepSecs > 0 && !wHoy) {
+        suenoSecs = wAyer.sleepSecs;
+    }
+    const suenoHoras = suenoSecs > 0 ? parseFloat(Math.min(16, suenoSecs / 3600).toFixed(1)) : null;
+
+    const pesoRaw = typeof wHoy?.weight === "number" ? wHoy.weight : null;
+    const peso = (pesoRaw !== null && pesoRaw >= 40 && pesoRaw <= 250) ? parseFloat(pesoRaw.toFixed(1)) : null;
+
+    let calorias = 0;
+    let cardioSeg = 0;
+    const actConHr = [];
+    (actsHoy || []).forEach(a => {
+        if (typeof a.calories === "number" && a.calories > 0) calorias += a.calories;
+        const dur = Number(a.moving_time || a.elapsed_time || 0);
+        if (dur > 0) cardioSeg += dur;
+        if (a.id && (a.average_heartrate || a.max_heartrate || a.has_heartrate)) {
+            actConHr.push(a);
+        }
+    });
+
+    // Construir puntos de pulso de hoy: prioridad a streams de entrenos reales; si no, pulso en reposo
+    let puntosCorazon = [];
+    if (actConHr.length > 0) {
+        const streams = await Promise.all(actConHr.slice(0, 2).map(a => obtenerStreamCorazonActividad(a.id)));
+        streams.forEach((st, idx) => {
+            if (st) {
+                puntosCorazon.push(...muestrearStreamCorazon(actConHr[idx], st));
+            } else if (typeof actConHr[idx].average_heartrate === "number" && actConHr[idx].average_heartrate >= 30) {
+                const tMs = actConHr[idx].start_date_local ? new Date(actConHr[idx].start_date_local).getTime() : Date.now();
+                puntosCorazon.push({
+                    ms: Number.isFinite(tMs) ? tMs : Date.now(),
+                    bpm: Math.round(actConHr[idx].average_heartrate),
+                    origen: "intervals-stream"
+                });
+            }
+        });
+        puntosCorazon.sort((a, b) => a.ms - b.ms);
+    }
+
+    const rhr = (typeof wHoy?.restingHR === "number" && wHoy.restingHR >= 30 && wHoy.restingHR <= 240)
+        ? Math.round(wHoy.restingHR)
+        : null;
+
+    if (puntosCorazon.length === 0 && rhr !== null) {
+        puntosCorazon = [{
+            ms: hoyMs + 8 * 3600 * 1000,
+            bpm: rhr,
+            etiqueta: "Reposo",
+            origen: "intervals-rhr"
+        }];
+    }
+
+    const bpmsValidos = puntosCorazon.map(p => p.bpm).filter(b => typeof b === "number" && b > 0);
+    const bpmAvg = bpmsValidos.length ? Math.round(bpmsValidos.reduce((a, b) => a + b, 0) / bpmsValidos.length) : rhr;
+    const bpmUltimo = bpmsValidos.length ? bpmsValidos[bpmsValidos.length - 1] : rhr;
+
+    return {
+        pasos,
+        calorias: Math.round(calorias),
+        caloriasSoloActivas: true,
+        cardioMin: Math.round(cardioSeg / 60),
+        suenoHoras,
+        peso,
+        bpmAvg,
+        bpmUltimo,
+        hrv: (typeof wHoy?.hrv === "number" && wHoy.hrv > 0) ? Math.round(wHoy.hrv) : null,
+        puntosCorazon
+    };
+}
+
+function construirDiasIntervals(wellnessArr, actividadesArr, rango) {
+    const mapaW = new Map();
+    (wellnessArr || []).forEach(w => {
+        if (w?.id) mapaW.set(w.id, w);
+    });
+
+    const mapaAct = new Map();
+    (actividadesArr || []).forEach(a => {
+        const fechaClave = String(a?.start_date_local || "").slice(0, 10);
+        if (!fechaClave) return;
+        if (!mapaAct.has(fechaClave)) mapaAct.set(fechaClave, []);
+        mapaAct.get(fechaClave).push(a);
+    });
+
+    const lista = [];
+    const hoyInicio = inicioDelDia();
+
+    for (let i = rango - 1; i >= 0; i--) {
+        const d = new Date(hoyInicio);
+        d.setDate(d.getDate() - i);
+        const clave = claveDia(d.getTime());
+        const w = mapaW.get(clave);
+        const acts = mapaAct.get(clave) || [];
+
+        const pasos = (typeof w?.steps === "number" && w.steps > 0) ? Math.round(w.steps) : null;
+        const sueno = (typeof w?.sleepSecs === "number" && w.sleepSecs > 0)
+            ? parseFloat(Math.min(16, w.sleepSecs / 3600).toFixed(1))
+            : null;
+
+        const pesosRaw = [];
+        const lecturasPeso = [];
+        if (typeof w?.weight === "number" && w.weight >= 40 && w.weight <= 250) {
+            pesosRaw.push(w.weight);
+            lecturasPeso.push({
+                peso: parseFloat(w.weight.toFixed(1)),
+                ms: d.getTime() + 9 * 3600 * 1000,
+                fuente: "Intervals.icu"
+            });
+        }
+
+        const cardio = {};
+        const actBpms = [];
+        acts.forEach(a => {
+            const durMs = Number(a.moving_time || a.elapsed_time || 0) * 1000;
+            if (durMs > 0) {
+                const tipoKey = mapearTipoActividadIntervals(a.type, a.name);
+                cardio[tipoKey] = (cardio[tipoKey] || 0) + durMs;
+            }
+            if (typeof a.average_heartrate === "number" && a.average_heartrate >= 30 && a.average_heartrate <= 240) {
+                actBpms.push(a.average_heartrate);
+            }
+        });
+
+        let bpmDia = null;
+        if (typeof w?.restingHR === "number" && w.restingHR >= 30 && w.restingHR <= 240) {
+            bpmDia = Math.round(w.restingHR);
+        } else if (actBpms.length > 0) {
+            bpmDia = Math.round(actBpms.reduce((x, y) => x + y, 0) / actBpms.length);
+        }
+
+        lista.push({
+            clave,
+            ms: d.getTime(),
+            pasos,
+            sueno,
+            cardio,
+            _pesosRaw: pesosRaw,
+            _lecturasPeso: lecturasPeso,
+            peso: null,
+            bpm: bpmDia
+        });
+    }
+
+    sanearPesos(lista);
+    return lista;
+}
+
+function fusionarDiasHibrido(diasPrimarios, diasSecundarios) {
+    if (!Array.isArray(diasSecundarios) || diasSecundarios.length === 0) return diasPrimarios;
+    const mapaSec = new Map(diasSecundarios.map(d => [d.clave, d]));
+
+    return diasPrimarios.map(d => {
+        const sec = mapaSec.get(d.clave);
+        if (!sec) return d;
+        const tieneCardioPrim = Object.keys(d.cardio || {}).length > 0;
+        return {
+            ...d,
+            pasos: d.pasos ?? sec.pasos,
+            sueno: d.sueno ?? sec.sueno,
+            peso: d.peso ?? sec.peso,
+            bpm: d.bpm ?? sec.bpm,
+            cardio: tieneCardioPrim ? d.cardio : (sec.cardio || {}),
+            _lecturasPeso: (d._lecturasPeso && d._lecturasPeso.length > 0) ? d._lecturasPeso : (sec._lecturasPeso || [])
+        };
+    });
+}
+
+async function cargarHistorialIntervals(rango, forzar = false, tokenFitOpcional = null) {
+    const cache = estado.cache[rango];
+    if (!forzar && cache && (Date.now() - cache.ts) < CACHE_HISTORIAL_MS) {
+        estado.dias = cache.dias;
+        return cache.dias;
+    }
+
+    const hoyInicio = inicioDelDia();
+    const inicio = new Date(hoyInicio);
+    inicio.setDate(inicio.getDate() - (rango - 1));
+    const oldestIso = claveDia(inicio.getTime());
+    const newestIso = claveDia(hoyInicio);
+
+    const [wellnessArr, actividadesArr] = await Promise.all([
+        obtenerWellnessIntervals(oldestIso, newestIso),
+        obtenerActividadesIntervals(oldestIso, newestIso)
+    ]);
+
+    let dias = construirDiasIntervals(wellnessArr, actividadesArr, rango);
+
+    // Enriquecimiento opcional con Google Fit si hay token válido (ej. pesos históricos antiguos)
+    if (tokenFitOpcional && esTokenFitValido()) {
+        try {
+            const diasFit = await cargarHistorial(tokenFitOpcional, rango, true);
+            dias = fusionarDiasHibrido(dias, diasFit);
+        } catch (e) {
+            console.warn("Enriquecimiento histórico Google Fit omitido:", e.message);
+        }
+    }
+
+    estado.cache[rango] = { ts: Date.now(), dias };
+    estado.dias = dias;
+    return dias;
+}
+
+// ==========================================
+// FUNCIÓN PRINCIPAL DE SINCRONIZACIÓN (INTERVALS.ICU + GOOGLE FIT)
 // ==========================================
 export function fetchFitData(token = null, opciones = {}) {
     if (sincronizacionEnCurso) return sincronizacionEnCurso;
 
     sincronizacionEnCurso = (async () => {
-        token = token || localStorage.getItem("fitToken");
-        if (!token) {
+        const usaIntervals = tieneIntervalsConfigurado();
+        token = token || (esTokenFitValido() ? localStorage.getItem("fitToken") : null);
+
+        if (!usaIntervals && !token) {
             actualizarEstadoGoogleFitUI(false);
             if (!estado.hoy) await renderizarEstadoDesconectadoUI();
             actualizarBarraSyncSalud("cached");
             return null;
         }
 
-        actualizarEstadoGoogleFitUI(true, "Sincronizando...");
+        if (token) actualizarEstadoGoogleFitUI(true, "Sincronizando...");
         actualizarBarraSyncSalud("syncing");
 
         try {
             await asegurarChartJS().catch(e => console.warn(e.message));
 
+            if (usaIntervals) {
+                let hoyFinal = await obtenerDatosHoyIntervals();
+                let fuente = "intervals";
+
+                // Si Google Fit también tiene token válido, enriquecer huecos (calorías totales, peso, pulso intradía)
+                if (token) {
+                    try {
+                        const hoyFit = await obtenerDatosHoy(token);
+                        fuente = "intervals+fit";
+                        const fitTieneBpm = (hoyFit.puntosCorazon || []).some(p => typeof p.bpm === "number" && p.bpm > 0);
+                        hoyFinal = {
+                            pasos: hoyFinal.pasos > 0 ? hoyFinal.pasos : hoyFit.pasos,
+                            calorias: hoyFit.calorias > hoyFinal.calorias ? hoyFit.calorias : hoyFinal.calorias,
+                            caloriasSoloActivas: !(hoyFit.calorias > hoyFinal.calorias),
+                            cardioMin: hoyFinal.cardioMin > 0 ? hoyFinal.cardioMin : hoyFit.cardioMin,
+                            suenoHoras: hoyFinal.suenoHoras ?? hoyFit.suenoHoras,
+                            peso: hoyFinal.peso ?? hoyFit.peso,
+                            bpmAvg: fitTieneBpm ? hoyFit.bpmAvg : (hoyFinal.bpmAvg ?? hoyFit.bpmAvg),
+                            bpmUltimo: fitTieneBpm ? hoyFit.bpmUltimo : (hoyFinal.bpmUltimo ?? hoyFit.bpmUltimo),
+                            hrv: hoyFinal.hrv ?? null,
+                            puntosCorazon: fitTieneBpm ? hoyFit.puntosCorazon : hoyFinal.puntosCorazon
+                        };
+                    } catch (errFit) {
+                        if (errFit.status === 401) {
+                            localStorage.removeItem("fitToken");
+                            localStorage.removeItem("fitTokenTimestamp");
+                            actualizarEstadoGoogleFitUI(false);
+                        } else {
+                            console.warn("Google Fit opcional falló (continuando con Intervals.icu):", errFit.message);
+                        }
+                    }
+                }
+
+                estado.fuenteActiva = fuente;
+                estado.hoy = hoyFinal;
+                estado.corazonHoy = hoyFinal.puntosCorazon || [];
+
+                await renderizarHoy(estado.hoy);
+                if (document.getElementById("chartCorazonHoy")) {
+                    await renderizarCorazonHoy(estado.corazonHoy);
+                }
+
+                if (document.getElementById("chartMain")) {
+                    await cargarHistorialIntervals(estado.rango, Boolean(opciones.forzar), fuente === "intervals+fit" ? token : null);
+                    await renderizarGraficaPrincipal();
+                    renderizarListaCardio();
+                }
+
+                guardarSnapshotSalud();
+                exportarContextoIA();
+                if (fuente === "intervals+fit") actualizarEstadoGoogleFitUI(true, "Google Fit Sincronizado");
+                actualizarBarraSyncSalud("synced");
+                return estado.hoy;
+            }
+
+            // Flujo clásico Google Fit exclusivo (cuando Intervals.icu no está configurado)
+            estado.fuenteActiva = "googlefit";
             estado.hoy = await obtenerDatosHoy(token);
             await renderizarHoy(estado.hoy);
 
@@ -898,12 +1240,12 @@ export function fetchFitData(token = null, opciones = {}) {
             actualizarBarraSyncSalud("synced");
             return estado.hoy;
         } catch (error) {
-            if (error.status === 401) {
+            if (!usaIntervals && error.status === 401) {
                 manejarTokenExpirado();
             } else {
-                console.error("Error al consultar Google Fit REST API:", error);
-                actualizarEstadoGoogleFitUI(true, "Aviso de conexión");
-                actualizarBarraSyncSalud("cached", "Sin conexión · Mostrando últimos datos");
+                console.error("Error al sincronizar datos biométricos:", error);
+                if (token) actualizarEstadoGoogleFitUI(true, "Aviso de conexión");
+                actualizarBarraSyncSalud("cached", "Error de conexión · Mostrando últimos datos");
                 mostrarFeedbackGoogleFit(`Error al sincronizar: ${error.message}`, "#f87171");
             }
             throw error;
@@ -997,6 +1339,7 @@ async function renderizarHoy(hoy) {
     if (document.getElementById("chartPasosRing")) {
         renderizarAnillo("chartPasosRing", hoy.pasos, META_PASOS, "ringPasosValor", "ringPasosPct", "pasos");
         renderizarAnillo("chartCaloriasRing", hoy.calorias, META_KCAL, "ringCaloriasValor", "ringCaloriasPct", "calorias");
+        setTexto("fitCaloriasEstado", hoy.caloriasSoloActivas ? "Calorías activas (Intervals.icu)" : "Desde las 00:00");
     }
 }
 
@@ -1046,10 +1389,11 @@ async function renderizarCorazonHoy(puntos = []) {
     await asegurarChartJS();
     if (!canvas.isConnected) return;
 
-    const labels = (puntos || []).map(p => new Date(p.ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }));
+    const labels = (puntos || []).map(p => p.etiqueta || new Date(p.ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }));
     // Filtrado estricto de ceros: valores nulos o <= 0 se descartan y se pasan como null a Chart.js con spanGaps: true
     const valores = (puntos || []).map(p => (typeof p.bpm === "number" && p.bpm > 0) ? p.bpm : null);
     const reales = valores.filter(v => v !== null && v > 0);
+    const origenPuntos = (puntos || []).find(p => p?.origen)?.origen || null;
 
     const badge = document.getElementById("heartRateActualBadge");
     if (reales.length) {
@@ -1062,14 +1406,24 @@ async function renderizarCorazonHoy(puntos = []) {
         setTexto("heartRateStatMin", `${min} BPM`);
         setTexto("heartRateStatAvg", `${avg} BPM`);
         setTexto("heartRateStatMax", `${max} BPM`);
-        setTexto("hintCorazonHoy", "Cronología del día actual (intervalos 15 min) · Filtrado estricto de ceros");
+        if (origenPuntos === "intervals-stream") {
+            setTexto("hintCorazonHoy", "Pulso real de entrenamientos de hoy (Intervals.icu) · Puntos medidos");
+        } else if (origenPuntos === "intervals-rhr") {
+            setTexto("hintCorazonHoy", "Pulso en reposo hoy (Intervals.icu) · Los entrenos añadirán su curva real");
+        } else {
+            setTexto("hintCorazonHoy", "Cronología del día actual (intervalos 15 min) · Puntos medidos");
+        }
         if (badge) badge.classList.add("pulsing");
     } else {
         setTexto("heartRateActualBadge", "-- BPM");
         ["heartRateStatMin", "heartRateStatAvg", "heartRateStatMax"].forEach(id => setTexto(id, "--"));
-        setTexto("hintCorazonHoy", (puntos && puntos.length > 0)
-            ? "Sin lecturas de pulso hoy en Google Fit · Revisa la sincronización del reloj/app"
-            : "Cronología del día actual (intervalos 15 min) · Sin datos disponibles");
+        if (tieneIntervalsConfigurado()) {
+            setTexto("hintCorazonHoy", "Sin lecturas de pulso hoy en Intervals.icu · Sincroniza tu reloj en Zepp");
+        } else {
+            setTexto("hintCorazonHoy", (puntos && puntos.length > 0)
+                ? "Sin lecturas de pulso hoy en Google Fit · Revisa la sincronización del reloj/app"
+                : "Cronología del día actual (intervalos 15 min) · Sin datos disponibles");
+        }
         if (badge) badge.classList.remove("pulsing");
     }
 
@@ -1504,7 +1858,11 @@ function renderizarListaCardio() {
     const sesiones = [];
     estado.dias.forEach(dia => {
         Object.entries(dia.cardio || {}).forEach(([tipo, ms]) => {
-            if (ms >= 5 * 60000) sesiones.push({ ms: dia.ms, tipo: Number(tipo), dur: ms });
+            if (ms >= 5 * 60000) {
+                const num = Number(tipo);
+                const nombre = Number.isFinite(num) && ACTIVIDADES_CARDIO[num] ? ACTIVIDADES_CARDIO[num] : String(tipo);
+                sesiones.push({ ms: dia.ms, nombre, dur: ms });
+            }
         });
     });
     sesiones.sort((a, b) => b.ms - a.ms);
@@ -1521,7 +1879,7 @@ function renderizarListaCardio() {
         return `
             <div class="cardio-card">
                 <div class="cardio-card-main">
-                    <span class="cardio-card-name">${ACTIVIDADES_CARDIO[s.tipo]}</span>
+                    <span class="cardio-card-name">${s.nombre}</span>
                     <span class="cardio-card-date">${fecha}</span>
                 </div>
                 <span class="cardio-card-dur">${dur}</span>
@@ -1546,8 +1904,9 @@ async function cambiarRango(rango) {
         renderizarListaCardio();
     }
 
+    const usaIntervals = tieneIntervalsConfigurado();
     const token = localStorage.getItem("fitToken");
-    if (!token || !esTokenFitValido()) {
+    if (!usaIntervals && (!token || !esTokenFitValido())) {
         conectarGoogleFit({ automatico: false });
         return;
     }
@@ -1555,7 +1914,11 @@ async function cambiarRango(rango) {
     const badgePrevio = document.getElementById("chartPesoActualBadge")?.textContent || "--";
     try {
         setTexto("chartPesoActualBadge", "...");
-        await cargarHistorial(token, rango);
+        if (usaIntervals) {
+            await cargarHistorialIntervals(rango, false, esTokenFitValido() ? token : null);
+        } else {
+            await cargarHistorial(token, rango);
+        }
         if (reqId !== rangoRequestId) return;
         await renderizarGraficaPrincipal();
         renderizarListaCardio();
@@ -1563,7 +1926,7 @@ async function cambiarRango(rango) {
         exportarContextoIA();
     } catch (e) {
         if (reqId !== rangoRequestId) return;
-        if (e.status === 401) {
+        if (!usaIntervals && e.status === 401) {
             manejarTokenExpirado();
         } else {
             setTexto("chartPesoActualBadge", badgePrevio);
@@ -1624,17 +1987,36 @@ export function manejarTokenExpirado(mensaje = null) {
 }
 
 export async function refrescarFitData() {
-    if (!esTokenFitValido()) {
+    const usaIntervals = tieneIntervalsConfigurado();
+    if (!usaIntervals && !esTokenFitValido()) {
         await conectarGoogleFit({ automatico: false });
         return null;
     }
-    actualizarBarraSyncSalud("syncing", "Actualizando métricas de Google Fit...");
+    actualizarBarraSyncSalud("syncing", usaIntervals
+        ? "Actualizando métricas desde Intervals.icu..."
+        : "Actualizando métricas de Google Fit...");
     try {
-        const datos = await fetchFitData(localStorage.getItem("fitToken"), { forzar: true });
+        const datos = await fetchFitData(esTokenFitValido() ? localStorage.getItem("fitToken") : null, { forzar: true });
         mostrarFeedbackGoogleFit("✅ Métricas actualizadas con éxito.", "#4ade80");
         return datos;
     } catch (_) {
         return null;
+    }
+}
+
+export async function onIntervalsDesconectado() {
+    estado.cache = {};
+    estado.fuenteActiva = null;
+    localStorage.removeItem(CLAVE_SNAPSHOT_SALUD);
+    if (esTokenFitValido()) {
+        await fetchFitData(localStorage.getItem("fitToken"), { forzar: true }).catch(() => {});
+    } else {
+        estado.dias = [];
+        estado.hoy = null;
+        estado.corazonHoy = [];
+        estado.ultimaSincro = null;
+        actualizarBarraSyncSalud("cached", "Desconectado · Configura Intervals.icu o Google Fit en ⚙️");
+        await renderizarEstadoDesconectadoUI();
     }
 }
 
@@ -1661,8 +2043,19 @@ export function initSalud() {
         if (enVistaSalud) actualizarBarraSyncSalud("syncing");
     }
 
-    // 2. Comprobar redirección de Google primero, luego sincronizar o auto-conectar
+    // 2. Si Intervals.icu está configurado, sincronizar directo sin esperar a Google Auth ni lanzar popups
     const miGeneracion = ++initGeneracionId;
+    if (tieneIntervalsConfigurado()) {
+        actualizarEstadoGoogleFitUI(esTokenFitValido());
+        fetchFitData(esTokenFitValido() ? localStorage.getItem("fitToken") : null).catch(err => {
+            console.warn("Sincronización inicial Intervals.icu:", err.message);
+        });
+        document.addEventListener("keydown", handleEscapeKey);
+        escucharEstadoFirestore();
+        return;
+    }
+
+    // 3. Flujo Google Fit: comprobar redirección de Google primero, luego sincronizar o auto-conectar
     const flujoInicial = async () => {
         let autenticadoPorRedirect = false;
         try {
@@ -1782,7 +2175,8 @@ window.salud = {
     cerrarModalPeso,
     crearGoogleFitProvider,
     mostrarAvisoFuturo,
-    alternarHistoricoDatos
+    alternarHistoricoDatos,
+    onIntervalsDesconectado
 };
 window.conectarGoogleFit = conectarGoogleFit;
 window.refrescarFitData = refrescarFitData;

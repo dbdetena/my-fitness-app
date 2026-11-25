@@ -115,7 +115,59 @@
             </div>
 
             <div class="modal-body">
-                <!-- APARTADO: INTEGRACIONES Y DATOS -->
+                <!-- APARTADO: INTERVALS.ICU (AMAZFIT / ZEPP · FUENTE PRINCIPAL) -->
+                <div class="config-card config-card-integration">
+                    <div class="config-header-row">
+                        <span class="config-icon">⌚</span>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+                                <span class="modal-tag" style="font-size: 0.65rem;">AMAZFIT / ZEPP · SIN OAUTH</span>
+                                <span id="intervalsStatusBadge" class="biometric-status-pill">Desconectado</span>
+                            </div>
+                            <h4 style="margin: 0; color: #fff; font-size: 0.95rem; font-weight: 700;">Intervals.icu (Biométrica)</h4>
+                            <p class="config-desc" style="margin-top: 4px;">
+                                Conecta tu API Key de <a href="https://intervals.icu/settings" target="_blank" rel="noopener noreferrer" class="config-link-inline">intervals.icu → Developer Settings ↗</a> para leer pasos, sueño, pulso y entrenos de tu Amazfit sin caducidad de sesión.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="config-integration-actions">
+                        <!-- Formulario de conexión (cuando está desconectado o editando) -->
+                        <div id="intervalsConnectForm" class="config-api-form">
+                            <input
+                                type="password"
+                                id="inputIntervalsApiKey"
+                                class="config-api-input"
+                                placeholder="Pega aquí tu API Key de Intervals.icu"
+                                autocomplete="off"
+                                spellcheck="false"
+                            />
+                            <button type="button" id="btnGuardarIntervals" class="btn-primary" style="width: 100%;" onclick="window.guardarIntervalsConfig?.()">
+                                🔐 Probar y Conectar Intervals.icu
+                            </button>
+                        </div>
+
+                        <!-- Píldora de estado conectado -->
+                        <div id="intervalsSyncIndicator" class="biometric-sync-pill" style="display: none; width: 100%;">
+                            <div class="sync-pill-left">
+                                <span id="intervalsPulseDot" class="sync-pulse-dot synced"></span>
+                                <span id="intervalsSyncText" class="sync-status-text">Intervals.icu conectado</span>
+                            </div>
+                            <div class="sync-pill-actions">
+                                <button type="button" class="sync-mini-btn" onclick="window.salud?.refrescarFitData()" title="Sincronizar ahora">
+                                    🔄 Sincronizar
+                                </button>
+                                <button type="button" class="sync-mini-btn sync-mini-btn-ghost" onclick="window.desconectarIntervalsConfig?.()" title="Desconectar Intervals.icu">
+                                    ✕ Quitar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="intervalsFeedback" class="biometric-feedback" style="display: none;"></div>
+                </div>
+
+                <!-- APARTADO: INTEGRACIONES Y DATOS (GOOGLE FIT · RESPALDO OPCIONAL) -->
                 <div class="config-card config-card-integration">
                     <div class="config-header-row">
                         <span class="config-icon">🧬</span>

@@ -2109,6 +2109,37 @@ body.modal-open {
     width: 100%;
 }
 
+.config-api-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.config-api-input {
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: rgba(15, 23, 42, 0.92);
+    color: #f8fafc;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.config-api-input:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22);
+}
+
+.config-link-inline {
+    color: #38bdf8;
+    text-decoration: underline;
+    font-weight: 600;
+}
+
 .config-header-row {
     display: flex;
     gap: 12px;
