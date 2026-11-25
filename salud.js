@@ -26,6 +26,11 @@ const INTERVALO_CORAZON_HOY_MS = 15 * 60 * 1000; // 15 minutos (agrupación intr
 const CACHE_HISTORIAL_MS = 10 * 60 * 1000;
 const MAX_DIAS_POR_PETICION = 90;
 const CLAVE_CONTEXTO_IA = "health_context_ai";
+const CLAVE_SNAPSHOT_SALUD = "health_last_snapshot_v1";
+const CLAVE_AUTO_DISABLED = "fitAutoDisabled";
+const CLAVE_AUTO_AUTH_TS = "fit_auto_auth_attempted_ts";
+const TOKEN_TTL_MS = 55 * 60 * 1000; // Renovar antes de la caducidad estándar de 60 min
+const AUTO_AUTH_COOLDOWN_MS = 60 * 1000; // Evita bucles de redirección/popup
 
 // Tipos de sueño de Google Fit que cuentan como sueño real (2 sleep, 4 light, 5 deep, 6 REM)
 const TIPOS_SUENO_VALIDOS = [2, 4, 5, 6];
@@ -52,6 +57,8 @@ let statusBadge = null;
 let unsubscribeFirestore = null;
 let unsubscribeAuth = null;
 let sincronizacionEnCurso = null;
+let autenticacionEnCurso = null;
+let initGeneracionId = 0;
 let avisoSuenoMostrado = false;
 
 let chartPasosInstance = null;
@@ -65,8 +72,157 @@ const estado = {
     hoy: null,              // datos del día en curso
     corazonHoy: [],         // puntos intradía de BPM de hoy
     dias: [],               // histórico saneado del rango activo
-    cache: {}               // rango -> { ts, dias }
+    cache: {},              // rango -> { ts, dias }
+    ultimaSincro: null      // timestamp ms de la última sincronización exitosa
 };
+
+// ==========================================
+// CACHÉ LOCAL INSTANTÁNEA (LOCAL-FIRST) Y ESTADO BARRA SALUD
+// ==========================================
+function esVistaSaludActiva() {
+    return !!(document.getElementById("saludSyncBar") || document.getElementById("chartPasosRing"));
+}
+
+function esTokenFitValido() {
+    const token = localStorage.getItem("fitToken");
+    if (!token) return false;
+    const ts = Number(localStorage.getItem("fitTokenTimestamp") || 0);
+    if (!ts) return true; // Token heredado sin timestamp: dejar que API valide
+    return (Date.now() - ts) < TOKEN_TTL_MS;
+}
+
+function puedeAutoAutenticar() {
+    if (localStorage.getItem(CLAVE_AUTO_DISABLED) === "true") return false;
+    if (autenticacionEnCurso) return false;
+    try {
+        const ultimoIntento = Number(sessionStorage.getItem(CLAVE_AUTO_AUTH_TS) || 0);
+        if (ultimoIntento && (Date.now() - ultimoIntento) < AUTO_AUTH_COOLDOWN_MS) {
+            return false;
+        }
+    } catch (_) {}
+    return true;
+}
+
+function formatearHoraSincro(ts) {
+    if (!ts) return "";
+    const diffMin = Math.floor((Date.now() - ts) / 60000);
+    if (diffMin < 1) return "ahora";
+    if (diffMin < 60) return `hace ${diffMin} min`;
+    const d = new Date(ts);
+    const hoyStr = claveDia(Date.now());
+    const hora = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+    if (claveDia(ts) === hoyStr) return `hoy ${hora}`;
+    return `${d.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })} ${hora}`;
+}
+
+function actualizarBarraSyncSalud(modo = "syncing", textoPersonalizado = null) {
+    const dot = document.getElementById("saludSyncDot");
+    const textEl = document.getElementById("saludSyncText");
+    const btnRef = document.getElementById("btnSaludRefrescar");
+    if (!dot || !textEl) return;
+
+    dot.classList.remove("synced", "syncing", "cached");
+    dot.classList.add(modo);
+
+    if (btnRef) {
+        btnRef.disabled = (modo === "syncing");
+    }
+
+    if (textoPersonalizado) {
+        textEl.textContent = textoPersonalizado;
+        return;
+    }
+
+    const hora = formatearHoraSincro(estado.ultimaSincro);
+    if (modo === "synced") {
+        textEl.textContent = hora ? `Google Fit sincronizado · ${hora}` : "Google Fit sincronizado";
+    } else if (modo === "syncing") {
+        textEl.textContent = hora ? `Mostrando datos (${hora}) · Actualizando...` : "Conectando con Google Fit...";
+    } else {
+        textEl.textContent = hora ? `Última sincro: ${hora} · Toca 🔄 para actualizar` : "Sin sincronizar · Toca 🔄 para conectar";
+    }
+}
+
+function guardarSnapshotSalud() {
+    if (!estado.hoy) return;
+    try {
+        // Persistir rangos cacheados (priorizando <= 90 días para no saturar localStorage)
+        const cachePersistir = {};
+        Object.entries(estado.cache || {}).forEach(([rangoKey, entry]) => {
+            if (entry && Array.isArray(entry.dias) && entry.dias.length <= 100) {
+                cachePersistir[rangoKey] = {
+                    ts: entry.ts,
+                    dias: entry.dias.map(d => ({
+                        clave: d.clave,
+                        ms: d.ms,
+                        pasos: d.pasos,
+                        sueno: d.sueno,
+                        cardio: d.cardio,
+                        peso: d.peso,
+                        bpm: d.bpm,
+                        _lecturasPeso: (d._lecturasPeso || []).slice(0, 5)
+                    }))
+                };
+            }
+        });
+
+        const snapshot = {
+            ts: Date.now(),
+            rango: estado.rango,
+            hoy: estado.hoy,
+            corazonHoy: estado.corazonHoy || [],
+            cache: cachePersistir
+        };
+        estado.ultimaSincro = snapshot.ts;
+        localStorage.setItem(CLAVE_SNAPSHOT_SALUD, JSON.stringify(snapshot));
+    } catch (e) {
+        console.warn("No se pudo guardar caché local de Salud:", e.message);
+    }
+}
+
+function cargarSnapshotSalud() {
+    try {
+        const raw = localStorage.getItem(CLAVE_SNAPSHOT_SALUD);
+        if (!raw) return false;
+        const snap = JSON.parse(raw);
+        if (!snap || !snap.hoy) return false;
+
+        estado.hoy = snap.hoy;
+        estado.corazonHoy = Array.isArray(snap.corazonHoy) ? snap.corazonHoy : [];
+        estado.ultimaSincro = snap.ts || null;
+
+        if (snap.cache && typeof snap.cache === "object") {
+            estado.cache = { ...snap.cache, ...estado.cache };
+        }
+        const rangoCache = estado.cache[estado.rango] || estado.cache[snap.rango] || Object.values(estado.cache)[0];
+        if (rangoCache && Array.isArray(rangoCache.dias)) {
+            estado.dias = rangoCache.dias;
+        }
+        return true;
+    } catch (e) {
+        console.warn("No se pudo leer caché local de Salud:", e.message);
+        return false;
+    }
+}
+
+async function renderizarDesdeEstadoActual() {
+    if (!estado.hoy) return false;
+    try {
+        await asegurarChartJS().catch(() => {});
+        await renderizarHoy(estado.hoy);
+        if (document.getElementById("chartCorazonHoy")) {
+            await renderizarCorazonHoy(estado.corazonHoy);
+        }
+        if (document.getElementById("chartMain") && estado.dias.length > 0) {
+            await renderizarGraficaPrincipal();
+            renderizarListaCardio();
+        }
+        return true;
+    } catch (e) {
+        console.warn("Error renderizando caché local de Salud:", e.message);
+        return false;
+    }
+}
 
 // ==========================================
 // UTILIDADES DE FECHA
@@ -155,54 +311,105 @@ async function asegurarChartJS() {
 }
 
 // ==========================================
-// GOOGLE FIT OAUTH 2.0 (FIREBASE AUTH)
+// GOOGLE FIT OAUTH 2.0 (FIREBASE AUTH · AUTO-CONEXIÓN)
 // ==========================================
-export function crearGoogleFitProvider() {
+export function crearGoogleFitProvider(forzarSelector = false) {
     const provider = new GoogleAuthProvider();
     provider.addScope("https://www.googleapis.com/auth/fitness.activity.read");
     provider.addScope("https://www.googleapis.com/auth/fitness.body.read");
     provider.addScope("https://www.googleapis.com/auth/fitness.sleep.read");
     provider.addScope("https://www.googleapis.com/auth/fitness.heart_rate.read");
-    provider.setCustomParameters({ prompt: "select_account" });
+
+    const emailConocido = localStorage.getItem("fitUserEmail") || auth.currentUser?.email || "";
+    if (emailConocido && !forzarSelector) {
+        // Reconexión rápida con cuenta ya conocida sin forzar selector cada vez
+        provider.setCustomParameters({ login_hint: emailConocido });
+    } else {
+        provider.setCustomParameters({ prompt: "select_account" });
+    }
     return provider;
 }
 
-/** Inicio de sesión MANUAL: solo se dispara por acción directa del usuario */
-export async function conectarGoogleFit() {
-    const btn = document.getElementById("btnConectarGoogleFit");
-    const txtBtn = document.getElementById("txtBtnGoogleFit");
+/**
+ * Conecta o renueva Google Fit (puede dispararse automáticamente al entrar en Salud
+ * o manualmente desde Ajustes / botón de refresco).
+ */
+export async function conectarGoogleFit(opciones = {}) {
+    const automatico = Boolean(opciones.automatico);
+    const forzarSelector = Boolean(opciones.forzarSelector);
 
-    if (btn) btn.disabled = true;
-    if (txtBtn) txtBtn.textContent = "Conectando con Google...";
-    mostrarFeedbackGoogleFit("Abriendo autenticación con Google...", "#38bdf8");
+    if (autenticacionEnCurso) return autenticacionEnCurso;
 
-    const provider = crearGoogleFitProvider();
-
-    try {
-        let result = null;
-        try {
-            result = await signInWithPopup(auth, provider);
-        } catch (popupErr) {
-            if (popupErr.code === "auth/popup-blocked" ||
-                popupErr.code === "auth/cancelled-popup-request" ||
-                popupErr.code === "auth/operation-not-supported-in-this-environment") {
-                mostrarFeedbackGoogleFit("Redirigiendo a Google...", "#38bdf8");
-                await signInWithRedirect(auth, provider);
-                return;
-            }
-            throw popupErr;
-        }
-        if (result) await procesarResultadoGoogleAuth(result);
-    } catch (error) {
-        console.error("Error al autenticar con Google Fit:", error);
-        mostrarFeedbackGoogleFit(
-            error.code === "auth/popup-closed-by-user"
-                ? "Inicio de sesión cancelado por el usuario."
-                : `Error de conexión: ${error.message || error.code}`,
-            "#f87171"
-        );
-        actualizarEstadoGoogleFitUI(false);
+    if (!automatico) {
+        localStorage.removeItem(CLAVE_AUTO_DISABLED);
+    } else {
+        try { sessionStorage.setItem(CLAVE_AUTO_AUTH_TS, String(Date.now())); } catch (_) {}
     }
+
+    autenticacionEnCurso = (async () => {
+        const btn = document.getElementById("btnConectarGoogleFit");
+        const txtBtn = document.getElementById("txtBtnGoogleFit");
+
+        if (btn) btn.disabled = true;
+        if (txtBtn) txtBtn.textContent = "Conectando con Google...";
+        actualizarBarraSyncSalud("syncing", estado.ultimaSincro
+            ? `Mostrando datos (${formatearHoraSincro(estado.ultimaSincro)}) · Conectando Google Fit...`
+            : "Conectando con Google Fit...");
+
+        if (!automatico) {
+            mostrarFeedbackGoogleFit("Abriendo autenticación con Google...", "#38bdf8");
+        }
+
+        const provider = crearGoogleFitProvider(forzarSelector);
+
+        try {
+            let result = null;
+            try {
+                result = await signInWithPopup(auth, provider);
+            } catch (popupErr) {
+                if (popupErr.code === "auth/popup-blocked" ||
+                    popupErr.code === "auth/cancelled-popup-request" ||
+                    popupErr.code === "auth/operation-not-supported-in-this-environment") {
+                    actualizarBarraSyncSalud("syncing", "Redirigiendo a Google Fit...");
+                    await signInWithRedirect(auth, provider);
+                    return;
+                }
+                throw popupErr;
+            }
+            if (result) await procesarResultadoGoogleAuth(result);
+        } catch (error) {
+            console.error("Error al autenticar con Google Fit:", error);
+            const cancelado = error.code === "auth/popup-closed-by-user";
+            if (!automatico || !cancelado) {
+                mostrarFeedbackGoogleFit(
+                    cancelado
+                        ? "Autenticación cancelada. Mostrando últimos datos guardados."
+                        : `Aviso de conexión: ${error.message || error.code}`,
+                    cancelado ? "#fbbf24" : "#f87171"
+                );
+            }
+            actualizarEstadoGoogleFitUI(false);
+            actualizarBarraSyncSalud("cached");
+        }
+    })();
+
+    const liberar = () => { autenticacionEnCurso = null; };
+    autenticacionEnCurso.then(liberar, liberar);
+    return autenticacionEnCurso;
+}
+
+/**
+ * Entrada ágil desde el Panel Central (dashboard.html):
+ * Abre la vista Salud (pintando caché en 0 ms) y, si el token caducó o falta,
+ * lanza la autenticación dentro del mismo clic para evitar bloqueo de popups.
+ */
+export function abrirSaludDesdeDashboard() {
+    window.router?.cargarVista("salud");
+
+    if (!esTokenFitValido() && puedeAutoAutenticar()) {
+        conectarGoogleFit({ automatico: true });
+    }
+    return true;
 }
 
 async function procesarResultadoGoogleAuth(result) {
@@ -215,11 +422,14 @@ async function procesarResultadoGoogleAuth(result) {
         if (accessToken) {
             localStorage.setItem("fitToken", accessToken);
             localStorage.setItem("fitTokenTimestamp", Date.now().toString());
+            localStorage.removeItem(CLAVE_AUTO_DISABLED);
+            try { sessionStorage.removeItem(CLAVE_AUTO_AUTH_TS); } catch (_) {}
             if (user?.email) localStorage.setItem("fitUserEmail", user.email);
             if (user?.displayName) localStorage.setItem("fitUserName", user.displayName);
 
             avisoSuenoMostrado = false;
             actualizarEstadoGoogleFitUI(true, "Sincronizando...");
+            actualizarBarraSyncSalud("syncing");
             mostrarFeedbackGoogleFit(
                 `✅ Conectado con Google Fit (${user?.displayName || user?.email || "Cuenta verificada"})`,
                 "#4ade80"
@@ -228,6 +438,7 @@ async function procesarResultadoGoogleAuth(result) {
         } else {
             mostrarFeedbackGoogleFit("⚠️ No se recibió token de acceso OAuth.", "#facc15");
             actualizarEstadoGoogleFitUI(false);
+            actualizarBarraSyncSalud("cached");
         }
     } catch (err) {
         console.error("Error al procesar credencial de Google Fit:", err);
@@ -240,21 +451,24 @@ async function procesarResultadoGoogleAuth(result) {
 export async function desconectarGoogleFit() {
     if (!confirm("¿Deseas desconectar Google Fit de esta aplicación?")) return;
 
-    ["fitToken", "fitTokenTimestamp", "fitUserEmail", "fitUserName"].forEach(k => localStorage.removeItem(k));
+    ["fitToken", "fitTokenTimestamp", "fitUserEmail", "fitUserName", CLAVE_SNAPSHOT_SALUD].forEach(k => localStorage.removeItem(k));
+    localStorage.setItem(CLAVE_AUTO_DISABLED, "true");
     estado.cache = {};
     estado.dias = [];
     estado.hoy = null;
+    estado.corazonHoy = [];
+    estado.ultimaSincro = null;
 
     try { await signOut(auth); } catch (e) { console.warn("signOut auth:", e); }
 
     actualizarEstadoGoogleFitUI(false);
+    actualizarBarraSyncSalud("cached", "Google Fit desconectado (actívalo en ⚙️ o 🔄)");
     await renderizarEstadoDesconectadoUI();
     mostrarFeedbackGoogleFit("Google Fit desconectado.", "#94a3b8");
 }
 
 /**
- * Conectado: oculta 'Conectar' y muestra el indicador silencioso.
- * Desconectado: muestra 'Conectar' y oculta el indicador.
+ * Actualiza los controles de Integraciones en el modal Ajustes (⚙️) y el estado visual.
  */
 export function actualizarEstadoGoogleFitUI(sincronizado = true, mensajeEstado = null) {
     const btns = document.querySelectorAll("#btnConectarGoogleFit");
@@ -287,7 +501,7 @@ export function actualizarEstadoGoogleFitUI(sincronizado = true, mensajeEstado =
 }
 
 function mostrarFeedbackGoogleFit(mensaje, color) {
-    const lista = document.querySelectorAll("#googleFitFeedback");
+    const lista = document.querySelectorAll("#googleFitFeedback, #saludSyncFeedback");
     lista.forEach(fb => {
         fb.textContent = mensaje;
         fb.style.color = color;
@@ -295,7 +509,7 @@ function mostrarFeedbackGoogleFit(mensaje, color) {
     });
     setTimeout(() => {
         lista.forEach(fb => { if (fb.textContent === mensaje) fb.style.display = "none"; });
-    }, 5000);
+    }, 4500);
 }
 
 // ==========================================
@@ -646,11 +860,13 @@ export function fetchFitData(token = null, opciones = {}) {
         token = token || localStorage.getItem("fitToken");
         if (!token) {
             actualizarEstadoGoogleFitUI(false);
-            await renderizarEstadoDesconectadoUI();
+            if (!estado.hoy) await renderizarEstadoDesconectadoUI();
+            actualizarBarraSyncSalud("cached");
             return null;
         }
 
         actualizarEstadoGoogleFitUI(true, "Sincronizando...");
+        actualizarBarraSyncSalud("syncing");
 
         try {
             await asegurarChartJS().catch(e => console.warn(e.message));
@@ -668,15 +884,18 @@ export function fetchFitData(token = null, opciones = {}) {
                 renderizarListaCardio();
             }
 
+            guardarSnapshotSalud();
             exportarContextoIA();
             actualizarEstadoGoogleFitUI(true, "Google Fit Sincronizado");
+            actualizarBarraSyncSalud("synced");
             return estado.hoy;
         } catch (error) {
             if (error.status === 401) {
-                manejarTokenExpirado("⚠️ Tu sesión de Google Fit ha caducado (401). Pulsa 'Conectar con Google Fit' para renovar.");
+                manejarTokenExpirado();
             } else {
                 console.error("Error al consultar Google Fit REST API:", error);
                 actualizarEstadoGoogleFitUI(true, "Aviso de conexión");
+                actualizarBarraSyncSalud("cached", "Sin conexión · Mostrando últimos datos");
                 mostrarFeedbackGoogleFit(`Error al sincronizar: ${error.message}`, "#f87171");
             }
             throw error;
@@ -1297,9 +1516,16 @@ async function cambiarRango(rango) {
         b.classList.toggle("active", Number(b.dataset.range) === rango);
     });
 
+    // Pintar inmediatamente si ese rango ya está en la caché local
+    if (estado.cache[rango]?.dias?.length) {
+        estado.dias = estado.cache[rango].dias;
+        await renderizarGraficaPrincipal();
+        renderizarListaCardio();
+    }
+
     const token = localStorage.getItem("fitToken");
-    if (!token) {
-        mostrarFeedbackGoogleFit("Conecta Google Fit para ver el histórico.", "#facc15");
+    if (!token || !esTokenFitValido()) {
+        conectarGoogleFit({ automatico: false });
         return;
     }
 
@@ -1308,10 +1534,11 @@ async function cambiarRango(rango) {
         await cargarHistorial(token, rango);
         await renderizarGraficaPrincipal();
         renderizarListaCardio();
+        guardarSnapshotSalud();
         exportarContextoIA();
     } catch (e) {
         if (e.status === 401) {
-            manejarTokenExpirado("⚠️ Tu sesión de Google Fit ha caducado (401). Pulsa 'Conectar con Google Fit' para renovar.");
+            manejarTokenExpirado();
         } else {
             mostrarFeedbackGoogleFit(`Error al cargar el histórico: ${e.message}`, "#f87171");
         }
@@ -1344,32 +1571,43 @@ function enlazarControles() {
 }
 
 // ==========================================
-// EXPIRACIÓN (401) Y REFRESCO MANUAL
+// EXPIRACIÓN (401) Y REFRESCO / RECONEXIÓN ÁGIL
 // ==========================================
-export function manejarTokenExpirado(mensaje = "Sesión de Google Fit expirada. Pulsa para reconectar.") {
-    console.warn("Limpiando estado de autenticación de Google Fit (401)...");
-    ["fitToken", "fitTokenTimestamp", "fitUserEmail", "fitUserName"].forEach(k => localStorage.removeItem(k));
-    estado.cache = {};
+export function manejarTokenExpirado(mensaje = null) {
+    console.warn("Token de Google Fit expirado (401). Conservando caché local y renovando acceso...");
+    // Conservamos fitUserEmail (para login_hint) y health_last_snapshot_v1 (para no vaciar gráficas)
+    localStorage.removeItem("fitToken");
+    localStorage.removeItem("fitTokenTimestamp");
 
     actualizarEstadoGoogleFitUI(false);
-    mostrarFeedbackGoogleFit(mensaje, "#f87171");
-    renderizarEstadoDesconectadoUI();
+
+    if (esVistaSaludActiva() && puedeAutoAutenticar()) {
+        actualizarBarraSyncSalud("syncing", "Sesión expirada · Renovando acceso automáticamente...");
+        conectarGoogleFit({ automatico: true });
+        return;
+    }
+
+    actualizarBarraSyncSalud("cached");
+    if (mensaje) {
+        mostrarFeedbackGoogleFit(mensaje, "#fbbf24");
+    }
+    if (!estado.hoy) {
+        renderizarEstadoDesconectadoUI();
+    }
 }
 
 export async function refrescarFitData() {
-    const token = localStorage.getItem("fitToken");
-    if (!token) {
-        mostrarFeedbackGoogleFit("⚠️ No hay sesión activa. Pulsa 'Conectar con Google Fit'.", "#facc15");
-        actualizarEstadoGoogleFitUI(false);
-        return;
+    if (!esTokenFitValido()) {
+        await conectarGoogleFit({ automatico: false });
+        return null;
     }
-    mostrarFeedbackGoogleFit("🔄 Sincronizando con Google Fit...", "#38bdf8");
+    actualizarBarraSyncSalud("syncing", "Actualizando métricas de Google Fit...");
     try {
-        const datos = await fetchFitData(token, { forzar: true });
+        const datos = await fetchFitData(localStorage.getItem("fitToken"), { forzar: true });
         mostrarFeedbackGoogleFit("✅ Métricas actualizadas con éxito.", "#4ade80");
         return datos;
-    } catch (e) {
-        // El error ya se ha comunicado en fetchFitData
+    } catch (_) {
+        return null;
     }
 }
 
@@ -1384,46 +1622,82 @@ export function initSalud() {
     statusBadge = document.getElementById("dbStatusBadge");
 
     const btnGoogleFit = document.getElementById("btnConectarGoogleFit");
-    if (btnGoogleFit) btnGoogleFit.onclick = conectarGoogleFit;
+    if (btnGoogleFit) btnGoogleFit.onclick = () => conectarGoogleFit({ automatico: false });
 
     enlazarControles();
 
-    // Captura silenciosa tras un signInWithRedirect
-    try {
-        getRedirectResult(auth).then((result) => {
-            if (result) procesarResultadoGoogleAuth(result);
-        }).catch((err) => {
-            if (err && err.code !== "auth/null-user") console.warn("getRedirectResult:", err);
-        });
-    } catch (e) {
-        console.warn("getRedirectResult no disponible:", e);
+    // 1. Pintado INSTANTÁNEO (0 ms) desde caché local para agilidad inmediata
+    const tieneCache = cargarSnapshotSalud();
+    const enVistaSalud = esVistaSaludActiva();
+    if (tieneCache) {
+        renderizarDesdeEstadoActual();
+        if (enVistaSalud) actualizarBarraSyncSalud("syncing");
     }
 
-    // Persistencia: usuario activo + token => sincronización automática y silenciosa
-    try {
-        unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-            const token = localStorage.getItem("fitToken");
-            if ((user || auth.currentUser) && token) {
-                actualizarEstadoGoogleFitUI(true, "Sincronizando...");
-                try {
-                    await fetchFitData(token);
-                } catch (err) {
-                    console.warn("Sincronización silenciosa:", err.message);
-                }
-            } else {
-                actualizarEstadoGoogleFitUI(false);
-                renderizarEstadoDesconectadoUI();
+    // 2. Comprobar redirección de Google primero, luego sincronizar o auto-conectar
+    const miGeneracion = ++initGeneracionId;
+    const flujoInicial = async () => {
+        let autenticadoPorRedirect = false;
+        try {
+            const redirectResult = await getRedirectResult(auth);
+            if (miGeneracion !== initGeneracionId) return;
+            if (redirectResult) {
+                autenticadoPorRedirect = true;
+                await procesarResultadoGoogleAuth(redirectResult);
             }
-        });
-    } catch (e) {
-        console.warn("onAuthStateChanged:", e);
-    }
+        } catch (err) {
+            if (err && err.code !== "auth/null-user") console.warn("getRedirectResult:", err);
+        }
+
+        if (autenticadoPorRedirect || miGeneracion !== initGeneracionId) return;
+
+        try {
+            unsubscribeAuth = onAuthStateChanged(auth, async () => {
+                if (miGeneracion !== initGeneracionId) return;
+                if (esTokenFitValido()) {
+                    const token = localStorage.getItem("fitToken");
+                    actualizarEstadoGoogleFitUI(true, "Sincronizando...");
+                    try {
+                        await fetchFitData(token);
+                    } catch (err) {
+                        console.warn("Sincronización silenciosa:", err.message);
+                    }
+                    return;
+                }
+
+                // Sin token válido: si estamos en la vista Salud, lanzar conexión automáticamente
+                if (esVistaSaludActiva()) {
+                    if (autenticacionEnCurso) {
+                        actualizarBarraSyncSalud("syncing", "Conectando con Google Fit...");
+                        return;
+                    }
+                    if (puedeAutoAutenticar()) {
+                        conectarGoogleFit({ automatico: true });
+                    } else {
+                        actualizarEstadoGoogleFitUI(false);
+                        actualizarBarraSyncSalud("cached");
+                        if (!estado.hoy) await renderizarEstadoDesconectadoUI();
+                    }
+                } else {
+                    actualizarEstadoGoogleFitUI(false);
+                    if (!estado.hoy && displayPeso) {
+                        displayPeso.innerText = "Abrir Salud";
+                    }
+                }
+            });
+        } catch (e) {
+            console.warn("onAuthStateChanged:", e);
+        }
+    };
+
+    flujoInicial();
 
     document.addEventListener("keydown", handleEscapeKey);
     escucharEstadoFirestore();
 }
 
 export function cleanupSalud() {
+    initGeneracionId++;
     if (typeof unsubscribeFirestore === "function") { unsubscribeFirestore(); unsubscribeFirestore = null; }
     if (typeof unsubscribeAuth === "function") { unsubscribeAuth(); unsubscribeAuth = null; }
 
@@ -1465,8 +1739,11 @@ function escucharEstadoFirestore() {
 // EXPOSICIÓN GLOBAL
 // ==========================================
 window.salud = {
+    estado,
     initSalud,
     cleanupSalud,
+    abrirSaludDesdeDashboard,
+    esTokenFitValido,
     fetchFitData,
     refrescarFitData,
     conectarGoogleFit,

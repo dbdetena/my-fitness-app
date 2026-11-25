@@ -47,7 +47,7 @@
     <!-- Rejilla de Botones Cuadrados (2 Columnas, Varias Filas) -->
     <div class="modules-grid">
         <!-- 1. Botón Cuadrado: Peso y Salud -->
-        <button class="module-btn" id="btn-mod-salud" onclick="window.router?.cargarVista('salud') || window.abrirModalPeso?.()" aria-label="Abrir módulo de Peso y Salud">
+        <button class="module-btn" id="btn-mod-salud" onclick="window.salud?.abrirSaludDesdeDashboard?.() || window.router?.cargarVista('salud') || window.abrirModalPeso?.()" aria-label="Abrir módulo de Peso y Salud">
             <div class="module-btn-corner"></div>
             <div class="module-icon-wrap">
                 <svg viewBox="0 0 100 100" class="module-svg">

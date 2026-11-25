@@ -7284,6 +7284,94 @@ body.modal-open {
     font-style: italic;
 }
 
+/* ========================================================
+   SALUD: BARRA COMPACTA DE AUTO-SINCRONIZACIÓN GOOGLE FIT
+   ======================================================== */
+.salud-sync-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #1c283d;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 9px 12px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.salud-sync-left {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+
+.salud-sync-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #38bdf8;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.75);
+}
+
+.salud-sync-dot.synced {
+    background: #4ade80;
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.75);
+}
+
+.salud-sync-dot.cached {
+    background: #fbbf24;
+    box-shadow: 0 0 8px rgba(251, 191, 36, 0.7);
+}
+
+.salud-sync-dot.syncing {
+    background: #38bdf8;
+    animation: syncPulseAnim 1.2s ease-in-out infinite;
+}
+
+@keyframes syncPulseAnim {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.82); }
+}
+
+.salud-sync-text {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.salud-sync-refresh-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    background: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.salud-sync-refresh-btn:hover {
+    background: rgba(56, 189, 248, 0.22);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+}
+
+.salud-sync-refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
 
 
 
