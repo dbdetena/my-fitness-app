@@ -947,11 +947,11 @@ async function obtenerDatosHoyIntervals() {
     const pesoRaw = typeof wHoy?.weight === "number" ? wHoy.weight : null;
     const peso = (pesoRaw !== null && pesoRaw >= 40 && pesoRaw <= 250) ? parseFloat(pesoRaw.toFixed(1)) : null;
 
-    let calorias = 0;
+    let caloriasEntrenos = 0;
     let cardioSeg = 0;
     const actConHr = [];
     (actsHoy || []).forEach(a => {
-        if (typeof a.calories === "number" && a.calories > 0) calorias += a.calories;
+        if (typeof a.calories === "number" && a.calories > 0) caloriasEntrenos += a.calories;
         const dur = Number(a.moving_time || a.elapsed_time || 0);
         if (dur > 0) cardioSeg += dur;
         if (a.id && (a.average_heartrate || a.max_heartrate || a.has_heartrate)) {
@@ -959,14 +959,43 @@ async function obtenerDatosHoyIntervals() {
         }
     });
 
-    // Construir puntos de pulso de hoy: prioridad a streams de entrenos reales; si no, pulso en reposo
+    // Construir puntos reales de pulso de hoy en orden cronológico:
+    // 1) Pulso medio de sueño (avgSleepingHR), 2) Pulso en reposo (restingHR), 3) Stream real de entrenos de hoy
     let puntosCorazon = [];
+    const sleepHr = (typeof wHoy?.avgSleepingHR === "number" && wHoy.avgSleepingHR >= 30 && wHoy.avgSleepingHR <= 240)
+        ? Math.round(wHoy.avgSleepingHR)
+        : null;
+    const rhr = (typeof wHoy?.restingHR === "number" && wHoy.restingHR >= 30 && wHoy.restingHR <= 240)
+        ? Math.round(wHoy.restingHR)
+        : null;
+
+    if (sleepHr !== null) {
+        puntosCorazon.push({
+            ms: hoyMs + 4 * 3600 * 1000,
+            bpm: sleepHr,
+            etiqueta: "Sueño",
+            origen: "intervals-wellness"
+        });
+    }
+    if (rhr !== null) {
+        puntosCorazon.push({
+            ms: hoyMs + 7.5 * 3600 * 1000,
+            bpm: rhr,
+            etiqueta: "Reposo",
+            origen: "intervals-wellness"
+        });
+    }
+
+    let tieneStreamEntreno = false;
     if (actConHr.length > 0) {
         const streams = await Promise.all(actConHr.slice(0, 2).map(a => obtenerStreamCorazonActividad(a.id)));
         streams.forEach((st, idx) => {
             if (st) {
-                puntosCorazon.push(...muestrearStreamCorazon(actConHr[idx], st));
+                const muestreados = muestrearStreamCorazon(actConHr[idx], st);
+                if (muestreados.length > 0) tieneStreamEntreno = true;
+                puntosCorazon.push(...muestreados);
             } else if (typeof actConHr[idx].average_heartrate === "number" && actConHr[idx].average_heartrate >= 30) {
+                tieneStreamEntreno = true;
                 const tMs = actConHr[idx].start_date_local ? new Date(actConHr[idx].start_date_local).getTime() : Date.now();
                 puntosCorazon.push({
                     ms: Number.isFinite(tMs) ? tMs : Date.now(),
@@ -975,30 +1004,42 @@ async function obtenerDatosHoyIntervals() {
                 });
             }
         });
-        puntosCorazon.sort((a, b) => a.ms - b.ms);
     }
 
-    const rhr = (typeof wHoy?.restingHR === "number" && wHoy.restingHR >= 30 && wHoy.restingHR <= 240)
-        ? Math.round(wHoy.restingHR)
-        : null;
-
-    if (puntosCorazon.length === 0 && rhr !== null) {
-        puntosCorazon = [{
-            ms: hoyMs + 8 * 3600 * 1000,
-            bpm: rhr,
-            etiqueta: "Reposo",
-            origen: "intervals-rhr"
-        }];
+    puntosCorazon.sort((a, b) => a.ms - b.ms);
+    if (tieneStreamEntreno) {
+        puntosCorazon = puntosCorazon.map(p => ({ ...p, origen: "intervals-stream" }));
     }
 
     const bpmsValidos = puntosCorazon.map(p => p.bpm).filter(b => typeof b === "number" && b > 0);
-    const bpmAvg = bpmsValidos.length ? Math.round(bpmsValidos.reduce((a, b) => a + b, 0) / bpmsValidos.length) : rhr;
-    const bpmUltimo = bpmsValidos.length ? bpmsValidos[bpmsValidos.length - 1] : rhr;
+    const bpmAvg = bpmsValidos.length ? Math.round(bpmsValidos.reduce((a, b) => a + b, 0) / bpmsValidos.length) : (rhr ?? sleepHr);
+    const bpmUltimo = bpmsValidos.length ? bpmsValidos[bpmsValidos.length - 1] : (rhr ?? sleepHr);
+
+    // Calorías: Intervals.icu /wellness no expone gasto basal diario; calculamos estimación transparente (basal proporcional + entrenos/pasos)
+    const contextoPrev = (() => {
+        try { return JSON.parse(localStorage.getItem(CLAVE_CONTEXTO_IA) || "{}"); } catch (_) { return {}; }
+    })();
+    const pesoRef = peso ?? calcularTendenciaPeso() ?? contextoPrev.tendenciaPeso ?? 75;
+    const fraccionDia = Math.max(0, Math.min(1, (Date.now() - hoyMs) / DIA_MS));
+    const bmrHastaAhora = Math.round((pesoRef * 22) * fraccionDia);
+    const kcalPasosEst = caloriasEntrenos > 0 ? 0 : Math.round(pasos * 0.04 * (pesoRef / 70));
+    const caloriasDirectasW = (typeof wHoy?.activeCalories === "number" && wHoy.activeCalories > 0) ? Math.round(wHoy.activeCalories) : 0;
+    const caloriasActivas = Math.max(Math.round(caloriasEntrenos), caloriasDirectasW, kcalPasosEst);
+    const caloriasTotalEst = bmrHastaAhora + caloriasActivas;
+
+    let caloriasSubtitulo = "Basal est. (Intervals no da total)";
+    if (caloriasEntrenos > 0) {
+        caloriasSubtitulo = `Est. basal + ${Math.round(caloriasEntrenos)} kcal entreno`;
+    } else if (pasos > 0) {
+        caloriasSubtitulo = `Est. basal + ${caloriasActivas} kcal pasos`;
+    }
 
     return {
         pasos,
-        calorias: Math.round(calorias),
+        calorias: caloriasTotalEst,
+        caloriasActivas,
         caloriasSoloActivas: true,
+        caloriasSubtitulo,
         cardioMin: Math.round(cardioSeg / 60),
         suenoHoras,
         peso,
@@ -1065,6 +1106,8 @@ function construirDiasIntervals(wellnessArr, actividadesArr, rango) {
         let bpmDia = null;
         if (typeof w?.restingHR === "number" && w.restingHR >= 30 && w.restingHR <= 240) {
             bpmDia = Math.round(w.restingHR);
+        } else if (typeof w?.avgSleepingHR === "number" && w.avgSleepingHR >= 30 && w.avgSleepingHR <= 240) {
+            bpmDia = Math.round(w.avgSleepingHR);
         } else if (actBpms.length > 0) {
             bpmDia = Math.round(actBpms.reduce((x, y) => x + y, 0) / actBpms.length);
         }
@@ -1174,10 +1217,12 @@ export function fetchFitData(token = null, opciones = {}) {
                         const hoyFit = await obtenerDatosHoy(token);
                         fuente = "intervals+fit";
                         const fitTieneBpm = (hoyFit.puntosCorazon || []).some(p => typeof p.bpm === "number" && p.bpm > 0);
+                        const usaFitCalorias = hoyFit.calorias > 0;
                         hoyFinal = {
                             pasos: hoyFinal.pasos > 0 ? hoyFinal.pasos : hoyFit.pasos,
-                            calorias: hoyFit.calorias > hoyFinal.calorias ? hoyFit.calorias : hoyFinal.calorias,
-                            caloriasSoloActivas: !(hoyFit.calorias > hoyFinal.calorias),
+                            calorias: usaFitCalorias ? hoyFit.calorias : hoyFinal.calorias,
+                            caloriasSoloActivas: !usaFitCalorias,
+                            caloriasSubtitulo: usaFitCalorias ? "Google Fit (desde 00:00)" : hoyFinal.caloriasSubtitulo,
                             cardioMin: hoyFinal.cardioMin > 0 ? hoyFinal.cardioMin : hoyFit.cardioMin,
                             suenoHoras: hoyFinal.suenoHoras ?? hoyFit.suenoHoras,
                             peso: hoyFinal.peso ?? hoyFit.peso,
@@ -1339,7 +1384,7 @@ async function renderizarHoy(hoy) {
     if (document.getElementById("chartPasosRing")) {
         renderizarAnillo("chartPasosRing", hoy.pasos, META_PASOS, "ringPasosValor", "ringPasosPct", "pasos");
         renderizarAnillo("chartCaloriasRing", hoy.calorias, META_KCAL, "ringCaloriasValor", "ringCaloriasPct", "calorias");
-        setTexto("fitCaloriasEstado", hoy.caloriasSoloActivas ? "Calorías activas (Intervals.icu)" : "Desde las 00:00");
+        setTexto("fitCaloriasEstado", hoy.caloriasSubtitulo || (hoy.caloriasSoloActivas ? "Calorías activas (Intervals.icu)" : "Desde las 00:00"));
     }
 }
 
@@ -1407,9 +1452,9 @@ async function renderizarCorazonHoy(puntos = []) {
         setTexto("heartRateStatAvg", `${avg} BPM`);
         setTexto("heartRateStatMax", `${max} BPM`);
         if (origenPuntos === "intervals-stream") {
-            setTexto("hintCorazonHoy", "Pulso real de entrenamientos de hoy (Intervals.icu) · Puntos medidos");
-        } else if (origenPuntos === "intervals-rhr") {
-            setTexto("hintCorazonHoy", "Pulso en reposo hoy (Intervals.icu) · Los entrenos añadirán su curva real");
+            setTexto("hintCorazonHoy", "Hitos y pulso real de entrenos de hoy (Intervals.icu) · Sin intradía 24h");
+        } else if (origenPuntos === "intervals-wellness" || origenPuntos === "intervals-rhr") {
+            setTexto("hintCorazonHoy", "Sueño / Reposo hoy (Intervals.icu no expone pulso intradía 24h)");
         } else {
             setTexto("hintCorazonHoy", "Cronología del día actual (intervalos 15 min) · Puntos medidos");
         }
@@ -1418,7 +1463,7 @@ async function renderizarCorazonHoy(puntos = []) {
         setTexto("heartRateActualBadge", "-- BPM");
         ["heartRateStatMin", "heartRateStatAvg", "heartRateStatMax"].forEach(id => setTexto(id, "--"));
         if (tieneIntervalsConfigurado()) {
-            setTexto("hintCorazonHoy", "Sin lecturas de pulso hoy en Intervals.icu · Sincroniza tu reloj en Zepp");
+            setTexto("hintCorazonHoy", "Intervals.icu solo registra pulso de Sueño, Reposo y Entrenos (no intradía 24h)");
         } else {
             setTexto("hintCorazonHoy", (puntos && puntos.length > 0)
                 ? "Sin lecturas de pulso hoy en Google Fit · Revisa la sincronización del reloj/app"
@@ -1454,7 +1499,7 @@ async function renderizarCorazonHoy(puntos = []) {
         ejeY.beginAtZero = false;
     }
 
-    const radioPunto = reales.length > 45 ? 3 : 4;
+    const radioPunto = reales.length <= 5 ? 5 : (reales.length > 45 ? 3 : 4);
 
     chartCorazonHoyInstance = new window.Chart(ctx, {
         type: "line",
