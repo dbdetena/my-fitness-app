@@ -2,18 +2,38 @@
 // MÓDULO: CLIENTE INTERVALS.ICU (API v1 · CORS NATIVO)
 // Conexión directa desde PWA para Amazfit / Zepp y Salud
 // conectada vía Intervals.icu, sin popups OAuth ni tokens
-// de 60 min. API Key cifrada localmente con PBKDF2 + AES-GCM.
+// de 60 min. API Key cifrada con PBKDF2 + AES-GCM y
+// sincronizada entre dispositivos vía Firebase Firestore.
 // ========================================================
+import { db } from "./firebase-config.js";
+import {
+    doc,
+    getDoc,
+    setDoc,
+    deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const INTERVALS_BASE_URL = "https://intervals.icu/api/v1";
 const STORAGE_KEY_INTERVALS_VAULT = "fitness_intervals_vault_v1";
 const STORAGE_KEY_INTERVALS_META = "fitness_intervals_meta_v1";
+const STORAGE_KEY_INTERVALS_CLOUD_SYNCED = "fitness_intervals_cloud_synced_v1";
+const FIRESTORE_COLLECTION = "configuracion";
+const FIRESTORE_DOC_ID = "intervals_config";
+const FIRESTORE_TIMEOUT_MS = 4000;
 
 const VAULT_SALT = new TextEncoder().encode("antigravity-intervals-vault-salt-v1");
 const VAULT_PASSPHRASE = "AGY_FITNESS_INTERVALS_LOCAL_VAULT_2026";
 const REQUEST_TIMEOUT_MS = 15000;
 
 let cachedApiKey = null;
+let cloudSyncPromise = null;
+
+function conTimeout(promesa, ms, fallback = null) {
+    return Promise.race([
+        promesa,
+        new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+    ]);
+}
 
 // ========================================================
 // 1. BÓVEDA LOCAL CIFRADA (PBKDF2 + AES-GCM 256-BIT)
@@ -82,12 +102,14 @@ export async function guardarConfigIntervals(apiKey, meta = {}) {
     const limpia = String(apiKey || "").trim();
     if (!limpia) throw new Error("La API Key de Intervals.icu está vacía.");
 
+    let vaultObj;
     if (window.crypto?.subtle) {
         const cifrada = await cifrarTexto(limpia);
-        localStorage.setItem(STORAGE_KEY_INTERVALS_VAULT, JSON.stringify({ v: 1, enc: true, data: cifrada }));
+        vaultObj = { v: 1, enc: true, data: cifrada };
     } else {
-        localStorage.setItem(STORAGE_KEY_INTERVALS_VAULT, JSON.stringify({ v: 1, enc: false, data: btoa(limpia) }));
+        vaultObj = { v: 1, enc: false, data: btoa(limpia) };
     }
+    localStorage.setItem(STORAGE_KEY_INTERVALS_VAULT, JSON.stringify(vaultObj));
     cachedApiKey = limpia;
 
     const metaFinal = {
@@ -96,13 +118,96 @@ export async function guardarConfigIntervals(apiKey, meta = {}) {
         connectedAt: Date.now()
     };
     localStorage.setItem(STORAGE_KEY_INTERVALS_META, JSON.stringify(metaFinal));
+
+    // Sincronizar también en Firestore para acceso automático desde cualquier dispositivo/navegador
+    try {
+        const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+        await conTimeout(
+            setDoc(docRef, {
+                vault: vaultObj,
+                meta: metaFinal,
+                actualizado: new Date().toISOString()
+            }),
+            FIRESTORE_TIMEOUT_MS,
+            null
+        );
+        localStorage.setItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED, "1");
+    } catch (e) {
+        console.warn("No se pudo guardar config Intervals.icu en Firestore:", e.message);
+    }
+
     return metaFinal;
+}
+
+/**
+ * Sincroniza la bóveda cifrada de Intervals.icu entre dispositivos vía Firestore:
+ * - Si ya existe localmente pero aún no se subió a la nube, la migra automáticamente.
+ * - Si no existe localmente (PC/navegador nuevo), la descarga de Firestore.
+ */
+export async function sincronizarConfigIntervalsDesdeNube() {
+    if (cloudSyncPromise) return cloudSyncPromise;
+
+    cloudSyncPromise = (async () => {
+        const rawLocal = localStorage.getItem(STORAGE_KEY_INTERVALS_VAULT);
+        const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+
+        if (rawLocal) {
+            // Migración automática 1 sola vez desde un dispositivo que ya tenía la clave en local
+            if (!localStorage.getItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED)) {
+                try {
+                    const vaultObj = JSON.parse(rawLocal);
+                    const metaObj = obtenerMetaIntervals() || { athleteId: "0", athleteName: "", connectedAt: Date.now() };
+                    await conTimeout(
+                        setDoc(docRef, {
+                            vault: vaultObj,
+                            meta: metaObj,
+                            actualizado: new Date().toISOString()
+                        }),
+                        FIRESTORE_TIMEOUT_MS,
+                        null
+                    );
+                    localStorage.setItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED, "1");
+                } catch (e) {
+                    console.warn("Aviso migrando Intervals.icu a Firestore:", e.message);
+                }
+            }
+            return true;
+        }
+
+        // Dispositivo nuevo / otro navegador: recuperar desde Firestore
+        try {
+            const snap = await conTimeout(getDoc(docRef), FIRESTORE_TIMEOUT_MS, null);
+            if (snap && snap.exists()) {
+                const data = snap.data();
+                if (data?.vault?.data) {
+                    localStorage.setItem(STORAGE_KEY_INTERVALS_VAULT, JSON.stringify(data.vault));
+                    if (data.meta) {
+                        localStorage.setItem(STORAGE_KEY_INTERVALS_META, JSON.stringify(data.meta));
+                    }
+                    localStorage.setItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED, "1");
+                    cachedApiKey = null;
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.warn("No se pudo leer config Intervals.icu desde Firestore:", e.message);
+        }
+        return false;
+    })();
+
+    const limpiar = () => { cloudSyncPromise = null; };
+    cloudSyncPromise.then(limpiar, limpiar);
+    return cloudSyncPromise;
 }
 
 export async function cargarApiKeyIntervals() {
     if (cachedApiKey) return cachedApiKey;
     try {
-        const raw = localStorage.getItem(STORAGE_KEY_INTERVALS_VAULT);
+        let raw = localStorage.getItem(STORAGE_KEY_INTERVALS_VAULT);
+        if (!raw) {
+            const ok = await sincronizarConfigIntervalsDesdeNube();
+            if (ok) raw = localStorage.getItem(STORAGE_KEY_INTERVALS_VAULT);
+        }
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (!parsed?.data) return null;
@@ -119,12 +224,20 @@ export async function cargarApiKeyIntervals() {
     }
 }
 
-export function eliminarConfigIntervals() {
+export async function eliminarConfigIntervals() {
     cachedApiKey = null;
     try {
         localStorage.removeItem(STORAGE_KEY_INTERVALS_VAULT);
         localStorage.removeItem(STORAGE_KEY_INTERVALS_META);
+        localStorage.removeItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED);
     } catch (_) {}
+
+    try {
+        const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+        await conTimeout(deleteDoc(docRef), FIRESTORE_TIMEOUT_MS, null);
+    } catch (e) {
+        console.warn("No se pudo eliminar config Intervals.icu de Firestore:", e.message);
+    }
 }
 
 // ========================================================

@@ -963,12 +963,30 @@ body.modal-open {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .weight-trend-meta {
     display: flex;
     flex-direction: column;
     gap: 3px;
+}
+
+.weight-trend-badge-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.weight-trend-badge-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-align: right;
+    line-height: 1.15;
+    max-width: 115px;
 }
 
 .weight-trend-badge {

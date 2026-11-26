@@ -4,7 +4,8 @@ import {
     obtenerMetaIntervals,
     probarConexionIntervals,
     guardarConfigIntervals,
-    eliminarConfigIntervals
+    eliminarConfigIntervals,
+    sincronizarConfigIntervalsDesdeNube
 } from "./intervals-api.js";
 
 export function initConfig() {
@@ -14,6 +15,11 @@ export function initConfig() {
     window.guardarIntervalsConfig = guardarIntervalsConfig;
     window.desconectarIntervalsConfig = desconectarIntervalsConfig;
     window.actualizarEstadoIntervalsUI = actualizarEstadoIntervalsUI;
+
+    // Sincronización silenciosa multidispositivo (sube clave local o la descarga en otro PC/navegador)
+    sincronizarConfigIntervalsDesdeNube().then((conectado) => {
+        if (conectado) actualizarEstadoIntervalsUI();
+    }).catch(() => {});
 
     // Soporte para cerrar con tecla Escape
     document.addEventListener("keydown", (e) => {
@@ -95,8 +101,8 @@ export async function guardarIntervalsConfig() {
 }
 
 export async function desconectarIntervalsConfig() {
-    if (!confirm("¿Deseas desconectar tu API Key de Intervals.icu de este dispositivo?")) return;
-    eliminarConfigIntervals();
+    if (!confirm("¿Deseas desconectar tu API Key de Intervals.icu en todos tus dispositivos?")) return;
+    await eliminarConfigIntervals();
     actualizarEstadoIntervalsUI();
     mostrarFeedbackIntervals("Intervals.icu desconectado.", "#94a3b8");
     if (window.salud?.onIntervalsDesconectado) {
@@ -110,8 +116,13 @@ export function abrirModalConfig() {
         modal.classList.add("active");
         document.body.classList.add("modal-open");
 
-        // Refrescar estado visual de Intervals.icu y Google Fit al abrir ajustes
+        // Refrescar estado visual de Intervals.icu (y comprobar Firestore si es un navegador nuevo)
         actualizarEstadoIntervalsUI();
+        if (!tieneIntervalsConfigurado()) {
+            sincronizarConfigIntervalsDesdeNube().then((conectado) => {
+                if (conectado) actualizarEstadoIntervalsUI();
+            }).catch(() => {});
+        }
 
         const valido = window.salud?.esTokenFitValido
             ? window.salud.esTokenFitValido()

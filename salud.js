@@ -16,6 +16,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import {
     tieneIntervalsConfigurado,
+    sincronizarConfigIntervalsDesdeNube,
     obtenerWellnessIntervals,
     obtenerActividadesIntervals,
     obtenerStreamCorazonActividad
@@ -434,8 +435,8 @@ export async function conectarGoogleFit(opciones = {}) {
 export function abrirSaludDesdeDashboard() {
     window.router?.cargarVista("salud");
 
-    // Si Intervals.icu está configurado, no lanzar popups de Google OAuth
-    if (tieneIntervalsConfigurado()) {
+    // Si Intervals.icu está configurado (o es un navegador nuevo aún por comprobar Firestore), no lanzar popups de Google OAuth
+    if (tieneIntervalsConfigurado() || !localStorage.getItem("fitUserEmail")) {
         return true;
     }
 
@@ -1561,10 +1562,10 @@ async function renderizarCorazonHoy(puntos = []) {
 // RENDER: GRÁFICA PRINCIPAL (PESO / SUEÑO / PASOS / PULSACIONES)
 // ==========================================
 const CONFIG_METRICAS = {
-    peso:  { titulo: "Evolución de Peso",        unidad: "kg",    decimales: 1, campo: "peso" },
-    sueno: { titulo: "Horas de Sueño",           unidad: "h",     decimales: 1, campo: "sueno" },
-    pasos: { titulo: "Pasos Diarios",            unidad: "pasos", decimales: 0, campo: "pasos" },
-    bpm:   { titulo: "Frecuencia Cardíaca Media", unidad: "BPM",   decimales: 0, campo: "bpm" }
+    peso:  { titulo: "Evolución de Peso",        unidad: "kg",    decimales: 1, campo: "peso",  etiquetaUltimo: "Último peso registrado" },
+    sueno: { titulo: "Horas de Sueño",           unidad: "h",     decimales: 1, campo: "sueno", etiquetaUltimo: "Último sueño registrado" },
+    pasos: { titulo: "Pasos Diarios",            unidad: "pasos", decimales: 0, campo: "pasos", etiquetaUltimo: "Últimos pasos registrados" },
+    bpm:   { titulo: "Frecuencia Cardíaca Media", unidad: "BPM",   decimales: 0, campo: "bpm",   etiquetaUltimo: "Último pulso registrado" }
 };
 
 function formatearValor(v, cfg) {
@@ -1590,6 +1591,7 @@ async function renderizarGraficaPrincipal() {
     const colorPrimario = esBpm ? "#ef4444" : "#38bdf8";
 
     setTexto("chartMainTitle", cfg.titulo);
+    setTexto("chartMainBadgeLabel", cfg.etiquetaUltimo || "Último registrado");
     const badge = document.getElementById("chartPesoActualBadge");
     if (badge) {
         badge.textContent = reales.length ? formatearValor(reales[reales.length - 1], cfg) : "--";
@@ -2088,9 +2090,10 @@ export function initSalud() {
         if (enVistaSalud) actualizarBarraSyncSalud("syncing");
     }
 
-    // 2. Si Intervals.icu está configurado, sincronizar directo sin esperar a Google Auth ni lanzar popups
+    // 2. Si Intervals.icu está configurado en local, sincronizar directo (y migrar a Firestore en 2º plano)
     const miGeneracion = ++initGeneracionId;
     if (tieneIntervalsConfigurado()) {
+        sincronizarConfigIntervalsDesdeNube().catch(() => {});
         actualizarEstadoGoogleFitUI(esTokenFitValido());
         fetchFitData(esTokenFitValido() ? localStorage.getItem("fitToken") : null).catch(err => {
             console.warn("Sincronización inicial Intervals.icu:", err.message);
@@ -2100,8 +2103,25 @@ export function initSalud() {
         return;
     }
 
-    // 3. Flujo Google Fit: comprobar redirección de Google primero, luego sincronizar o auto-conectar
+    // 3. Dispositivo/navegador sin clave local: comprobar primero Firestore (Intervals.icu multidispositivo)
     const flujoInicial = async () => {
+        try {
+            const recuperado = await sincronizarConfigIntervalsDesdeNube();
+            if (miGeneracion !== initGeneracionId) return;
+            if (recuperado && tieneIntervalsConfigurado()) {
+                window.actualizarEstadoIntervalsUI?.();
+                actualizarEstadoGoogleFitUI(esTokenFitValido());
+                await fetchFitData(esTokenFitValido() ? localStorage.getItem("fitToken") : null).catch(err => {
+                    console.warn("Sincronización Intervals.icu tras recuperación nube:", err.message);
+                });
+                return;
+            }
+        } catch (err) {
+            console.warn("Comprobación nube Intervals.icu:", err);
+        }
+
+        if (miGeneracion !== initGeneracionId) return;
+
         let autenticadoPorRedirect = false;
         try {
             const redirectResult = await getRedirectResult(auth);
