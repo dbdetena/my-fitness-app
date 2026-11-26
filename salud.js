@@ -1277,7 +1277,8 @@ export function fetchFitData(token = null, opciones = {}) {
                     try {
                         const hoyFit = await obtenerDatosHoy(token);
                         fuente = "intervals+fit";
-                        const fitTieneBpm = (hoyFit.puntosCorazon || []).some(p => typeof p.bpm === "number" && p.bpm > 0);
+                        const fitPtsValidos = (hoyFit.puntosCorazon || []).filter(p => typeof p.bpm === "number" && p.bpm > 0);
+                        const fitTieneBpm = fitPtsValidos.length > 0;
                         const usaFitCalorias = hoyFit.calorias > 0;
                         hoyFinal = {
                             pasos: hoyFinal.pasos > 0 ? hoyFinal.pasos : hoyFit.pasos,
@@ -1291,7 +1292,8 @@ export function fetchFitData(token = null, opciones = {}) {
                             bpmUltimo: fitTieneBpm ? hoyFit.bpmUltimo : (hoyFinal.bpmUltimo ?? hoyFit.bpmUltimo),
                             bpmReposo: hoyFinal.bpmReposo ?? null,
                             hrv: hoyFinal.hrv ?? null,
-                            puntosCorazon: fitTieneBpm ? hoyFit.puntosCorazon : hoyFinal.puntosCorazon
+                            puntosCorazon: fitTieneBpm ? hoyFit.puntosCorazon : hoyFinal.puntosCorazon,
+                            _fitBpmCountHoy: fitPtsValidos.length
                         };
                     } catch (errFit) {
                         if (errFit.status === 401) {
@@ -1547,9 +1549,11 @@ async function renderizarCorazonHoy(puntos = []) {
         }
 
         if (origenPuntos === "intervals-stream") {
-            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Pulso real de entrenos de hoy (Intervals.icu no expone continuo 24h)");
+            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Pulso real de entrenos de hoy (Intervals.icu)");
         } else if (origenPuntos === "intervals-wellness" || origenPuntos === "intervals-rhr") {
-            setTexto("hintCorazonHoy", "Solo dato diario de reposo recibido de Intervals.icu (Zepp no sube pulso continuo 24h a la nube)");
+            setTexto("hintCorazonHoy", estado.fuenteActiva === "intervals+fit"
+                ? "Google Fit API nube devolvió 0 lecturas hoy (Zepp→Salud conectada es local en Android)"
+                : "Solo dato diario de Intervals.icu · Conecta Google Fit en ⚙️ para comprobar si sube intradía");
         } else {
             setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Puntos reales medidos llenando el día de izquierda a derecha");
         }
@@ -2226,13 +2230,26 @@ export function initSalud() {
         if (enVistaSalud) actualizarBarraSyncSalud("syncing");
     }
 
-    // 2. Si Intervals.icu está configurado en local, sincronizar directo (y migrar a Firestore en 2º plano)
+    // 2. Si Intervals.icu está configurado en local, sincronizar directo (y comprobar redirect de Google Fit si volvemos de OAuth)
     const miGeneracion = ++initGeneracionId;
     if (tieneIntervalsConfigurado()) {
         sincronizarConfigIntervalsDesdeNube().catch(() => {});
-        actualizarEstadoGoogleFitUI(esTokenFitValido());
-        fetchFitData(esTokenFitValido() ? localStorage.getItem("fitToken") : null).catch(err => {
-            console.warn("Sincronización inicial Intervals.icu:", err.message);
+        getRedirectResult(auth).then(async (redirectResult) => {
+            if (miGeneracion !== initGeneracionId) return;
+            if (redirectResult) {
+                await procesarResultadoGoogleAuth(redirectResult);
+                return;
+            }
+            actualizarEstadoGoogleFitUI(esTokenFitValido());
+            fetchFitData(esTokenFitValido() ? localStorage.getItem("fitToken") : null).catch(err => {
+                console.warn("Sincronización inicial Intervals.icu:", err.message);
+            });
+        }).catch(() => {
+            if (miGeneracion !== initGeneracionId) return;
+            actualizarEstadoGoogleFitUI(esTokenFitValido());
+            fetchFitData(esTokenFitValido() ? localStorage.getItem("fitToken") : null).catch(err => {
+                console.warn("Sincronización inicial Intervals.icu:", err.message);
+            });
         });
         document.addEventListener("keydown", handleEscapeKey);
         escucharEstadoFirestore();
