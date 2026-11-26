@@ -774,7 +774,57 @@ function trocearRango(inicioMs, finMs) {
 // ==========================================
 // DATOS DE HOY (00:00 LOCAL) Y HISTÓRICO
 // ==========================================
-/** Consulta intradía detallada para el día en curso en intervalos de 15 a 30 minutos */
+/**
+ * Fallback directo a /users/me/dataSources (com.google.heart_rate.bpm)
+ * por si una app de terceros (Zepp / Health Connect) escribe en un stream raw no fusionado por dataset:aggregate.
+ */
+async function obtenerCorazonHoyRawDataSources(token, medianocheMs, ahoraMs) {
+    try {
+        const resp = await fetch("https://www.googleapis.com/fitness/v1/users/me/dataSources?dataTypeName=com.google.heart_rate.bpm", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!resp.ok) return [];
+        const json = await resp.json();
+        const fuentes = (json?.dataSource || []).map(ds => ds?.dataStreamId).filter(Boolean);
+        if (fuentes.length === 0) return [];
+
+        const startNs = `${BigInt(medianocheMs) * 1000000n}`;
+        const endNs = `${BigInt(ahoraMs) * 1000000n}`;
+        const cubos = new Map();
+
+        await Promise.all(fuentes.slice(0, 6).map(async (streamId) => {
+            try {
+                const url = `https://www.googleapis.com/fitness/v1/users/me/dataSources/${encodeURIComponent(streamId)}/datasets/${startNs}-${endNs}`;
+                const r = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
+                if (!r.ok) return;
+                const ds = await r.json();
+                for (const punto of (ds?.point || [])) {
+                    const v = punto?.value?.[0]?.fpVal ?? punto?.value?.[0]?.intVal;
+                    if (typeof v !== "number" || v < 30 || v > 240) continue;
+                    const tNs = punto.endTimeNanos || punto.startTimeNanos;
+                    if (!tNs) continue;
+                    let tMs = 0;
+                    try { tMs = Number(BigInt(tNs) / 1000000n); } catch (_) { tMs = Number(tNs) / 1e6; }
+                    if (tMs < medianocheMs || tMs > ahoraMs) continue;
+                    const idx = Math.floor((tMs - medianocheMs) / INTERVALO_CORAZON_HOY_MS);
+                    const bucketMs = medianocheMs + idx * INTERVALO_CORAZON_HOY_MS;
+                    if (!cubos.has(idx)) cubos.set(idx, { ms: bucketMs, suma: 0, n: 0 });
+                    const c = cubos.get(idx);
+                    c.suma += v;
+                    c.n += 1;
+                }
+            } catch (_) {}
+        }));
+
+        return Array.from(cubos.values())
+            .sort((a, b) => a.ms - b.ms)
+            .map(c => ({ ms: c.ms, bpm: Math.round(c.suma / c.n), origen: "googlefit-raw" }));
+    } catch (_) {
+        return [];
+    }
+}
+
+/** Consulta intradía detallada para el día en curso en intervalos de 15 minutos (+ fallback raw dataSources) */
 async function obtenerCorazonHoy(token) {
     const ahora = Date.now();
     const medianoche = inicioDelDia(); // 00:00:00 local
@@ -782,6 +832,7 @@ async function obtenerCorazonHoy(token) {
     const data = await consultarCorazonTolerante(token, cuerpo);
 
     const puntos = [];
+    let tieneValidos = false;
     if (data && Array.isArray(data.bucket)) {
         for (const bucket of data.bucket) {
             const inicioMs = Number(bucket.startTimeMillis);
@@ -796,12 +847,20 @@ async function obtenerCorazonHoy(token) {
                     }
                 }
             }
+            if (validos.length > 0) tieneValidos = true;
             puntos.push({
                 ms: inicioMs,
-                bpm: validos.length > 0 ? Math.round(validos.reduce((a, b) => a + b, 0) / validos.length) : null
+                bpm: validos.length > 0 ? Math.round(validos.reduce((a, b) => a + b, 0) / validos.length) : null,
+                origen: "googlefit-intraday"
             });
         }
     }
+
+    if (!tieneValidos) {
+        const rawPts = await obtenerCorazonHoyRawDataSources(token, medianoche, ahora);
+        if (rawPts.length > 0) return rawPts;
+    }
+
     return puntos;
 }
 
@@ -1457,6 +1516,7 @@ async function renderizarCorazonHoy(puntos = []) {
         .sort((a, b) => a.x - b.x);
 
     const reales = puntosValidos.map(p => p.y);
+    const puntosSerieReal = puntosValidos.filter(p => p._origen !== "intervals-wellness" && p._origen !== "intervals-rhr");
     const origenPuntos = puntosValidos.find(p => p._origen)?._origen || null;
     const bpmReposo = estado.hoy?.bpmReposo ?? null;
 
@@ -1465,37 +1525,37 @@ async function renderizarCorazonHoy(puntos = []) {
     const badge = document.getElementById("heartRateActualBadge");
     if (puntosValidos.length) {
         const ultimoPt = puntosValidos[puntosValidos.length - 1];
-        const min = Math.min(...reales);
-        const max = Math.max(...reales);
-        const avg = Math.round(reales.reduce((a, b) => a + b, 0) / reales.length);
 
-        // Etiqueta explícita para eliminar cualquier ambigüedad sobre qué representa el número superior derecho
-        if (ultimoPt._etiqueta === "Reposo") {
-            setTexto("heartRateBadgeLabel", "Pulso en reposo");
-            setTexto("heartRateBadgeTime", "Hoy");
-        } else if (ultimoPt._etiqueta === "Sueño") {
-            setTexto("heartRateBadgeLabel", "Pulso en sueño");
-            setTexto("heartRateBadgeTime", "Anoche");
+        // Siempre etiqueta clara y directa arriba a la derecha: "Último valor recibido"
+        setTexto("heartRateBadgeLabel", "Último valor recibido");
+        setTexto("heartRateBadgeTime", (ultimoPt._etiqueta === "Reposo" || ultimoPt._etiqueta === "Sueño")
+            ? `Hoy · ${ultimoPt._etiqueta}`
+            : `Hoy, ${ultimoPt._hora}`);
+        setTexto("heartRateActualBadge", `${ultimoPt.y} BPM`);
+
+        // Solo calcular Mínimo / Promedio / Máximo cuando existan mediciones reales de serie temporal (no desde un único escalar de reposo)
+        if (puntosSerieReal.length >= 2 || (puntosValidos.length >= 2 && puntosSerieReal.length >= 1)) {
+            const serieStats = puntosSerieReal.length >= 2 ? puntosSerieReal.map(p => p.y) : reales;
+            const min = Math.min(...serieStats);
+            const max = Math.max(...serieStats);
+            const avg = Math.round(serieStats.reduce((a, b) => a + b, 0) / serieStats.length);
+            setTexto("heartRateStatMin", `${min} BPM`);
+            setTexto("heartRateStatAvg", `${avg} BPM`);
+            setTexto("heartRateStatMax", `${max} BPM`);
         } else {
-            setTexto("heartRateBadgeLabel", "Última lectura");
-            setTexto("heartRateBadgeTime", `Hoy, ${ultimoPt._hora}`);
+            ["heartRateStatMin", "heartRateStatAvg", "heartRateStatMax"].forEach(id => setTexto(id, "--"));
         }
 
-        setTexto("heartRateActualBadge", `${ultimoPt.y} BPM`);
-        setTexto("heartRateStatMin", `${min} BPM`);
-        setTexto("heartRateStatAvg", `${avg} BPM`);
-        setTexto("heartRateStatMax", `${max} BPM`);
-
         if (origenPuntos === "intervals-stream") {
-            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Pulso real de reposo y entrenos (Intervals.icu no expone continuo 24h)");
+            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Pulso real de entrenos de hoy (Intervals.icu no expone continuo 24h)");
         } else if (origenPuntos === "intervals-wellness" || origenPuntos === "intervals-rhr") {
-            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Solo hitos de Sueño/Reposo (Intervals.icu no recibe curva continua 24h de Zepp)");
+            setTexto("hintCorazonHoy", "Solo dato diario de reposo recibido de Intervals.icu (Zepp no sube pulso continuo 24h a la nube)");
         } else {
             setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Puntos reales medidos llenando el día de izquierda a derecha");
         }
         if (badge) badge.classList.add("pulsing");
     } else {
-        setTexto("heartRateBadgeLabel", "Última lectura");
+        setTexto("heartRateBadgeLabel", "Último valor recibido");
         setTexto("heartRateBadgeTime", "Sin datos hoy");
         setTexto("heartRateActualBadge", "-- BPM");
         ["heartRateStatMin", "heartRateStatAvg", "heartRateStatMax"].forEach(id => setTexto(id, "--"));
@@ -1946,7 +2006,7 @@ async function renderizarEstadoDesconectadoUI() {
     estado.dias = [];
     estado.corazonHoy = [];
     setTexto("chartPesoActualBadge", "--");
-    setTexto("heartRateBadgeLabel", "Última lectura");
+    setTexto("heartRateBadgeLabel", "Último valor recibido");
     setTexto("heartRateBadgeTime", "--");
     setTexto("heartRateActualBadge", "-- BPM");
     ["weightStatMin", "weightStatAvg", "weightStatMax", "heartRateStatRest", "heartRateStatMin", "heartRateStatAvg", "heartRateStatMax", "resumenSueno", "resumenCardio", "resumenFatiga"].forEach(id => setTexto(id, "--"));
