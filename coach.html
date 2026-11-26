@@ -26,6 +26,25 @@
 
         <!-- BOTONERA SUPERIOR DE HERRAMIENTAS -->
         <div class="coach-tools-bar">
+            <!-- Historial de Conversaciones -->
+            <button type="button" id="btn-coach-history" class="coach-tool-btn" title="Ver y retomar conversaciones anteriores" onclick="window.coach?.abrirHistorialConversaciones()">
+                <svg class="tool-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span>Historial</span>
+                <span id="coach-history-count" class="coach-history-count-badge" style="display: none;">0</span>
+            </button>
+
+            <!-- Nueva Conversación -->
+            <button type="button" id="btn-coach-new-chat" class="coach-tool-btn" title="Iniciar una nueva conversación" onclick="window.coach?.iniciarNuevaConversacion()">
+                <svg class="tool-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Nueva</span>
+            </button>
+
             <!-- Toggle de Voz (TTS) -->
             <button type="button" id="btn-toggle-voz" class="coach-tool-btn active" title="Activar/Silenciar lectura por voz" onclick="window.coach?.alternarVoz()">
                 <svg id="icon-voice-on" class="tool-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -166,6 +185,30 @@
         </div>
         <div class="coach-input-status-hint">
             <span id="coach-ptt-hint">Pulsa el micro para hablar • Clic para iniciar / detener</span>
+        </div>
+    </div>
+
+    <!-- MODAL: HISTORIAL DE CONVERSACIONES (LOCAL-FIRST + FIRESTORE) -->
+    <div id="modal-coach-history" class="modal-overlay" onclick="window.coach?.cerrarHistorialConversaciones()">
+        <div class="modal-card modal-industrial modal-coach-history-card" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-tag">HISTORIAL SINCRONIZADO · FIRESTORE</span>
+                    <h3>Conversaciones del Coach</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="window.coach?.cerrarHistorialConversaciones()">✕</button>
+            </div>
+            <div class="modal-body coach-history-body">
+                <button type="button" class="btn-primary btn-neon-cyan coach-new-chat-full" onclick="window.coach?.iniciarNuevaConversacion(true)">
+                    ＋ Iniciar nueva conversación
+                </button>
+                <div id="coach-history-list" class="coach-history-list">
+                    <div class="coach-history-empty">Aún no hay conversaciones guardadas.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost" style="width: 100%;" onclick="window.coach?.cerrarHistorialConversaciones()">Cerrar</button>
+            </div>
         </div>
     </div>
 

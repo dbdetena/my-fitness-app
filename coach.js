@@ -10,6 +10,7 @@ import {
     doc,
     getDoc,
     setDoc,
+    deleteDoc,
     collection,
     getDocs,
     query,
@@ -37,6 +38,11 @@ export { cifrarApiKey, descifrarApiKey };
 
 const STORAGE_KEY_MEMORY = "fitness_coach_memory";
 const STORAGE_KEY_VOICE = "fitness_coach_voice_enabled";
+const STORAGE_KEY_CONVERSATIONS = "fitness_coach_conversations_v1";
+const STORAGE_KEY_ACTIVE_CONV_ID = "fitness_coach_active_conv_id_v1";
+const FIRESTORE_CONV_COLLECTION = "coach_conversaciones";
+const MAX_CONVERSACIONES_LOCAL = 40;
+const MAX_MENSAJES_POR_CONVERSACION = 80;
 const FIRESTORE_TIMEOUT_MS = 2000;
 const CONTEXT_CACHE_TTL_MS = 60000;
 
@@ -85,6 +91,8 @@ const state = {
     vozActivada: localStorage.getItem(STORAGE_KEY_VOICE) !== "false",
     memoriaActual: null,
     historialConversacion: [],
+    conversaciones: [],
+    conversacionActivaId: null,
     isRecording: false,
     grabandoPtt: false,
     reconocimientoVoz: null,
@@ -784,24 +792,28 @@ export function manejarBotonEnviar() {
     }
 }
 
-function agregarMensajeAlChat(rol, texto, fecha = new Date(), guardarEnHistorial = false) {
+function agregarMensajeAlChat(rol, texto, fecha = new Date(), guardarEnHistorial = false, opciones = {}) {
     const contenedor = document.getElementById("coach-chat-messages");
     if (!contenedor) return;
 
+    const restaurando = Boolean(opciones.restaurando);
     const msgEl = document.createElement("div");
     msgEl.className = `chat-bubble-row ${rol === "user" ? "row-user" : "row-coach"}`;
 
-    const horaStr = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    let textoRender = texto.replace(/```json_memory[\s\S]*?```/g, "").trim();
+    const fechaObj = fecha instanceof Date && !isNaN(fecha.getTime()) ? fecha : new Date();
+    const horaStr = fechaObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    let textoRender = String(texto || "").replace(/```json_memory[\s\S]*?```/g, "").trim();
 
     const matchGrafica = textoRender.match(/\[GRAFICA:([a-z]+)\]/);
     if (matchGrafica) {
-        textoRender = textoRender.replace(/\[GRAFICA:[a-z]+\]/g, "");
-        const tipoG = matchGrafica[1];
-        setTimeout(() => {
-            alternarVisorGrafica(true);
-            cambiarTipoGrafica(tipoG);
-        }, 400);
+        textoRender = textoRender.replace(/\[GRAFICA:[a-z]+\]/g, "").trim();
+        if (!restaurando) {
+            const tipoG = matchGrafica[1];
+            setTimeout(() => {
+                alternarVisorGrafica(true);
+                cambiarTipoGrafica(tipoG);
+            }, 400);
+        }
     }
 
     const htmlFormateado = formatearMarkdownSeguro(textoRender);
@@ -946,6 +958,380 @@ function iniciarBurbujaStreaming() {
     };
 }
 
+// ========================================================
+// 5B. HISTORIAL PERSISTENTE DE CONVERSACIONES (LOCAL + FIRESTORE)
+// ========================================================
+
+function generarTituloConversacion(texto) {
+    const limpio = String(texto || "").replace(/\s+/g, " ").trim();
+    if (!limpio) return "Conversación con Coach";
+    return limpio.length > 52 ? `${limpio.slice(0, 52).trim()}…` : limpio;
+}
+
+function claveDiaLocal(fecha) {
+    const d = fecha instanceof Date ? fecha : new Date(fecha);
+    if (isNaN(d.getTime())) return "";
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function etiquetaFechaGrupo(ms) {
+    const hoyKey = claveDiaLocal(new Date());
+    const ayerKey = claveDiaLocal(new Date(Date.now() - 86400000));
+    const key = claveDiaLocal(ms);
+    if (key === hoyKey) return "Hoy";
+    if (key === ayerKey) return "Ayer";
+    return new Date(ms).toLocaleDateString("es-ES", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    });
+}
+
+function actualizarBadgeHistorial() {
+    const badge = document.getElementById("coach-history-count");
+    if (!badge) return;
+    const total = state.conversaciones.length;
+    if (total > 0) {
+        badge.textContent = String(total);
+        badge.style.display = "inline-flex";
+    } else {
+        badge.style.display = "none";
+    }
+}
+
+function cargarConversacionesLocal() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_CONVERSATIONS);
+        const lista = raw ? JSON.parse(raw) : [];
+        state.conversaciones = Array.isArray(lista)
+            ? lista.filter(c => c && c.id && Array.isArray(c.mensajes))
+            : [];
+        state.conversaciones.sort((a, b) => (b.actualizadoMs || 0) - (a.actualizadoMs || 0));
+    } catch (_) {
+        state.conversaciones = [];
+    }
+
+    try {
+        const activeId = localStorage.getItem(STORAGE_KEY_ACTIVE_CONV_ID);
+        if (activeId && state.conversaciones.some(c => c.id === activeId)) {
+            state.conversacionActivaId = activeId;
+        } else {
+            state.conversacionActivaId = null;
+        }
+    } catch (_) {
+        state.conversacionActivaId = null;
+    }
+
+    actualizarBadgeHistorial();
+}
+
+function guardarConversacionesLocal() {
+    try {
+        state.conversaciones.sort((a, b) => (b.actualizadoMs || 0) - (a.actualizadoMs || 0));
+        if (state.conversaciones.length > MAX_CONVERSACIONES_LOCAL) {
+            state.conversaciones = state.conversaciones.slice(0, MAX_CONVERSACIONES_LOCAL);
+        }
+        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(state.conversaciones));
+        if (state.conversacionActivaId) {
+            localStorage.setItem(STORAGE_KEY_ACTIVE_CONV_ID, state.conversacionActivaId);
+        } else {
+            localStorage.removeItem(STORAGE_KEY_ACTIVE_CONV_ID);
+        }
+    } catch (e) {
+        console.warn("No se pudo guardar conversaciones locales del Coach:", e.message);
+    }
+    actualizarBadgeHistorial();
+}
+
+function guardarConversacionEnFirestoreBg(conv) {
+    if (!conv || !conv.id) return;
+    const payload = {
+        id: conv.id,
+        titulo: conv.titulo || "Conversación con Coach",
+        creadoEn: conv.creadoEn || new Date().toISOString(),
+        actualizadoEn: conv.actualizadoEn || new Date().toISOString(),
+        actualizadoMs: conv.actualizadoMs || Date.now(),
+        proveedor: conv.proveedor || "",
+        modelo: conv.modelo || "",
+        mensajes: (conv.mensajes || []).slice(-MAX_MENSAJES_POR_CONVERSACION)
+    };
+    const docRef = doc(db, FIRESTORE_CONV_COLLECTION, conv.id);
+    conTimeout(setDoc(docRef, payload, { merge: true }), 8000, null).catch(err => {
+        console.warn("Aviso guardando conversación en Firestore:", err);
+    });
+}
+
+async function sincronizarConversacionesFirestoreBg() {
+    try {
+        const q = query(
+            collection(db, FIRESTORE_CONV_COLLECTION),
+            orderBy("actualizadoMs", "desc"),
+            limit(30)
+        );
+        const snap = await conTimeout(getDocs(q), 6000, null);
+        if (!snap || snap.empty) return;
+
+        const mapa = new Map();
+        state.conversaciones.forEach(c => mapa.set(c.id, c));
+
+        snap.docs.forEach(d => {
+            const remota = d.data();
+            if (!remota || !Array.isArray(remota.mensajes)) return;
+            const id = remota.id || d.id;
+            const normalizada = { ...remota, id };
+            const local = mapa.get(id);
+            if (!local || (normalizada.actualizadoMs || 0) >= (local.actualizadoMs || 0)) {
+                mapa.set(id, normalizada);
+            }
+        });
+
+        state.conversaciones = Array.from(mapa.values())
+            .sort((a, b) => (b.actualizadoMs || 0) - (a.actualizadoMs || 0))
+            .slice(0, MAX_CONVERSACIONES_LOCAL);
+
+        // Si es un dispositivo nuevo sin conversación activa en pantalla y hay una de hoy en la nube, retomarla automáticamente
+        const contenedor = document.getElementById("coach-chat-messages");
+        const chatVacioEnPantalla = contenedor && contenedor.children.length === 0;
+        if (!state.conversacionActivaId && chatVacioEnPantalla && state.conversaciones.length > 0) {
+            const ultima = state.conversaciones[0];
+            if (claveDiaLocal(ultima.actualizadoMs || 0) === claveDiaLocal(new Date())) {
+                state.conversacionActivaId = ultima.id;
+                renderizarConversacionActiva();
+            }
+        } else if (state.conversacionActivaId) {
+            // Si la conversación activa recibió mensajes más recientes en otro dispositivo, refrescar si no estamos generando
+            const activa = state.conversaciones.find(c => c.id === state.conversacionActivaId);
+            if (activa && !state.enGeneracion && contenedor && contenedor.children.length < activa.mensajes.length) {
+                renderizarConversacionActiva();
+            }
+        }
+
+        guardarConversacionesLocal();
+
+        const modal = document.getElementById("modal-coach-history");
+        if (modal && modal.classList.contains("active")) {
+            renderizarListaHistorial();
+        }
+    } catch (err) {
+        console.warn("Aviso al sincronizar historial de conversaciones desde Firestore:", err);
+    }
+}
+
+function obtenerConversacionActiva() {
+    if (!state.conversacionActivaId) return null;
+    return state.conversaciones.find(c => c.id === state.conversacionActivaId) || null;
+}
+
+function asegurarConversacionActiva(primerMensaje = "") {
+    let conv = obtenerConversacionActiva();
+    if (conv) return conv;
+
+    const ahora = Date.now();
+    const id = `conv_${ahora}_${Math.random().toString(36).slice(2, 7)}`;
+    const aiConfig = getAIConfig();
+    conv = {
+        id,
+        titulo: generarTituloConversacion(primerMensaje),
+        creadoEn: new Date(ahora).toISOString(),
+        actualizadoEn: new Date(ahora).toISOString(),
+        actualizadoMs: ahora,
+        proveedor: aiConfig.providerId,
+        modelo: aiConfig.model,
+        mensajes: []
+    };
+    state.conversaciones.unshift(conv);
+    state.conversacionActivaId = id;
+    guardarConversacionesLocal();
+    return conv;
+}
+
+function registrarMensajeEnConversacion(role, text, aiConfig = null, sincronizarNube = true) {
+    const limpio = String(text || "").trim();
+    if (!limpio) return;
+
+    const conv = asegurarConversacionActiva(role === "user" ? limpio : "");
+    const ahora = Date.now();
+    if (role === "user" && (!conv.mensajes || conv.mensajes.length === 0)) {
+        conv.titulo = generarTituloConversacion(limpio);
+    }
+
+    conv.mensajes.push({
+        role: role === "user" ? "user" : "model",
+        text: limpio,
+        ts: new Date(ahora).toISOString()
+    });
+    if (conv.mensajes.length > MAX_MENSAJES_POR_CONVERSACION) {
+        conv.mensajes = conv.mensajes.slice(-MAX_MENSAJES_POR_CONVERSACION);
+    }
+
+    conv.actualizadoEn = new Date(ahora).toISOString();
+    conv.actualizadoMs = ahora;
+    if (aiConfig) {
+        conv.proveedor = aiConfig.providerId;
+        conv.modelo = aiConfig.model;
+    }
+
+    guardarConversacionesLocal();
+    if (sincronizarNube) {
+        guardarConversacionEnFirestoreBg(conv);
+    }
+}
+
+function renderizarConversacionActiva() {
+    const contenedor = document.getElementById("coach-chat-messages");
+    if (!contenedor) return;
+
+    contenedor.innerHTML = "";
+    const conv = obtenerConversacionActiva();
+    if (!conv || !Array.isArray(conv.mensajes) || conv.mensajes.length === 0) {
+        state.historialConversacion = [];
+        return;
+    }
+
+    conv.mensajes.forEach(m => {
+        const rolUI = m.role === "user" ? "user" : "coach";
+        const fecha = m.ts ? new Date(m.ts) : new Date();
+        agregarMensajeAlChat(rolUI, m.text, fecha, false, { restaurando: true });
+    });
+
+    // Restaurar memoria rotativa de los últimos 6 mensajes para retomar el contexto con la IA
+    state.historialConversacion = conv.mensajes.slice(-6).map(m => ({
+        role: m.role === "user" ? "user" : "model",
+        text: m.text
+    }));
+}
+
+export function iniciarNuevaConversacion(cerrarModal = false) {
+    detenerGeneracion();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
+    state.conversacionActivaId = null;
+    state.historialConversacion = [];
+    guardarConversacionesLocal();
+
+    const contenedor = document.getElementById("coach-chat-messages");
+    if (contenedor) contenedor.innerHTML = "";
+
+    if (cerrarModal) cerrarHistorialConversaciones();
+
+    const textarea = document.getElementById("coach-input-text");
+    if (textarea) setTimeout(() => textarea.focus(), 60);
+    mostrarToastCoach("✨ Nueva conversación iniciada");
+}
+
+export function retomarConversacion(convId) {
+    const existe = state.conversaciones.find(c => c.id === convId);
+    if (!existe) return;
+
+    detenerGeneracion();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
+    state.conversacionActivaId = convId;
+    guardarConversacionesLocal();
+    renderizarConversacionActiva();
+    cerrarHistorialConversaciones();
+    mostrarToastCoach("💬 Conversación retomada");
+}
+
+export async function eliminarConversacion(convId, event = null) {
+    if (event) event.stopPropagation();
+    if (!confirm("¿Eliminar esta conversación del historial permanentemente?")) return;
+
+    state.conversaciones = state.conversaciones.filter(c => c.id !== convId);
+    if (state.conversacionActivaId === convId) {
+        state.conversacionActivaId = null;
+        state.historialConversacion = [];
+        const contenedor = document.getElementById("coach-chat-messages");
+        if (contenedor) contenedor.innerHTML = "";
+    }
+    guardarConversacionesLocal();
+    renderizarListaHistorial();
+
+    try {
+        await conTimeout(deleteDoc(doc(db, FIRESTORE_CONV_COLLECTION, convId)), 6000, null);
+    } catch (err) {
+        console.warn("Aviso eliminando conversación en Firestore:", err);
+    }
+    mostrarToastCoach("🗑️ Conversación eliminada");
+}
+
+function renderizarListaHistorial() {
+    const listaEl = document.getElementById("coach-history-list");
+    if (!listaEl) return;
+
+    if (!state.conversaciones.length) {
+        listaEl.innerHTML = '<div class="coach-history-empty">Aún no hay conversaciones guardadas. Cuando hables con el Coach, tus sesiones quedarán aquí organizadas por fecha.</div>';
+        return;
+    }
+
+    // Agrupar conversaciones por fecha (Hoy, Ayer, fecha...)
+    const grupos = new Map();
+    state.conversaciones.forEach(conv => {
+        const ms = conv.actualizadoMs || Date.parse(conv.actualizadoEn || conv.creadoEn) || Date.now();
+        const etiqueta = etiquetaFechaGrupo(ms);
+        if (!grupos.has(etiqueta)) grupos.set(etiqueta, []);
+        grupos.get(etiqueta).push(conv);
+    });
+
+    const escapeHtml = (s) => String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    let html = "";
+    grupos.forEach((items, etiqueta) => {
+        html += `<div class="coach-history-date-group"><span class="coach-history-date-label">${escapeHtml(etiqueta)}</span>`;
+        items.forEach(conv => {
+            const activa = conv.id === state.conversacionActivaId;
+            const ms = conv.actualizadoMs || Date.parse(conv.actualizadoEn || conv.creadoEn) || Date.now();
+            const hora = new Date(ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+            const numMsgs = (conv.mensajes || []).length;
+            const ultimoMsg = numMsgs > 0 ? conv.mensajes[numMsgs - 1].text : "";
+            const previewLimpio = ultimoMsg
+                .replace(/```json_memory[\s\S]*?```/g, "")
+                .replace(/\[GRAFICA:[a-z]+\]/g, "")
+                .replace(/\*\*/g, "")
+                .replace(/\s+/g, " ")
+                .trim();
+            const preview = previewLimpio.length > 90 ? `${previewLimpio.slice(0, 90).trim()}…` : previewLimpio;
+
+            html += `
+                <div class="coach-history-item ${activa ? "active" : ""}" onclick="window.coach?.retomarConversacion('${escaparAttr(conv.id)}')">
+                    <div class="coach-history-item-top">
+                        <strong class="coach-history-item-title">${escapeHtml(conv.titulo || "Conversación")}</strong>
+                        <button type="button" class="coach-history-del-btn" title="Eliminar conversación" aria-label="Eliminar conversación" onclick="window.coach?.eliminarConversacion('${escaparAttr(conv.id)}', event)">✕</button>
+                    </div>
+                    ${preview ? `<p class="coach-history-item-preview">${escapeHtml(preview)}</p>` : ""}
+                    <div class="coach-history-item-meta">
+                        <span>${hora} · ${numMsgs} mensaje${numMsgs === 1 ? "" : "s"}</span>
+                        ${activa ? '<span class="coach-history-active-pill">Activa</span>' : '<span class="coach-history-resume-hint">Retomar →</span>'}
+                    </div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    });
+
+    listaEl.innerHTML = html;
+}
+
+export function abrirHistorialConversaciones() {
+    const modal = document.getElementById("modal-coach-history");
+    if (!modal) return;
+    renderizarListaHistorial();
+    modal.classList.add("active");
+    sincronizarConversacionesFirestoreBg();
+}
+
+export function cerrarHistorialConversaciones() {
+    const modal = document.getElementById("modal-coach-history");
+    if (modal) modal.classList.remove("active");
+}
+
 /**
  * Enviar mensaje del usuario al proveedor IA activo con streaming SSE instantáneo
  */
@@ -979,6 +1365,7 @@ export async function enviarMensajeUsuario(textoForzado = null) {
     }
 
     agregarMensajeAlChat("user", texto, new Date(), false);
+    registrarMensajeEnConversacion("user", texto, aiConfig, false);
     mostrarTyping(true, `Conectando con ${providerMeta.nombre} (${aiConfig.model})...`);
     state.enGeneracion = true;
     state.abortController = new AbortController();
@@ -1034,12 +1421,13 @@ export async function enviarMensajeUsuario(textoForzado = null) {
             agregarMensajeAlChat("coach", respuestaCompleta, new Date(), false);
         }
 
-        // 4. Actualizar memoria rotativa (últimos 6 mensajes)
+        // 4. Actualizar memoria rotativa (últimos 6 mensajes) y persistir conversación (local + Firestore)
         state.historialConversacion.push({ role: "user", text: texto });
         state.historialConversacion.push({ role: "model", text: respuestaCompleta });
         if (state.historialConversacion.length > 6) {
             state.historialConversacion = state.historialConversacion.slice(-6);
         }
+        registrarMensajeEnConversacion("model", respuestaCompleta, aiConfig, true);
 
         // 5. Actualización de memoria a largo plazo si la IA incluyó bloque json_memory
         const matchMemoria = respuestaCompleta.match(/```json_memory\s*([\s\S]*?)\s*```/);
@@ -1065,6 +1453,12 @@ export async function enviarMensajeUsuario(textoForzado = null) {
         if (err.name === "AbortError") {
             if (streamBubble && textoParcialAcumulado.trim()) {
                 streamBubble.finalizar(textoParcialAcumulado, "⏹ Generación detenida");
+                registrarMensajeEnConversacion("model", textoParcialAcumulado, aiConfig, true);
+                state.historialConversacion.push({ role: "user", text: texto });
+                state.historialConversacion.push({ role: "model", text: textoParcialAcumulado });
+                if (state.historialConversacion.length > 6) {
+                    state.historialConversacion = state.historialConversacion.slice(-6);
+                }
             } else if (streamBubble) {
                 streamBubble.eliminar();
             }
@@ -1392,7 +1786,8 @@ export async function exportarCopiaSeguridad() {
             diario_entradas: entradasDiario,
             registros_peso: registrosPeso,
             biometria_salud: biometriaLocal,
-            historial_chat_reciente: state.historialConversacion
+            historial_chat_reciente: state.historialConversacion,
+            conversaciones_guardadas: state.conversaciones
         };
 
         const jsonString = JSON.stringify(backupData, null, 2);
@@ -1438,8 +1833,13 @@ export async function initCoach() {
     if (labelVoz) labelVoz.textContent = state.vozActivada ? "Voz Activa" : "Silenciado";
     if (btnVoz) btnVoz.classList.toggle("active", state.vozActivada);
 
-    // Precargar memoria y contexto biométrico sin bloquear la UI
+    // Restaurar conversación activa al instante (0 ms) para no perder el chat al cambiar de pestaña
+    cargarConversacionesLocal();
+    renderizarConversacionActiva();
+
+    // Precargar memoria, historial en la nube y contexto biométrico sin bloquear la UI
     obtenerMemoriaCoach();
+    sincronizarConversacionesFirestoreBg();
     buildCoachContext(true);
 
     // Soporte para Enter en textarea
@@ -1526,6 +1926,11 @@ window.coach = {
     buildCoachContext,
     abrirModalKey,
     cerrarModalKey,
+    abrirHistorialConversaciones,
+    cerrarHistorialConversaciones,
+    iniciarNuevaConversacion,
+    retomarConversacion,
+    eliminarConversacion,
     alCambiarProveedorModal,
     alCambiarModeloModal,
     guardarKey,

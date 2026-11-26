@@ -7425,3 +7425,166 @@ body.modal-open {
 
 
 
+
+/* ==========================================
+   AI COACH · HISTORIAL DE CONVERSACIONES
+   ========================================== */
+.coach-history-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.22);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #38bdf8;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.modal-coach-history-card {
+    max-width: 480px;
+}
+
+.coach-history-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 62vh;
+    overflow-y: auto;
+}
+
+.coach-new-chat-full {
+    width: 100%;
+    padding: 11px 14px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.coach-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.coach-history-empty {
+    text-align: center;
+    padding: 24px 14px;
+    color: #94a3b8;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px dashed #334155;
+    border-radius: 12px;
+}
+
+.coach-history-date-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.coach-history-date-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    padding-left: 2px;
+}
+
+.coach-history-item {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 12px 13px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.coach-history-item:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+    background: #223249;
+}
+
+.coach-history-item.active {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.09);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.2);
+}
+
+.coach-history-item-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.coach-history-item-title {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.coach-history-del-btn {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    background: rgba(248, 113, 113, 0.08);
+    color: #f87171;
+    font-size: 0.78rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.coach-history-del-btn:hover {
+    background: rgba(248, 113, 113, 0.22);
+    border-color: #f87171;
+}
+
+.coach-history-item-preview {
+    margin: 0;
+    font-size: 0.76rem;
+    color: #94a3b8;
+    line-height: 1.35;
+}
+
+.coach-history-item-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.coach-history-active-pill {
+    font-size: 0.66rem;
+    font-weight: 800;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.coach-history-resume-hint {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #38bdf8;
+}
