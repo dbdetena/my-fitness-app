@@ -77,14 +77,16 @@ export async function guardarIntervalsConfig() {
 
     try {
         const res = await probarConexionIntervals(apiKey);
-        await guardarConfigIntervals(apiKey, {
+        const guardado = await guardarConfigIntervals(apiKey, {
             athleteId: res.athleteId,
             athleteName: res.athleteName
         });
         if (input) input.value = "";
         actualizarEstadoIntervalsUI();
         mostrarFeedbackIntervals(
-            `✅ Conectado (${res.athleteName} · ${res.latencyMs} ms). Sincronizando Salud...`,
+            guardado.guardadoNube
+                ? `✅ Conectado (${res.athleteName} · ${res.latencyMs} ms) y sincronizado en la nube.`
+                : `✅ Conectado en local (${res.athleteName} · ${res.latencyMs} ms). Aviso: reintentará subir a la nube.`,
             "#4ade80"
         );
         if (window.salud?.fetchFitData) {
@@ -116,13 +118,11 @@ export function abrirModalConfig() {
         modal.classList.add("active");
         document.body.classList.add("modal-open");
 
-        // Refrescar estado visual de Intervals.icu (y comprobar Firestore si es un navegador nuevo)
+        // Refrescar estado visual de Intervals.icu y asegurar sincronización con Firestore
         actualizarEstadoIntervalsUI();
-        if (!tieneIntervalsConfigurado()) {
-            sincronizarConfigIntervalsDesdeNube().then((conectado) => {
-                if (conectado) actualizarEstadoIntervalsUI();
-            }).catch(() => {});
-        }
+        sincronizarConfigIntervalsDesdeNube().then((conectado) => {
+            if (conectado) actualizarEstadoIntervalsUI();
+        }).catch(() => {});
 
         const valido = window.salud?.esTokenFitValido
             ? window.salud.esTokenFitValido()

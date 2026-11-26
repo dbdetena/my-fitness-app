@@ -16,10 +16,10 @@ import {
 const INTERVALS_BASE_URL = "https://intervals.icu/api/v1";
 const STORAGE_KEY_INTERVALS_VAULT = "fitness_intervals_vault_v1";
 const STORAGE_KEY_INTERVALS_META = "fitness_intervals_meta_v1";
-const STORAGE_KEY_INTERVALS_CLOUD_SYNCED = "fitness_intervals_cloud_synced_v1";
+const STORAGE_KEY_INTERVALS_CLOUD_SYNCED = "fitness_intervals_cloud_synced_v2";
 const FIRESTORE_COLLECTION = "configuracion";
 const FIRESTORE_DOC_ID = "intervals_config";
-const FIRESTORE_TIMEOUT_MS = 4000;
+const FIRESTORE_TIMEOUT_MS = 10000;
 
 const VAULT_SALT = new TextEncoder().encode("antigravity-intervals-vault-salt-v1");
 const VAULT_PASSPHRASE = "AGY_FITNESS_INTERVALS_LOCAL_VAULT_2026";
@@ -120,23 +120,26 @@ export async function guardarConfigIntervals(apiKey, meta = {}) {
     localStorage.setItem(STORAGE_KEY_INTERVALS_META, JSON.stringify(metaFinal));
 
     // Sincronizar también en Firestore para acceso automático desde cualquier dispositivo/navegador
+    let guardadoNube = false;
     try {
         const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-        await conTimeout(
+        guardadoNube = await conTimeout(
             setDoc(docRef, {
                 vault: vaultObj,
                 meta: metaFinal,
                 actualizado: new Date().toISOString()
-            }),
+            }).then(() => true),
             FIRESTORE_TIMEOUT_MS,
-            null
+            false
         );
-        localStorage.setItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED, "1");
+        if (guardadoNube) {
+            localStorage.setItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED, "1");
+        }
     } catch (e) {
         console.warn("No se pudo guardar config Intervals.icu en Firestore:", e.message);
     }
 
-    return metaFinal;
+    return { ...metaFinal, guardadoNube };
 }
 
 /**
@@ -152,21 +155,23 @@ export async function sincronizarConfigIntervalsDesdeNube() {
         const docRef = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
 
         if (rawLocal) {
-            // Migración automática 1 sola vez desde un dispositivo que ya tenía la clave en local
+            // Migración automática confirmada desde un dispositivo que ya tenía la clave en local
             if (!localStorage.getItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED)) {
                 try {
                     const vaultObj = JSON.parse(rawLocal);
                     const metaObj = obtenerMetaIntervals() || { athleteId: "0", athleteName: "", connectedAt: Date.now() };
-                    await conTimeout(
+                    const subido = await conTimeout(
                         setDoc(docRef, {
                             vault: vaultObj,
                             meta: metaObj,
                             actualizado: new Date().toISOString()
-                        }),
+                        }).then(() => true),
                         FIRESTORE_TIMEOUT_MS,
-                        null
+                        false
                     );
-                    localStorage.setItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED, "1");
+                    if (subido) {
+                        localStorage.setItem(STORAGE_KEY_INTERVALS_CLOUD_SYNCED, "1");
+                    }
                 } catch (e) {
                     console.warn("Aviso migrando Intervals.icu a Firestore:", e.message);
                 }
