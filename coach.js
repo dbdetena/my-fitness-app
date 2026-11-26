@@ -19,6 +19,11 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { obtenerEntradasBitacora } from "./diario.js";
 import { obtenerSesionActiva } from "./session-manager.js";
+import { BASE_EJERCICIOS } from "./ejercicios-data.js";
+import {
+    guardarRutinaPersonalizada,
+    obtenerRutinasPersonalizadas
+} from "./rutinas-data.js";
 import {
     AI_PROVIDERS,
     getProviderMeta,
@@ -407,6 +412,9 @@ function construirSystemPrompt(memoria, biometricJson) {
 === CONTEXTO BIOMÉTRICO EN TIEMPO REAL (JSON MINIFICADO) ===
 ${biometricJson}
 
+=== CATÁLOGO OFICIAL DE EJERCICIOS DE LA APP (ID: Nombre) ===
+${BASE_EJERCICIOS.map(e => `${e.id}: ${e.nombre}`).join(" | ")}
+
 === REGLAS DE RESPUESTA ===
 1. Responde con criterio científico: hipertrofia con tensión mecánica y rango completo, sobrecarga progresiva (+kg o +reps) y control del esfuerzo (RIR 1-2 / RPE 8-9).
 2. Si el usuario pregunta por gráficas, progreso o evolución, activa la gráfica añadiendo [GRAFICA:rpe], [GRAFICA:cargas] o [GRAFICA:volumen] en una línea separada.
@@ -420,7 +428,27 @@ ${biometricJson}
   "notasCoach": "..."
 }
 \`\`\`
-4. Sé conciso, práctico y sin rodeos innecesarios. Evita saludos genéricos largos.`;
+4. SIEMPRE que sugieras o diseñes una rutina o batería concreta de ejercicios para entrenar, incluye al final de tu respuesta este bloque exacto (se renderizará como una tarjeta interactiva para que el usuario valide y guarde la rutina en "Mis Rutinas"):
+\`\`\`json_routine
+{
+  "duracion": "40 min",
+  "nivel": "Intermedio",
+  "notaCoach": "Breve resumen técnico del enfoque de la sesión",
+  "ejercicios": [
+    {
+      "ejercicioId": "id-exacto-del-catalogo",
+      "nombre": "Nombre legible del ejercicio",
+      "series": 3,
+      "reps": "10 - 12",
+      "descanso": 90,
+      "rir": "2",
+      "nota": "Indicación técnica breve"
+    }
+  ]
+}
+\`\`\`
+Prioriza siempre los \`ejercicioId\` exactos del catálogo listado arriba cuando encajen; si necesitas algún ejercicio extra que no esté en el catálogo, pon un \`ejercicioId\` tipo slug y su \`nombre\` claro en español.
+5. Sé conciso, práctico y sin rodeos innecesarios. Evita saludos genéricos largos.`;
 }
 
 // ========================================================
@@ -559,6 +587,7 @@ export function reproducirVozCoach(textoCompleto) {
 
     const textoLimpio = textoCompleto
         .replace(/```json_memory[\s\S]*?```/g, "")
+        .replace(/```json_routine[\s\S]*?```/g, "")
         .replace(/\[GRAFICA:[^\]]+\]/g, "")
         .replace(/\*\*([^*]+)\*\*/g, "$1")
         .replace(/\*([^*]+)\*/g, "$1")
@@ -792,6 +821,243 @@ export function manejarBotonEnviar() {
     }
 }
 
+// ========================================================
+// 5A. PROPUESTAS DE RUTINA DEL COACH (TARJETA DE VALIDACIÓN)
+// ========================================================
+const propuestasRutinaMap = new Map();
+
+function formatearFechaRutinaDefault(fecha = new Date()) {
+    const d = fecha instanceof Date && !isNaN(fecha.getTime()) ? fecha : new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `Rutina ${dd}/${mm}/${yyyy}`;
+}
+
+function hashSimpleTexto(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(36);
+}
+
+function normalizarEjercicioPropuesta(item, idx) {
+    if (!item || typeof item !== "object") return null;
+    const rawId = String(item.ejercicioId || item.id || "").trim();
+    const rawNombre = String(item.nombre || item.name || "").trim();
+
+    // Buscar coincidencia exacta por ID o aproximada por nombre en el catálogo 3D
+    let ejCatalogo = BASE_EJERCICIOS.find(e => e.id === rawId);
+    if (!ejCatalogo && rawNombre) {
+        const lower = rawNombre.toLowerCase();
+        ejCatalogo = BASE_EJERCICIOS.find(e =>
+            e.nombre.toLowerCase() === lower ||
+            e.nombre.toLowerCase().includes(lower) ||
+            lower.includes(e.nombre.toLowerCase().split("(")[0].trim())
+        );
+    }
+
+    const slugFallback = rawId || rawNombre.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `ejercicio-coach-${idx + 1}`;
+
+    const seriesNum = Math.max(1, Math.min(10, parseInt(item.series, 10) || 3));
+    const descansoNum = Math.max(15, Math.min(300, parseInt(item.descanso, 10) || 90));
+
+    return {
+        ejercicioId: ejCatalogo ? ejCatalogo.id : slugFallback,
+        nombre: ejCatalogo ? ejCatalogo.nombre : (rawNombre || rawId || `Ejercicio ${idx + 1}`),
+        enCatalogo: Boolean(ejCatalogo),
+        series: seriesNum,
+        reps: String(item.reps || "10 - 12"),
+        descanso: descansoNum,
+        rir: String(item.rir || "2"),
+        nota: String(item.nota || "").trim()
+    };
+}
+
+function extraerPropuestaRutina(textoCompleto) {
+    if (!textoCompleto) return null;
+    const match = textoCompleto.match(/```json_routine\s*([\s\S]*?)\s*```/i);
+    if (!match || !match[1]) return null;
+    try {
+        const parsed = JSON.parse(match[1]);
+        const ejerciciosRaw = Array.isArray(parsed?.ejercicios) ? parsed.ejercicios : [];
+        const ejercicios = ejerciciosRaw
+            .map((item, idx) => normalizarEjercicioPropuesta(item, idx))
+            .filter(Boolean);
+        if (ejercicios.length === 0) return null;
+
+        const firma = hashSimpleTexto(JSON.stringify(ejercicios.map(e => `${e.ejercicioId}:${e.series}:${e.reps}`)));
+        return {
+            propId: `prop_${firma}`,
+            firma,
+            duracion: String(parsed.duracion || "40 min"),
+            nivel: String(parsed.nivel || "Adaptativo"),
+            notaCoach: String(parsed.notaCoach || "Rutina diseñada por el AI Coach según tu conversación.").trim(),
+            ejercicios
+        };
+    } catch (e) {
+        console.warn("Aviso al parsear bloque json_routine:", e.message);
+        return null;
+    }
+}
+
+function limpiarBloquesTecnicos(texto, parcial = false) {
+    let out = String(texto || "")
+        .replace(/```json_memory[\s\S]*?```/gi, "")
+        .replace(/```json_routine[\s\S]*?```/gi, "");
+    if (parcial) {
+        out = out
+            .replace(/```json_memory[\s\S]*$/gi, "")
+            .replace(/```json_routine[\s\S]*$/gi, "");
+    }
+    return out.trim();
+}
+
+function construirTarjetaPropuestaRutinaHtml(textoCompleto, fechaMsg = new Date()) {
+    const propuesta = extraerPropuestaRutina(textoCompleto);
+    if (!propuesta) return "";
+
+    propuestasRutinaMap.set(propuesta.propId, propuesta);
+
+    const escapeHtml = (s) => String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const yaGuardada = obtenerRutinasPersonalizadas().find(r => r.propuestaFirma === propuesta.firma);
+    const nombreDefault = yaGuardada?.nombre || formatearFechaRutinaDefault(fechaMsg);
+
+    const listaHtml = propuesta.ejercicios.map((ej, i) => `
+        <div class="coach-routine-ex-row">
+            <span class="coach-routine-ex-name">
+                <strong>${i + 1}.</strong> ${escapeHtml(ej.nombre)}
+                ${ej.enCatalogo ? '<span class="coach-routine-3d-tag">3D</span>' : ''}
+            </span>
+            <span class="coach-routine-ex-meta">${ej.series}×${escapeHtml(ej.reps)}</span>
+        </div>
+    `).join("");
+
+    const accionesHtml = yaGuardada
+        ? `
+            <div class="coach-routine-saved-bar">
+                <span class="coach-routine-saved-ok">✅ Guardada en Mis Rutinas</span>
+                <div class="coach-routine-btn-row">
+                    <button type="button" class="btn-ghost coach-routine-btn" onclick="window.coach?.abrirRutinaGuardada('${escaparAttr(yaGuardada.id)}', false)">
+                        📂 Ver en Rutinas
+                    </button>
+                    <button type="button" class="btn-primary btn-neon-cyan coach-routine-btn" onclick="window.coach?.abrirRutinaGuardada('${escaparAttr(yaGuardada.id)}', true)">
+                        🏋️‍♂️ Empezar ahora
+                    </button>
+                </div>
+            </div>
+        `
+        : `
+            <div class="coach-routine-name-row">
+                <label class="coach-routine-name-lbl" for="input-rutina-${propuesta.propId}">Nombre:</label>
+                <input type="text" id="input-rutina-${propuesta.propId}" class="coach-routine-name-input" value="${escapeHtml(nombreDefault)}" maxlength="70" />
+            </div>
+            <div class="coach-routine-btn-row">
+                <button type="button" class="btn-ghost coach-routine-btn" onclick="window.coach?.guardarRutinaPropuesta('${propuesta.propId}', false)">
+                    💾 Guardar en Mis Rutinas
+                </button>
+                <button type="button" class="btn-primary btn-neon-cyan coach-routine-btn" onclick="window.coach?.guardarRutinaPropuesta('${propuesta.propId}', true)">
+                    🏋️‍♂️ Guardar y Empezar
+                </button>
+            </div>
+        `;
+
+    return `
+        <div class="coach-routine-proposal-card" id="card-prop-${propuesta.propId}">
+            <div class="coach-routine-prop-header">
+                <span class="coach-routine-prop-tag">🤖 PROPUESTA DE RUTINA · ${propuesta.ejercicios.length} EJERCICIOS</span>
+                <span class="coach-routine-prop-pills">⏱️ ${escapeHtml(propuesta.duracion)} · ${escapeHtml(propuesta.nivel)}</span>
+            </div>
+            <div class="coach-routine-ex-list">${listaHtml}</div>
+            <div class="coach-routine-actions-zone" id="actions-prop-${propuesta.propId}">
+                ${accionesHtml}
+            </div>
+        </div>
+    `;
+}
+
+export function guardarRutinaPropuesta(propId, iniciarAhora = false) {
+    const propuesta = propuestasRutinaMap.get(propId);
+    if (!propuesta) {
+        mostrarToastCoach("⚠️ No se encontró la propuesta de rutina");
+        return;
+    }
+
+    const inputNombre = document.getElementById(`input-rutina-${propId}`);
+    const nombreElegido = (inputNombre?.value || "").trim() || formatearFechaRutinaDefault(new Date());
+
+    // Evitar duplicados exactos si pulsa dos veces
+    const existente = obtenerRutinasPersonalizadas().find(r => r.propuestaFirma === propuesta.firma);
+    const rutinaId = existente ? existente.id : `custom-coach-${Date.now()}`;
+
+    const nuevaRutina = {
+        id: rutinaId,
+        propuestaFirma: propuesta.firma,
+        nombre: nombreElegido,
+        creador: "coach",
+        creadorNombre: "AI Performance Coach",
+        icono: "🤖",
+        fechaCreacion: new Date().toISOString().split("T")[0],
+        duracion: propuesta.duracion,
+        nivel: propuesta.nivel,
+        notaCoach: propuesta.notaCoach,
+        ejercicios: propuesta.ejercicios.map(e => ({
+            ejercicioId: e.ejercicioId,
+            nombre: e.nombre,
+            series: e.series,
+            reps: e.reps,
+            descanso: e.descanso,
+            rir: e.rir,
+            nota: e.nota
+        }))
+    };
+
+    guardarRutinaPersonalizada(nuevaRutina);
+
+    // Actualizar tarjeta en el chat para reflejar estado guardado + acceso directo
+    const actionsZone = document.getElementById(`actions-prop-${propId}`);
+    if (actionsZone) {
+        actionsZone.innerHTML = `
+            <div class="coach-routine-saved-bar">
+                <span class="coach-routine-saved-ok">✅ Guardada como "${nombreElegido.replace(/</g, "&lt;")}"</span>
+                <div class="coach-routine-btn-row">
+                    <button type="button" class="btn-ghost coach-routine-btn" onclick="window.coach?.abrirRutinaGuardada('${escaparAttr(rutinaId)}', false)">
+                        📂 Ver en Rutinas
+                    </button>
+                    <button type="button" class="btn-primary btn-neon-cyan coach-routine-btn" onclick="window.coach?.abrirRutinaGuardada('${escaparAttr(rutinaId)}', true)">
+                        🏋️‍♂️ Empezar ahora
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    mostrarToastCoach(`✅ "${nombreElegido}" guardada en Mis Rutinas`);
+
+    if (iniciarAhora) {
+        abrirRutinaGuardada(rutinaId, true);
+    }
+}
+
+export function abrirRutinaGuardada(rutinaId, iniciarSesion = false) {
+    window._gimnasioPendingAction = iniciarSesion
+        ? { tab: "personalizadas", startRoutineId: rutinaId }
+        : { tab: "personalizadas", highlightRoutineId: rutinaId };
+
+    if (window.router?.cargarVista) {
+        window.router.cargarVista("gimnasio");
+    }
+}
+
 function agregarMensajeAlChat(rol, texto, fecha = new Date(), guardarEnHistorial = false, opciones = {}) {
     const contenedor = document.getElementById("coach-chat-messages");
     if (!contenedor) return;
@@ -802,7 +1068,8 @@ function agregarMensajeAlChat(rol, texto, fecha = new Date(), guardarEnHistorial
 
     const fechaObj = fecha instanceof Date && !isNaN(fecha.getTime()) ? fecha : new Date();
     const horaStr = fechaObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    let textoRender = String(texto || "").replace(/```json_memory[\s\S]*?```/g, "").trim();
+    const tarjetaRutinaHtml = rol !== "user" ? construirTarjetaPropuestaRutinaHtml(texto, fechaObj) : "";
+    let textoRender = limpiarBloquesTecnicos(texto, false);
 
     const matchGrafica = textoRender.match(/\[GRAFICA:([a-z]+)\]/);
     if (matchGrafica) {
@@ -821,7 +1088,7 @@ function agregarMensajeAlChat(rol, texto, fecha = new Date(), guardarEnHistorial
     if (rol === "user") {
         msgEl.innerHTML = `
             <div class="chat-bubble bubble-user">
-                <div class="bubble-content">${htmlFormateado}</div>
+                <div class="bubble-content">${htmlFormateado}${tarjetaRutinaHtml}</div>
                 <span class="bubble-time">${horaStr}</span>
             </div>
         `;
@@ -837,7 +1104,7 @@ function agregarMensajeAlChat(rol, texto, fecha = new Date(), guardarEnHistorial
                         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                     </button>
                 </div>
-                <div class="bubble-content">${htmlFormateado}</div>
+                <div class="bubble-content">${htmlFormateado}${tarjetaRutinaHtml}</div>
                 <span class="bubble-time">${horaStr}</span>
             </div>
         `;
@@ -900,9 +1167,7 @@ function iniciarBurbujaStreaming() {
     const pintarPendiente = () => {
         rafId = null;
         if (!contentEl) return;
-        const textoLimpio = ultimoTextoPendiente
-            .replace(/```json_memory[\s\S]*?```/g, "")
-            .replace(/```json_memory[\s\S]*$/g, "")
+        const textoLimpio = limpiarBloquesTecnicos(ultimoTextoPendiente, true)
             .replace(/\[GRAFICA:[a-z]+\]/g, "")
             .trim();
         contentEl.innerHTML = formatearMarkdownSeguro(textoLimpio) + `<span class="typewriter-cursor">▋</span>`;
@@ -925,7 +1190,8 @@ function iniciarBurbujaStreaming() {
             const bubbleEl = msgEl.querySelector(".bubble-coach");
             if (bubbleEl) bubbleEl.classList.remove("is-streaming");
 
-            let textoRender = textoCompleto.replace(/```json_memory[\s\S]*?```/g, "").trim();
+            const tarjetaRutinaHtml = construirTarjetaPropuestaRutinaHtml(textoCompleto, new Date());
+            let textoRender = limpiarBloquesTecnicos(textoCompleto, false);
             const matchGrafica = textoRender.match(/\[GRAFICA:([a-z]+)\]/);
             if (matchGrafica) {
                 textoRender = textoRender.replace(/\[GRAFICA:[a-z]+\]/g, "");
@@ -938,7 +1204,7 @@ function iniciarBurbujaStreaming() {
 
             if (contentEl) {
                 const extra = sufijoEstado ? `<p class="stream-stopped-note">${sufijoEstado}</p>` : "";
-                contentEl.innerHTML = formatearMarkdownSeguro(textoRender) + extra;
+                contentEl.innerHTML = formatearMarkdownSeguro(textoRender) + extra + tarjetaRutinaHtml;
             }
 
             if (headerEl) {
@@ -1291,8 +1557,7 @@ function renderizarListaHistorial() {
             const hora = new Date(ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
             const numMsgs = (conv.mensajes || []).length;
             const ultimoMsg = numMsgs > 0 ? conv.mensajes[numMsgs - 1].text : "";
-            const previewLimpio = ultimoMsg
-                .replace(/```json_memory[\s\S]*?```/g, "")
+            const previewLimpio = limpiarBloquesTecnicos(ultimoMsg, true)
                 .replace(/\[GRAFICA:[a-z]+\]/g, "")
                 .replace(/\*\*/g, "")
                 .replace(/\s+/g, " ")
@@ -1931,6 +2196,8 @@ window.coach = {
     iniciarNuevaConversacion,
     retomarConversacion,
     eliminarConversacion,
+    guardarRutinaPropuesta,
+    abrirRutinaGuardada,
     alCambiarProveedorModal,
     alCambiarModeloModal,
     guardarKey,

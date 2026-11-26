@@ -73,7 +73,7 @@ La app debe transmitir la sensación de maquinaria de alta precisión (estilo fi
    - **Filtros Avanzados en Píldora con Scroll Horizontal:** Taxonomía estandarizada en contenedor horizontal fluido (`.filter-chips-scroll`):
      - **15 Grupos Musculares:** Bíceps, Tríceps, Antebrazos, Pecho, Hombros, Abdominales, Oblicuos, Gran dorsal, Trapecio Alto y Cuello, Espalda baja, Cuádriceps, Glúteos y Flexores, Bíceps femorales, Pantorrillas, Cardio.
      - **12 Tipos de Equipamiento:** Barra, Cables, Mancuernas, Máquinas, Kettlebell, Pelota médica, Sin herramientas, Cintas de suspensión, Pelota, Pelota Bosu, Elásticos, Foam roller (con mapeo semántico retrocompatible y badges con acentos de color personalizados).
-   - **Rutinas Estándar y Mis Rutinas / Coach:** Plantillas prediseñadas y personalizadas enlazadas al catálogo.
+   - **Rutinas Estándar y Mis Rutinas / Coach:** Plantillas prediseñadas y personalizadas enlazadas al catálogo, con sincronización multidispositivo en Firebase Firestore (`configuracion/rutinas_personalizadas`) y validación en 1 clic desde propuestas `json_routine` del AI Coach (nombre por defecto editable `Rutina DD/MM/YYYY`, soporte de ejercicios del catálogo 3D y adicionales, y salto directo para ver o iniciar sesión).
    - **Mesa de Entrenamiento en Vivo:** Calentamiento preventivo con checks, registro táctil de series y cronómetro sincronizado con segundo plano.
 3. **Nutrición (`nutricion.html` / `nutricion.js`):** Base de datos de platos frecuentes, registro rápido y suplementación.
 4. **Diario de Notas (`diario.html` / `diario.js`):** Diario oficial de registros:

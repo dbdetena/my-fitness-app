@@ -1,5 +1,22 @@
 // Base de datos de Rutinas Estándar y Gestor de Rutinas Personalizadas (Usuario & AI Coach)
 import { BASE_EJERCICIOS } from "./ejercicios-data.js";
+import { db } from "./firebase-config.js";
+import {
+    doc,
+    getDoc,
+    setDoc
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const FIRESTORE_RUTINAS_COL = "configuracion";
+const FIRESTORE_RUTINAS_DOC = "rutinas_personalizadas";
+const FIRESTORE_RUTINAS_TIMEOUT_MS = 8000;
+
+function conTimeoutRutinas(promesa, ms = FIRESTORE_RUTINAS_TIMEOUT_MS, fallback = null) {
+    return Promise.race([
+        promesa.catch(() => fallback),
+        new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+    ]);
+}
 
 // ==========================================
 // BIBLIOTECA 2: RUTINAS ESTÁNDAR PREDEFINIDAS
@@ -324,17 +341,76 @@ function guardarEnStorage(rutinas) {
     }
 }
 
+function guardarRutinasEnFirestoreBg(rutinas) {
+    try {
+        const docRef = doc(db, FIRESTORE_RUTINAS_COL, FIRESTORE_RUTINAS_DOC);
+        conTimeoutRutinas(
+            setDoc(docRef, {
+                rutinas: Array.isArray(rutinas) ? rutinas : [],
+                actualizado: new Date().toISOString(),
+                actualizadoMs: Date.now()
+            }),
+            FIRESTORE_RUTINAS_TIMEOUT_MS,
+            null
+        );
+    } catch (e) {
+        console.warn("Aviso al sincronizar rutinas personalizadas en Firestore:", e);
+    }
+}
+
+/**
+ * Sincroniza rutinas personalizadas (Usuario & AI Coach) entre dispositivos vía Firestore.
+ * Fusiona por ID dando prioridad a la versión más reciente sin perder rutinas creadas en otro equipo.
+ */
+export async function sincronizarRutinasPersonalizadasDesdeNube() {
+    try {
+        const docRef = doc(db, FIRESTORE_RUTINAS_COL, FIRESTORE_RUTINAS_DOC);
+        const snap = await conTimeoutRutinas(getDoc(docRef), 5000, null);
+        const locales = obtenerRutinasPersonalizadas();
+
+        if (!snap || !snap.exists()) {
+            // Si todavía no existía documento remoto, subir las locales actuales
+            guardarRutinasEnFirestoreBg(locales);
+            return locales;
+        }
+
+        const data = snap.data();
+        const remotas = Array.isArray(data?.rutinas) ? data.rutinas : [];
+        if (remotas.length === 0) return locales;
+
+        // Si existen rutinas remotas, usar las remotas como fuente autoritativa más cualquier rutina local más nueva no sincronizada
+        const mapa = new Map();
+        remotas.forEach(r => { if (r && r.id) mapa.set(r.id, r); });
+        locales.forEach(r => {
+            if (!r || !r.id) return;
+            if (!mapa.has(r.id) && r._soloLocalPendiente) {
+                mapa.set(r.id, r);
+            }
+        });
+
+        const fusionadas = Array.from(mapa.values());
+        guardarEnStorage(fusionadas);
+        return fusionadas;
+    } catch (e) {
+        console.warn("Aviso sincronizando rutinas desde Firestore:", e);
+        return obtenerRutinasPersonalizadas();
+    }
+}
+
 export function guardarRutinaPersonalizada(nuevaRutina) {
     const actuales = obtenerRutinasPersonalizadas();
-    const indice = actuales.findIndex(r => r.id === nuevaRutina.id);
-    
+    const rutinaLimpia = { ...nuevaRutina };
+    delete rutinaLimpia._soloLocalPendiente;
+    const indice = actuales.findIndex(r => r.id === rutinaLimpia.id);
+
     if (indice >= 0) {
-        actuales[indice] = nuevaRutina;
+        actuales[indice] = rutinaLimpia;
     } else {
-        actuales.unshift(nuevaRutina);
+        actuales.unshift(rutinaLimpia);
     }
-    
+
     guardarEnStorage(actuales);
+    guardarRutinasEnFirestoreBg(actuales);
     return actuales;
 }
 
@@ -342,6 +418,7 @@ export function eliminarRutinaPersonalizada(id) {
     let actuales = obtenerRutinasPersonalizadas();
     actuales = actuales.filter(r => r.id !== id);
     guardarEnStorage(actuales);
+    guardarRutinasEnFirestoreBg(actuales);
     return actuales;
 }
 

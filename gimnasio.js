@@ -6,7 +6,8 @@ import {
     guardarRutinaPersonalizada, 
     eliminarRutinaPersonalizada, 
     clonarRutinaEstandar, 
-    generarRutinaCoach 
+    generarRutinaCoach,
+    sincronizarRutinasPersonalizadasDesdeNube
 } from "./rutinas-data.js";
 import { guardarEntradaBitacora, formatearFechaTimestamp } from "./diario.js";
 import { generarHtmlModalHistorial } from "./progreso-manager.js";
@@ -100,8 +101,19 @@ export function initGimnasio() {
     renderizarRutinasEstandar();
     renderizarRutinasPersonalizadas();
 
+    // Sincronización silenciosa de rutinas personalizadas desde Firestore (multidispositivo)
+    sincronizarRutinasPersonalizadasDesdeNube().then(() => {
+        if (document.getElementById("lista-rutinas-personalizadas")) {
+            renderizarRutinasPersonalizadas();
+        }
+    }).catch(() => {});
+
     // Event listener para cerrar modales con tecla Escape
     document.addEventListener("keydown", handleKeydown);
+
+    // Comprobar si venimos desde AI Coach con acción directa (abrir Mis Rutinas o iniciar sesión)
+    const accionPendiente = window._gimnasioPendingAction || null;
+    window._gimnasioPendingAction = null;
 
     // Comprobar si hay una sesión activa en segundo plano para restaurarla de inmediato
     const sesionActiva = obtenerSesionActiva();
@@ -111,6 +123,20 @@ export function initGimnasio() {
         const miniBanner = document.getElementById("session-active-mini-banner");
         if (miniBanner) miniBanner.style.display = "none";
         actualizarFabUniversal();
+
+        if (accionPendiente) {
+            if (accionPendiente.tab) {
+                cambiarTab(accionPendiente.tab);
+            }
+            if (accionPendiente.startRoutineId) {
+                iniciarEntrenamientoRutina("personalizada", accionPendiente.startRoutineId);
+            } else if (accionPendiente.highlightRoutineId) {
+                setTimeout(() => {
+                    const card = document.getElementById(`card-custom-${accionPendiente.highlightRoutineId}`);
+                    if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 120);
+            }
+        }
     }
 }
 
@@ -636,14 +662,16 @@ function renderizarRutinasPersonalizadas() {
 
         const ejerciciosHtml = (rutina.ejercicios || []).map((item, idx) => {
             const ej = BASE_EJERCICIOS.find(e => e.id === item.ejercicioId);
-            const nombre = ej ? ej.nombre : item.ejercicioId;
+            const nombre = ej ? ej.nombre : (item.nombre || item.ejercicioId);
             const icono = ej ? ej.tipoIcono : "🏋️";
+            const clickAttr = ej ? `onclick="window.gimnasio?.abrirModalDetalle('${item.ejercicioId}')"` : "";
+            const titleClass = ej ? "ex-title link-tech" : "ex-title";
             return `
             <div class="routine-exercise-row">
-                <div class="ex-name-part" onclick="window.gimnasio?.abrirModalDetalle('${item.ejercicioId}')">
+                <div class="ex-name-part" ${clickAttr}>
                     <span class="ex-idx">${idx + 1}</span>
                     <span class="ex-icon">${icono}</span>
-                    <span class="ex-title link-tech">${nombre}</span>
+                    <span class="${titleClass}">${nombre}</span>
                 </div>
                 <div class="ex-target-part">
                     <span class="badge-series">${item.series || 3} series × ${item.reps || "8-10"}</span>
@@ -982,9 +1010,15 @@ function renderizarContenidoSesion(rutina) {
 
     const ejerciciosHtml = (rutina.ejercicios || []).map((item, idx) => {
         const ej = BASE_EJERCICIOS.find(e => e.id === item.ejercicioId);
-        const nombre = ej ? ej.nombre : item.ejercicioId;
+        const nombre = ej ? ej.nombre : (item.nombre || item.ejercicioId);
         const icono = ej ? ej.tipoIcono : "🏋️";
         const numSeries = item.series || 3;
+        const botonFichaHtml = ej
+            ? `<button class="btn-info-neon" title="Guía técnica 3D" onclick="event.stopPropagation(); window.gimnasio?.abrirModalDetalle('${item.ejercicioId}')">ℹ️ Ficha 3D</button>`
+            : "";
+        const notaEjHtml = item.nota
+            ? `<span style="display:block;font-size:0.74rem;color:#94a3b8;margin-top:3px;">💡 ${String(item.nota).replace(/</g, "&lt;")}</span>`
+            : "";
 
         let filasSeriesHtml = "";
         for (let s = 1; s <= numSeries; s++) {
@@ -1020,10 +1054,9 @@ function renderizarContenidoSesion(rutina) {
                     <div>
                         <div class="exercise-title-wrap">
                             <h3>${idx + 2}. ${nombre}</h3>
-                            <button class="btn-info-neon" title="Guía técnica 3D" onclick="event.stopPropagation(); window.gimnasio?.abrirModalDetalle('${item.ejercicioId}')">
-                                ℹ️ Ficha 3D
-                            </button>
+                            ${botonFichaHtml}
                         </div>
+                        ${notaEjHtml}
                         <p class="exercise-meta">${numSeries} series • Descanso: ${item.descanso || 90}s</p>
                     </div>
                 </div>
