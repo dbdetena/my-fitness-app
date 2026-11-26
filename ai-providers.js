@@ -480,7 +480,7 @@ async function ejecutarStreamOpenAICompatible({
         model,
         messages: apiMessages,
         temperature: 0.65,
-        max_tokens: 1200,
+        max_tokens: 2500,
         stream: true
     };
 
@@ -560,6 +560,17 @@ async function ejecutarStreamOpenAICompatible({
     return textoCompleto;
 }
 
+function obtenerThinkingConfigGemini(model = "") {
+    const m = String(model || "").toLowerCase();
+    if (/^gemini-[34]/.test(m)) {
+        return { thinkingLevel: "low" };
+    }
+    if (/^gemini-2\.5/.test(m)) {
+        return { thinkingBudget: 512 };
+    }
+    return null;
+}
+
 async function ejecutarStreamGemini({
     meta,
     model,
@@ -577,23 +588,44 @@ async function ejecutarStreamGemini({
         parts: [{ text: m.text }]
     }));
 
-    const payload = {
-        system_instruction: {
-            parts: [{ text: systemInstruction }]
-        },
-        contents,
-        generationConfig: {
+    const construirPayload = (incluirThinking = true) => {
+        const generationConfig = {
             temperature: 0.65,
-            maxOutputTokens: 2048
+            maxOutputTokens: 8192
+        };
+        if (incluirThinking) {
+            const tc = obtenerThinkingConfigGemini(model);
+            if (tc) generationConfig.thinkingConfig = tc;
         }
+        return {
+            system_instruction: {
+                parts: [{ text: systemInstruction }]
+            },
+            contents,
+            generationConfig
+        };
     };
 
-    const response = await fetch(endpoint, {
+    let response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(construirPayload(true)),
         signal
     });
+
+    // Fallback seguro: si un modelo concreto no acepta thinkingConfig, reintentar sin él manteniendo maxOutputTokens: 8192
+    if (response.status === 400) {
+        const errJson = await response.clone().json().catch(() => ({}));
+        const msgErr = String(errJson.error?.message || "");
+        if (/thinking/i.test(msgErr)) {
+            response = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(construirPayload(false)),
+                signal
+            });
+        }
+    }
 
     if (onFirstByte) onFirstByte();
 
@@ -611,6 +643,7 @@ async function ejecutarStreamGemini({
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
     let textoCompleto = "";
+    let ultimoFinishReason = null;
 
     const procesarLinea = (line) => {
         const trimmed = line.trim();
@@ -620,7 +653,11 @@ async function ejecutarStreamGemini({
 
         try {
             const parsed = JSON.parse(dataPayload);
-            const parts = parsed.candidates?.[0]?.content?.parts || [];
+            const candidate = parsed.candidates?.[0];
+            if (candidate?.finishReason) {
+                ultimoFinishReason = candidate.finishReason;
+            }
+            const parts = candidate?.content?.parts || [];
             for (const part of parts) {
                 // Ignorar bloques de pensamiento interno en modelos Gemini con thinking
                 if (part?.thought === true) continue;
@@ -639,7 +676,7 @@ async function ejecutarStreamGemini({
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
+        const lines = buffer.split(/\r?\n/);
         buffer = lines.pop() || "";
 
         for (const line of lines) {
@@ -654,6 +691,14 @@ async function ejecutarStreamGemini({
 
     if (!textoCompleto.trim()) {
         throw new Error("Gemini devolvió una respuesta vacía (prueba con gemini-3.5-flash-lite o cambia a OpenAI/Groq).");
+    }
+
+    if (ultimoFinishReason === "MAX_TOKENS") {
+        console.warn("Gemini alcanzó MAX_TOKENS:", { model, chars: textoCompleto.length });
+        textoCompleto += "\n\n*(Límite de longitud alcanzado · escribe «continúa» si falta información)*";
+    } else if (ultimoFinishReason === "SAFETY" || ultimoFinishReason === "RECITATION") {
+        console.warn("Gemini detuvo respuesta por:", ultimoFinishReason);
+        textoCompleto += "\n\n*(Respuesta acortada por filtro automático de Gemini)*";
     }
 
     return textoCompleto;
