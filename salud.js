@@ -1046,6 +1046,7 @@ async function obtenerDatosHoyIntervals() {
         peso,
         bpmAvg,
         bpmUltimo,
+        bpmReposo: rhr,
         hrv: (typeof wHoy?.hrv === "number" && wHoy.hrv > 0) ? Math.round(wHoy.hrv) : null,
         puntosCorazon
     };
@@ -1229,6 +1230,7 @@ export function fetchFitData(token = null, opciones = {}) {
                             peso: hoyFinal.peso ?? hoyFit.peso,
                             bpmAvg: fitTieneBpm ? hoyFit.bpmAvg : (hoyFinal.bpmAvg ?? hoyFit.bpmAvg),
                             bpmUltimo: fitTieneBpm ? hoyFit.bpmUltimo : (hoyFinal.bpmUltimo ?? hoyFit.bpmUltimo),
+                            bpmReposo: hoyFinal.bpmReposo ?? null,
                             hrv: hoyFinal.hrv ?? null,
                             puntosCorazon: fitTieneBpm ? hoyFit.puntosCorazon : hoyFinal.puntosCorazon
                         };
@@ -1427,7 +1429,7 @@ function renderizarAnillo(canvasId, valor, meta, idValor, idPct, ref) {
 }
 
 // ==========================================
-// RENDER: GRÁFICA INTRADÍA (FRECUENCIA CARDÍACA HOY)
+// RENDER: GRÁFICA INTRADÍA (FRECUENCIA CARDÍACA HOY · EJE FIJO 00:00 – 24:00)
 // ==========================================
 async function renderizarCorazonHoy(puntos = []) {
     const canvas = document.getElementById("chartCorazonHoy");
@@ -1435,40 +1437,72 @@ async function renderizarCorazonHoy(puntos = []) {
     await asegurarChartJS();
     if (!canvas.isConnected) return;
 
-    const labels = (puntos || []).map(p => p.etiqueta || new Date(p.ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }));
-    // Filtrado estricto de ceros: valores nulos o <= 0 se descartan y se pasan como null a Chart.js con spanGaps: true
-    const valores = (puntos || []).map(p => (typeof p.bpm === "number" && p.bpm > 0) ? p.bpm : null);
-    const reales = valores.filter(v => v !== null && v > 0);
-    const origenPuntos = (puntos || []).find(p => p?.origen)?.origen || null;
+    const hoyInicioMs = inicioDelDia();
+    const ahoraHoras = Math.max(0, Math.min(24, (Date.now() - hoyInicioMs) / 3600000));
+
+    // Filtrado estricto de ceros y mapeo a coordenadas reales (x = horas 0..24, y = BPM)
+    const puntosValidos = (puntos || [])
+        .filter(p => p && typeof p.bpm === "number" && p.bpm >= 30 && p.bpm <= 240 && typeof p.ms === "number")
+        .map(p => {
+            const xHoras = Math.max(0, Math.min(24, (p.ms - hoyInicioMs) / 3600000));
+            const horaStr = new Date(p.ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+            return {
+                x: Number(xHoras.toFixed(3)),
+                y: Math.round(p.bpm),
+                _hora: horaStr,
+                _etiqueta: p.etiqueta || "",
+                _origen: p.origen || ""
+            };
+        })
+        .sort((a, b) => a.x - b.x);
+
+    const reales = puntosValidos.map(p => p.y);
+    const origenPuntos = puntosValidos.find(p => p._origen)?._origen || null;
+    const bpmReposo = estado.hoy?.bpmReposo ?? null;
+
+    setTexto("heartRateStatRest", typeof bpmReposo === "number" ? `${bpmReposo} BPM` : "--");
 
     const badge = document.getElementById("heartRateActualBadge");
-    if (reales.length) {
-        const ultimo = reales[reales.length - 1];
+    if (puntosValidos.length) {
+        const ultimoPt = puntosValidos[puntosValidos.length - 1];
         const min = Math.min(...reales);
         const max = Math.max(...reales);
         const avg = Math.round(reales.reduce((a, b) => a + b, 0) / reales.length);
 
-        setTexto("heartRateActualBadge", `${ultimo} BPM`);
+        // Etiqueta explícita para eliminar cualquier ambigüedad sobre qué representa el número superior derecho
+        if (ultimoPt._etiqueta === "Reposo") {
+            setTexto("heartRateBadgeLabel", "Pulso en reposo");
+            setTexto("heartRateBadgeTime", "Hoy");
+        } else if (ultimoPt._etiqueta === "Sueño") {
+            setTexto("heartRateBadgeLabel", "Pulso en sueño");
+            setTexto("heartRateBadgeTime", "Anoche");
+        } else {
+            setTexto("heartRateBadgeLabel", "Última lectura");
+            setTexto("heartRateBadgeTime", `Hoy, ${ultimoPt._hora}`);
+        }
+
+        setTexto("heartRateActualBadge", `${ultimoPt.y} BPM`);
         setTexto("heartRateStatMin", `${min} BPM`);
         setTexto("heartRateStatAvg", `${avg} BPM`);
         setTexto("heartRateStatMax", `${max} BPM`);
+
         if (origenPuntos === "intervals-stream") {
-            setTexto("hintCorazonHoy", "Hitos y pulso real de entrenos de hoy (Intervals.icu) · Sin intradía 24h");
+            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Pulso real de reposo y entrenos (Intervals.icu no expone continuo 24h)");
         } else if (origenPuntos === "intervals-wellness" || origenPuntos === "intervals-rhr") {
-            setTexto("hintCorazonHoy", "Sueño / Reposo hoy (Intervals.icu no expone pulso intradía 24h)");
+            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Solo hitos de Sueño/Reposo (Intervals.icu no recibe curva continua 24h de Zepp)");
         } else {
-            setTexto("hintCorazonHoy", "Cronología del día actual (intervalos 15 min) · Puntos medidos");
+            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Puntos reales medidos llenando el día de izquierda a derecha");
         }
         if (badge) badge.classList.add("pulsing");
     } else {
+        setTexto("heartRateBadgeLabel", "Última lectura");
+        setTexto("heartRateBadgeTime", "Sin datos hoy");
         setTexto("heartRateActualBadge", "-- BPM");
         ["heartRateStatMin", "heartRateStatAvg", "heartRateStatMax"].forEach(id => setTexto(id, "--"));
         if (tieneIntervalsConfigurado()) {
-            setTexto("hintCorazonHoy", "Intervals.icu solo registra pulso de Sueño, Reposo y Entrenos (no intradía 24h)");
+            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Intervals.icu solo recibe Sueño, Reposo y Entrenos (no pulso continuo 24h)");
         } else {
-            setTexto("hintCorazonHoy", (puntos && puntos.length > 0)
-                ? "Sin lecturas de pulso hoy en Google Fit · Revisa la sincronización del reloj/app"
-                : "Cronología del día actual (intervalos 15 min) · Sin datos disponibles");
+            setTexto("hintCorazonHoy", "Eje 00:00–24:00 · Sin lecturas de pulso hoy");
         }
         if (badge) badge.classList.remove("pulsing");
     }
@@ -1481,55 +1515,81 @@ async function renderizarCorazonHoy(puntos = []) {
     const ctx = canvas.getContext("2d");
     const altura = canvas.clientHeight || 180;
     const gradiente = ctx.createLinearGradient(0, 0, 0, altura);
-    gradiente.addColorStop(0, "rgba(239, 68, 68, 0.42)");
+    gradiente.addColorStop(0, "rgba(239, 68, 68, 0.38)");
     gradiente.addColorStop(0.65, "rgba(239, 68, 68, 0.10)");
     gradiente.addColorStop(1, "rgba(239, 68, 68, 0)");
 
     const ejeY = {
-        grid: { display: false },
+        position: "right",
+        grid: { color: "rgba(148, 163, 184, 0.12)", drawTicks: false },
         border: { display: false },
-        ticks: { color: "#94a3b8", font: { size: 11 } }
+        ticks: { color: "#94a3b8", font: { size: 11 }, padding: 6 }
     };
     if (reales.length) {
-        ejeY.suggestedMin = Math.max(30, Math.floor(Math.min(...reales) - 5));
-        ejeY.suggestedMax = Math.min(220, Math.ceil(Math.max(...reales) + 5));
-        ejeY.beginAtZero = false;
+        ejeY.min = Math.max(30, Math.floor((Math.min(...reales) - 10) / 10) * 10);
+        ejeY.max = Math.min(220, Math.ceil((Math.max(...reales) + 10) / 10) * 10);
     } else {
-        ejeY.suggestedMin = 50;
-        ejeY.suggestedMax = 120;
-        ejeY.beginAtZero = false;
+        ejeY.min = 40;
+        ejeY.max = 130;
     }
 
-    const radioPunto = reales.length <= 5 ? 5 : (reales.length > 45 ? 3 : 4);
+    const radioBase = puntosValidos.length <= 8 ? 4.5 : (puntosValidos.length > 45 ? 2.5 : 3.5);
+    const ultimoIdx = puntosValidos.length - 1;
+
+    // Plugin ligero estilo Zepp: línea vertical sutil indicando el progreso real del día (hora actual)
+    const lineaHoraActualPlugin = {
+        id: "lineaHoraActualZepp",
+        afterDatasetsDraw(chart) {
+            const { ctx: c, chartArea, scales } = chart;
+            if (!chartArea || !scales?.x) return;
+            const xPos = scales.x.getPixelForValue(ahoraHoras);
+            if (xPos < chartArea.left || xPos > chartArea.right) return;
+            c.save();
+            c.beginPath();
+            c.strokeStyle = "rgba(148, 163, 184, 0.38)";
+            c.lineWidth = 1;
+            c.moveTo(xPos, chartArea.top);
+            c.lineTo(xPos, chartArea.bottom);
+            c.stroke();
+            c.restore();
+        }
+    };
 
     chartCorazonHoyInstance = new window.Chart(ctx, {
         type: "line",
         data: {
-            labels,
             datasets: [{
                 label: "Frecuencia Cardíaca",
-                data: valores,
+                data: puntosValidos,
+                parsing: false,
                 borderColor: "#ef4444",
                 borderWidth: 2,
                 tension: 0,
                 spanGaps: true,
                 segment: {
-                    borderDash: (ctxSeg) => (ctxSeg.p0.skip || ctxSeg.p1.skip) ? [4, 4] : undefined
+                    // Línea discontinua si hay un salto mayor de ~35 minutos entre mediciones reales
+                    borderDash: (ctxSeg) => {
+                        const x0 = ctxSeg.p0?.parsed?.x;
+                        const x1 = ctxSeg.p1?.parsed?.x;
+                        return (typeof x0 === "number" && typeof x1 === "number" && Math.abs(x1 - x0) > 0.6)
+                            ? [4, 4]
+                            : undefined;
+                    }
                 },
                 fill: true,
                 backgroundColor: gradiente,
-                pointRadius: radioPunto,
-                pointHoverRadius: 6,
+                pointRadius: (ctxPt) => ctxPt.dataIndex === ultimoIdx ? 5.5 : radioBase,
+                pointHoverRadius: 6.5,
                 pointHitRadius: 14,
                 pointBackgroundColor: "#ef4444",
-                pointBorderColor: "#0f172a",
-                pointBorderWidth: 1.5
+                pointBorderColor: (ctxPt) => ctxPt.dataIndex === ultimoIdx ? "#ffffff" : "#0f172a",
+                pointBorderWidth: (ctxPt) => ctxPt.dataIndex === ultimoIdx ? 2 : 1.5
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: { mode: "index", intersect: false },
+            interaction: { mode: "nearest", axis: "x", intersect: false },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -1542,19 +1602,33 @@ async function renderizarCorazonHoy(puntos = []) {
                     padding: 10,
                     displayColors: false,
                     callbacks: {
-                        label: (c) => c.parsed.y ? `${c.parsed.y} BPM` : "Sin medición"
+                        title: (items) => {
+                            const raw = items?.[0]?.raw;
+                            if (!raw) return "";
+                            return raw._etiqueta ? `${raw._etiqueta} · ${raw._hora}` : `Hoy, ${raw._hora}`;
+                        },
+                        label: (c) => c.parsed?.y ? `${c.parsed.y} BPM` : "Sin medición"
                     }
                 }
             },
             scales: {
                 x: {
+                    type: "linear",
+                    min: 0,
+                    max: 24,
                     grid: { display: false },
                     border: { display: false },
-                    ticks: { color: "#94a3b8", font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }
+                    ticks: {
+                        stepSize: 6,
+                        color: "#94a3b8",
+                        font: { size: 11 },
+                        callback: (val) => `${String(Math.round(val)).padStart(2, "0")}:00`
+                    }
                 },
                 y: ejeY
             }
-        }
+        },
+        plugins: [lineaHoraActualPlugin]
     });
 }
 
@@ -1872,8 +1946,10 @@ async function renderizarEstadoDesconectadoUI() {
     estado.dias = [];
     estado.corazonHoy = [];
     setTexto("chartPesoActualBadge", "--");
+    setTexto("heartRateBadgeLabel", "Última lectura");
+    setTexto("heartRateBadgeTime", "--");
     setTexto("heartRateActualBadge", "-- BPM");
-    ["weightStatMin", "weightStatAvg", "weightStatMax", "heartRateStatMin", "heartRateStatAvg", "heartRateStatMax", "resumenSueno", "resumenCardio", "resumenFatiga"].forEach(id => setTexto(id, "--"));
+    ["weightStatMin", "weightStatAvg", "weightStatMax", "heartRateStatRest", "heartRateStatMin", "heartRateStatAvg", "heartRateStatMax", "resumenSueno", "resumenCardio", "resumenFatiga"].forEach(id => setTexto(id, "--"));
 
     actualizarCambiosRecientesPeso([]);
     renderizarDatosHistoricos([]);

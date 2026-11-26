@@ -1267,12 +1267,35 @@ body.modal-open {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .heart-rate-meta {
     display: flex;
     flex-direction: column;
     gap: 3px;
+}
+
+.heart-rate-badge-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.heart-rate-badge-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+}
+
+.heart-rate-badge-time {
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
 }
 
 .heart-rate-tag {
@@ -1317,6 +1340,10 @@ body.modal-open {
     padding-top: 10px;
     border-top: 1px solid rgba(51, 65, 85, 0.5);
     text-align: center;
+}
+
+.heart-rate-stats-summary.heart-rate-stats-4 {
+    grid-template-columns: repeat(4, 1fr);
 }
 
 .weight-trend-badge.badge-bpm {

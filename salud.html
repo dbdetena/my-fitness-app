@@ -88,23 +88,33 @@
     </div>
 
     <!-- ========================================================
-         GRÁFICA INTRADÍA: FRECUENCIA CARDÍACA (HOY)
+         GRÁFICA INTRADÍA: FRECUENCIA CARDÍACA (HOY · 00:00 - 24:00)
          ======================================================== -->
     <div class="heart-rate-card card-carbon" id="card-corazon-hoy">
         <div class="heart-rate-header">
             <div class="heart-rate-meta">
-                <span class="heart-rate-tag">RITMO CARDÍACO · INTRADÍA</span>
-                <h3 class="biometric-title">Frecuencia Cardíaca (Hoy)</h3>
+                <span class="heart-rate-tag">RITMO CARDÍACO · HOY (00:00 – 24:00)</span>
+                <h3 class="biometric-title">Frecuencia Cardíaca</h3>
             </div>
-            <span id="heartRateActualBadge" class="heart-rate-badge">-- BPM</span>
+            <div class="heart-rate-badge-wrap">
+                <div class="heart-rate-badge-meta">
+                    <span id="heartRateBadgeLabel" class="weight-trend-badge-label">Última lectura</span>
+                    <span id="heartRateBadgeTime" class="heart-rate-badge-time">--</span>
+                </div>
+                <span id="heartRateActualBadge" class="heart-rate-badge">-- BPM</span>
+            </div>
         </div>
 
         <div class="heart-rate-chart-container">
             <canvas id="chartCorazonHoy"></canvas>
         </div>
-        <span class="chart-hint" id="hintCorazonHoy">Cronología del día actual (intervalos 15 min) · Filtrado estricto de ceros</span>
+        <span class="chart-hint" id="hintCorazonHoy">Cronología del día (00:00 a 24:00) · Puntos reales medidos</span>
 
-        <div class="heart-rate-stats-summary">
+        <div class="heart-rate-stats-summary heart-rate-stats-4">
+            <div class="weight-stat-item">
+                <span class="weight-stat-lbl">Reposo</span>
+                <span id="heartRateStatRest" class="weight-stat-val">--</span>
+            </div>
             <div class="weight-stat-item">
                 <span class="weight-stat-lbl">Mínimo</span>
                 <span id="heartRateStatMin" class="weight-stat-val">--</span>
